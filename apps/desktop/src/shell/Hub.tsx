@@ -1,4 +1,5 @@
 import type { ReactElement } from "react";
+import { WinDots, ToolIcons } from "@ui/WinDots";
 import { SUITE_NAME } from "@core/branding";
 import { openRecorderOverlay } from "@core/recorderWindow";
 import { useShellStore, type Tool } from "./shellStore";
@@ -10,6 +11,7 @@ interface ToolCard {
   desc: string;
   color: string;
   icon: ReactElement;
+  dots: ReactElement;
   tilt: number;
 }
 
@@ -21,6 +23,7 @@ const CARDS: ToolCard[] = [
     desc: "Deep-work desktop: timer, tasks, notebook, habits and a time heatmap.",
     color: "#111111",
     tilt: -1.1,
+    dots: ToolIcons.focus,
     icon: (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
         <circle cx="10" cy="10" r="7" />
@@ -35,6 +38,7 @@ const CARDS: ToolCard[] = [
     desc: "Screen recordings that follow your cursor. Edit, zoom, export MP4.",
     color: "#0e9a8a",
     tilt: 1.2,
+    dots: ToolIcons.video,
     icon: (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
         <rect x="2.5" y="4" width="15" height="10.5" rx="2" />
@@ -49,6 +53,7 @@ const CARDS: ToolCard[] = [
     desc: "Paste a URL, get a product launch video. Templates rendered on-device.",
     color: "#6b5bff",
     tilt: -0.9,
+    dots: ToolIcons.launch,
     icon: (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
         <path d="M10 14.5c4.5-2 6-6.5 6-10.5-4 0-8.5 1.5-10.5 6L3 12.5l4.5 4.5 2.5-2.5z" />
@@ -63,6 +68,7 @@ const CARDS: ToolCard[] = [
     desc: "Hold a hotkey, speak, release — on-device Whisper types for you anywhere.",
     color: "#ff715f",
     tilt: 0.8,
+    dots: ToolIcons.dictate,
     icon: (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
         <rect x="7.2" y="2.8" width="5.6" height="9" rx="2.8" />
@@ -93,9 +99,7 @@ export function Hub() {
             }}
           >
             <div className="wincard-bar">
-              <span className="wincard-dot r" />
-              <span className="wincard-dot y" />
-              <span className="wincard-dot g" />
+              <WinDots icon={card.dots} />
               <span className="wincard-title">{card.window}</span>
             </div>
             <div className="wincard-body">

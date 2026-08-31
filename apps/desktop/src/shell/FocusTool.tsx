@@ -1,4 +1,5 @@
 import type { ReactElement } from "react";
+import { WinDots } from "@ui/WinDots";
 import { VIEWS, type View } from "@feature-focus/types";
 import { formatMs } from "@feature-focus/lib/dates";
 import { useAppStore } from "@feature-focus/store/useAppStore";
@@ -127,9 +128,7 @@ function FocusOverview() {
             }}
           >
             <div className="wincard-bar">
-              <span className="wincard-dot r" />
-              <span className="wincard-dot y" />
-              <span className="wincard-dot g" />
+              <WinDots icon={FOCUS_ICONS[item.id]} />
               <span className="wincard-title">{item.id}</span>
             </div>
             <div className="wincard-body">

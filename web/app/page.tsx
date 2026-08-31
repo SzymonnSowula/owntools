@@ -1,4 +1,5 @@
 import { Faq } from "./components/Faq";
+import { WinDots, ToolIcons } from "./components/WinDots";
 
 const download = process.env.NEXT_PUBLIC_DOWNLOAD_URL_WINDOWS ?? "#pricing";
 const buy = process.env.NEXT_PUBLIC_CHECKOUT_URL ?? "#pricing";
@@ -17,23 +18,13 @@ const jsonLd = {
   ],
 };
 
-function Dots() {
-  return (
-    <>
-      <span className="wincard-dot r" />
-      <span className="wincard-dot y" />
-      <span className="wincard-dot g" />
-    </>
-  );
-}
-
 /* --- hero mockup cards (pure CSS, no assets) --- */
 
 function FocusCard() {
   return (
     <div className="wincard floaty w-[210px]" style={{ ["--tilt" as string]: "-4deg" }}>
       <div className="wincard-bar">
-        <Dots />
+        <WinDots icon={ToolIcons.focus} />
         <span className="wincard-title">focus.app</span>
       </div>
       <div className="p-4">
@@ -52,7 +43,7 @@ function ScreeniCard() {
   return (
     <div className="wincard floaty w-[250px]" style={{ ["--tilt" as string]: "3deg", animationDelay: "-2s" }}>
       <div className="wincard-bar">
-        <Dots />
+        <WinDots icon={ToolIcons.video} />
         <span className="wincard-title">demo-take.mp4</span>
       </div>
       <div className="bg-[#111015] p-3">
@@ -77,7 +68,7 @@ function LaunchCard() {
   return (
     <div className="wincard floaty w-[230px]" style={{ ["--tilt" as string]: "-2.5deg", animationDelay: "-4s" }}>
       <div className="wincard-bar">
-        <Dots />
+        <WinDots icon={ToolIcons.launch} />
         <span className="wincard-title">yourapp-launch.mp4</span>
       </div>
       <div className="dotted p-5 text-center">
@@ -115,24 +106,28 @@ const TOOLS = [
   {
     window: "focus.app",
     name: "focus",
+    icon: ToolIcons.focus,
     color: "#111111",
     desc: "A calm desk for deep work: MIT of the day, pomodoro, tasks, a Notion-style notebook, habits, ambient sounds and a GitHub-style heatmap of your real screen time. It can even guard your scroll on X until the task is done.",
   },
   {
     window: "screeni.app",
     name: "screeni",
+    icon: ToolIcons.video,
     color: "#0e9a8a",
     desc: "Hit record and every click gets a smooth cinematic zoom. Trim, add your camera, auto-captions (on-device Whisper) — and export crisp 60 fps MP4 rendered offline. No ffmpeg, no upload.",
   },
   {
     window: "launch.app",
     name: "launch",
+    icon: ToolIcons.launch,
     color: "#6b5bff",
     desc: "Paste your product's URL. shipshape pulls the name, tagline, brand color and hero shot, then renders a keynote-style launch video from templates — on your machine, in seconds.",
   },
   {
     window: "dictate.app",
     name: "dictate",
+    icon: ToolIcons.dictate,
     color: "#ff715f",
     desc: "Hold a hotkey anywhere, speak, release — clean text lands wherever your cursor is. Powered by whisper.cpp running locally, so your voice never touches a server.",
   },
@@ -209,7 +204,7 @@ export default function Home() {
           {TOOLS.map((tool, i) => (
             <div key={tool.name} className="wincard" style={{ transform: `rotate(${i % 2 ? 0.5 : -0.5}deg)` }}>
               <div className="wincard-bar">
-                <Dots />
+                <WinDots icon={tool.icon} />
                 <span className="wincard-title">{tool.window}</span>
               </div>
               <div className="p-6">
@@ -246,7 +241,7 @@ export default function Home() {
         <div className="mt-12 grid gap-6 md:grid-cols-2">
           <div className="wincard">
             <div className="wincard-bar">
-              <Dots />
+              <WinDots />
               <span className="wincard-title">free.plan</span>
             </div>
             <div className="p-7">
@@ -267,7 +262,7 @@ export default function Home() {
           </div>
           <div className="wincard" style={{ background: "#141414" }}>
             <div className="wincard-bar" style={{ background: "#1d1d1d", borderColor: "#2a2a2a" }}>
-              <Dots />
+              <WinDots />
               <span className="wincard-title">pro.plan</span>
             </div>
             <div className="p-7 text-white">

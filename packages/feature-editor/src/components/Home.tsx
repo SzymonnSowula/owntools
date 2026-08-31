@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { WinDots, ToolIcons } from "@ui/WinDots";
 import { Logo } from "./Logo";
 import { formatTime } from "../lib/time";
 import { uid } from "../lib/id";
@@ -102,9 +103,7 @@ export function Home() {
                   onClick={() => void openRecent(item.id)}
                 >
                   <div className="wincard-bar">
-                    <span className="wincard-dot r" />
-                    <span className="wincard-dot y" />
-                    <span className="wincard-dot g" />
+                    <WinDots icon={ToolIcons.video} />
                     <span className="wincard-title truncate">
                       {item.name.toLowerCase().replace(/\s+/g, "-")}.mp4
                     </span>

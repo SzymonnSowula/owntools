@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { WinDots, ToolIcons } from "@ui/WinDots";
 import { isTauri } from "@core/env";
 import {
   dictationStatus,
@@ -83,9 +84,7 @@ export default function DictateView() {
 
         <div className="wincard mt-6" style={{ boxShadow: "0 12px 30px rgba(17,17,17,0.08)" }}>
           <div className="wincard-bar">
-            <span className="wincard-dot r" />
-            <span className="wincard-dot y" />
-            <span className="wincard-dot g" />
+            <WinDots icon={ToolIcons.dictate} />
             <span className="wincard-title">engine</span>
           </div>
           <div className="wincard-body">
@@ -135,9 +134,7 @@ export default function DictateView() {
 
         <div className="wincard mt-5" style={{ boxShadow: "0 12px 30px rgba(17,17,17,0.08)" }}>
           <div className="wincard-bar">
-            <span className="wincard-dot r" />
-            <span className="wincard-dot y" />
-            <span className="wincard-dot g" />
+            <WinDots icon={ToolIcons.dictate} />
             <span className="wincard-title">settings</span>
           </div>
           <div className="wincard-body">
@@ -166,9 +163,7 @@ export default function DictateView() {
         {ready ? (
           <div className="wincard mt-5" style={{ boxShadow: "0 12px 30px rgba(17,17,17,0.08)" }}>
             <div className="wincard-bar">
-              <span className="wincard-dot r" />
-              <span className="wincard-dot y" />
-              <span className="wincard-dot g" />
+              <WinDots icon={ToolIcons.dictate} />
               <span className="wincard-title">try it</span>
             </div>
             <div className="wincard-body">

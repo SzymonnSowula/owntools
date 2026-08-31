@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { WinDots, ToolIcons } from "@ui/WinDots";
 import { hideRecorderOverlay, showMainWindow } from "@core/recorderWindow";
 import { isTauri } from "@core/env";
 import { getCursor, getScreenSize } from "@feature-editor/lib/cursor";
@@ -294,9 +295,7 @@ export function RecorderOverlay() {
     <div className="flex h-screen flex-col bg-paper px-5 pb-5">
       <div className="drag-region mb-3 flex items-center justify-between pt-3">
         <span className="flex items-center gap-1.5">
-          <span className="wincard-dot r" />
-          <span className="wincard-dot y" />
-          <span className="wincard-dot g" />
+          <WinDots icon={ToolIcons.record} />
           <span className="ml-2 text-sm font-semibold tracking-[-0.02em]">record</span>
         </span>
         <button className="no-drag btn btn-ghost h-8 px-2 text-xs" onClick={() => void cancel()}>

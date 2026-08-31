@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { WinDots, ToolIcons } from "@ui/WinDots";
 import type { Project } from "../types";
 import { canvasSize, drawFrame } from "../lib/compositor";
 import { isPro } from "@licensing/license";
@@ -125,9 +126,7 @@ export function PreviewCanvas({
     <div className="desktop-bg flex min-h-0 flex-1 items-center justify-center p-5">
       <div className="wincard flex flex-1 flex-col" style={{ minWidth: 0, minHeight: 0, alignSelf: "stretch" }}>
         <div className="wincard-bar">
-          <span className="wincard-dot r" />
-          <span className="wincard-dot y" />
-          <span className="wincard-dot g" />
+          <WinDots icon={ToolIcons.video} />
           <span className="wincard-title truncate">
             {project.name.toLowerCase().replace(/\s+/g, "-")}.mp4
           </span>

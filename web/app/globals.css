@@ -63,6 +63,23 @@ body {
 .wincard-dot.y { background: #febc2e; }
 .wincard-dot.g { background: #28c840; }
 
+/* Traffic lights drawn as three tinted mini icons (WinDots component). */
+.windots {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.windots > span {
+  display: flex;
+}
+
+.windots svg {
+  width: 11px;
+  height: 11px;
+  display: block;
+}
+
 .wincard-title {
   margin-left: 6px;
   font-size: 11px;

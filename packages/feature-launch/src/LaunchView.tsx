@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { WinDots, ToolIcons } from "@ui/WinDots";
 import { isPro } from "@licensing/license";
 import { blobToFileDownload } from "@feature-editor/lib/exportVideo";
 import { exportBlobToPath } from "@feature-editor/lib/projectIo";
@@ -218,9 +219,7 @@ export default function LaunchView() {
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="wincard flex-1" style={{ minHeight: 0 }}>
           <div className="wincard-bar">
-            <span className="wincard-dot r" />
-            <span className="wincard-dot y" />
-            <span className="wincard-dot g" />
+            <WinDots icon={ToolIcons.launch} />
             <span className="wincard-title">
               {(spec.name || "launch").toLowerCase()}-launch.mp4 · {duration.toFixed(1)}s
             </span>

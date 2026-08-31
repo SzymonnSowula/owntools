@@ -125,6 +125,23 @@ textarea {
 .wincard-dot.y { background: #febc2e; }
 .wincard-dot.g { background: #28c840; }
 
+/* Traffic lights drawn as three tinted mini icons (WinDots component). */
+.windots {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.windots > span {
+  display: flex;
+}
+
+.windots svg {
+  width: 11px;
+  height: 11px;
+  display: block;
+}
+
 .wincard-title {
   margin-left: 6px;
   font-size: 11px;
@@ -268,6 +285,8 @@ button.wincard:hover {
   padding-top: 44px;
 }
 
+/* Title bar chrome: background + bottom border only (glyphs live on ::after,
+ * because masking would clip the bar background away). */
 .mod-focus .card::before {
   content: "";
   position: absolute;
@@ -276,11 +295,38 @@ button.wincard:hover {
   right: 0;
   height: 32px;
   border-bottom: 1px solid var(--border, #e5e5e5);
-  background:
-    radial-gradient(circle 5px at 20px 16px, #ff5f57 99%, transparent),
-    radial-gradient(circle 5px at 38px 16px, #febc2e 99%, transparent),
-    radial-gradient(circle 5px at 56px 16px, #28c840 99%, transparent),
-    color-mix(in srgb, var(--bg-elevated, #ffffff) 72%, var(--bg, #fafafa));
+  background: color-mix(in srgb, var(--bg-elevated, #ffffff) 72%, var(--bg, #fafafa));
+}
+
+/* Three brand glyphs tinted like traffic lights. The pseudo-element paints a
+ * hard-stop red/yellow/green gradient and a triple mask (the brand sailboat,
+ * 11x11 each) punches the glyph shapes out of it. Glyph centers sit at
+ * x = 20 / 38 / 56, y = 16 — exactly where the old dots were — so each mask
+ * copy is positioned at center - 5.5px, and the gradient stops change color
+ * at the midpoints between glyphs (29px, 47px). ::after paints above ::before. */
+.mod-focus .card::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 70px;
+  height: 32px;
+  pointer-events: none;
+  background: linear-gradient(to right, #ff5f57 0 29px, #febc2e 29px 47px, #28c840 47px 100%);
+  -webkit-mask-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M6 0.8L10.4 7.6H1.6L6 0.8ZM2 9H10L8.6 11.2H3.4L2 9Z'/%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M6 0.8L10.4 7.6H1.6L6 0.8ZM2 9H10L8.6 11.2H3.4L2 9Z'/%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M6 0.8L10.4 7.6H1.6L6 0.8ZM2 9H10L8.6 11.2H3.4L2 9Z'/%3E%3C/svg%3E");
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-size: 11px 11px;
+  -webkit-mask-position: 14.5px 10.5px, 32.5px 10.5px, 50.5px 10.5px;
+  mask-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M6 0.8L10.4 7.6H1.6L6 0.8ZM2 9H10L8.6 11.2H3.4L2 9Z'/%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M6 0.8L10.4 7.6H1.6L6 0.8ZM2 9H10L8.6 11.2H3.4L2 9Z'/%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M6 0.8L10.4 7.6H1.6L6 0.8ZM2 9H10L8.6 11.2H3.4L2 9Z'/%3E%3C/svg%3E");
+  mask-repeat: no-repeat;
+  mask-size: 11px 11px;
+  mask-position: 14.5px 10.5px, 32.5px 10.5px, 50.5px 10.5px;
 }
 
 :root[data-theme="dark"] .mod-focus .card {
