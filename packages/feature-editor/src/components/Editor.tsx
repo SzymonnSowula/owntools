@@ -134,6 +134,14 @@ export function Editor() {
         e.preventDefault();
         if (e.shiftKey) redo();
         else undo();
+      } else if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+        const state = useAppStore.getState();
+        if (!state.project) return;
+        e.preventDefault();
+        const dur = timelineDuration(state.project.segments);
+        const step = (e.shiftKey ? 1 : 1 / 30) * (e.key === "ArrowLeft" ? -1 : 1);
+        state.setPlaying(false);
+        state.setTimelineTime(Math.min(dur, Math.max(0, state.timelineTime + step)));
       }
     };
     window.addEventListener("keydown", onKey);

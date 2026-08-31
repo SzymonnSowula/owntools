@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Project, Selection } from "../types";
 import { formatTime } from "../lib/time";
 import { sourceToTimeline, timelineDuration } from "../lib/segments";
@@ -19,8 +19,45 @@ export function Timeline({ project }: { project: Project }) {
   const updateProject = useAppStore((s) => s.updateProject);
   const [pps, setPps] = useState(92);
   const scroller = useRef<HTMLDivElement>(null);
+  const inner = useRef<HTMLDivElement>(null);
+  const pendingScroll = useRef<number | null>(null);
   const duration = Math.max(0.1, timelineDuration(project.segments));
   const width = Math.max(640, duration * pps + 80);
+
+  // Apply the scroll offset that keeps the time under the mouse stationary,
+  // in the same commit that lays out the new pps.
+  useLayoutEffect(() => {
+    if (pendingScroll.current != null && scroller.current) {
+      scroller.current.scrollLeft = pendingScroll.current;
+      pendingScroll.current = null;
+    }
+  }, [pps]);
+
+  // Wheel: Ctrl+wheel = zoom to cursor, plain wheel = horizontal pan.
+  // Attached manually because React's onWheel is passive (can't preventDefault).
+  useEffect(() => {
+    const el = scroller.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      if (e.ctrlKey) {
+        e.preventDefault();
+        const factor = e.deltaY < 0 ? 1.12 : 1 / 1.12;
+        const next = Math.min(400, Math.max(20, pps * factor));
+        if (next === pps) return;
+        const rect = inner.current?.getBoundingClientRect();
+        const t = rect ? Math.max(0, (e.clientX - rect.left) / pps) : 0;
+        // Point at time t sits at (padding + t*pps) - scrollLeft in the viewport;
+        // padding is constant, so shifting scrollLeft by t*(next-pps) keeps it put.
+        pendingScroll.current = Math.max(0, el.scrollLeft + t * (next - pps));
+        setPps(next);
+      } else if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+        e.preventDefault();
+        el.scrollLeft += e.deltaY;
+      }
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [pps]);
 
   const ticks = useMemo(() => {
     const step = pps > 120 ? 0.5 : pps > 70 ? 1 : 2;
@@ -29,12 +66,55 @@ export function Timeline({ project }: { project: Project }) {
     return out;
   }, [duration, pps]);
 
-  function scrub(clientX: number, target: HTMLElement) {
-    const rect = target.getBoundingClientRect();
-    const x = clientX - rect.left + (scroller.current?.scrollLeft ?? 0);
-    const t = Math.min(duration, Math.max(0, x / pps));
+  function scrubTo(clientX: number) {
+    const rect = inner.current?.getBoundingClientRect();
+    if (!rect) return;
+    const t = Math.min(duration, Math.max(0, (clientX - rect.left) / pps));
     setPlaying(false);
     setTime(t);
+  }
+
+  /** Scrub immediately, then keep scrubbing while the pointer is down. */
+  function beginScrub(e: React.PointerEvent) {
+    e.preventDefault();
+    scrubTo(e.clientX);
+    const move = (ev: PointerEvent) => scrubTo(ev.clientX);
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  }
+
+  /** Drag empty timeline space to pan; a still click clears the selection. */
+  function beginPan(e: React.PointerEvent) {
+    const el = scroller.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    // Don't hijack the native horizontal scrollbar.
+    if (e.clientY - rect.top > el.clientHeight) return;
+    e.preventDefault();
+    el.setPointerCapture(e.pointerId);
+    const startX = e.clientX;
+    const startScroll = el.scrollLeft;
+    let moved = false;
+    const move = (ev: PointerEvent) => {
+      const dx = ev.clientX - startX;
+      if (Math.abs(dx) >= 4) {
+        moved = true;
+        el.style.cursor = "grabbing";
+      }
+      el.scrollLeft = startScroll - dx;
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      el.style.cursor = "";
+      if (!moved) setSelection(null);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
   }
 
   function startDrag(
@@ -66,7 +146,7 @@ export function Timeline({ project }: { project: Project }) {
             type="range"
             min={48}
             max={180}
-            value={pps}
+            value={Math.round(Math.min(180, Math.max(48, pps)))}
             onChange={(e) => setPps(Number(e.target.value))}
           />
         </label>
@@ -75,12 +155,16 @@ export function Timeline({ project }: { project: Project }) {
         ref={scroller}
         className="scroll-thin relative overflow-x-auto px-4 pb-3"
         onPointerDown={(e) => {
-          if ((e.target as HTMLElement).dataset.track === "ruler") {
-            scrub(e.clientX, e.currentTarget);
+          const target = e.target as HTMLElement;
+          if (target.closest("[data-clip]")) return;
+          if (target.closest('[data-track="ruler"]')) {
+            beginScrub(e);
+          } else {
+            beginPan(e);
           }
         }}
       >
-        <div className="relative" style={{ width }}>
+        <div ref={inner} className="relative" style={{ width }}>
           <div data-track="ruler" className="relative h-7 cursor-ew-resize">
             {ticks.map((t) => (
               <div
@@ -189,7 +273,7 @@ export function Timeline({ project }: { project: Project }) {
             </div>
           ))}
 
-          <Playhead pps={pps} />
+          <Playhead pps={pps} onScrubStart={beginScrub} />
         </div>
       </div>
     </div>
@@ -197,14 +281,26 @@ export function Timeline({ project }: { project: Project }) {
 }
 
 /** Subscribes to time on its own so playback doesn't re-render the clip lists. */
-function Playhead({ pps }: { pps: number }) {
+function Playhead({
+  pps,
+  onScrubStart,
+}: {
+  pps: number;
+  onScrubStart: (e: React.PointerEvent) => void;
+}) {
   const time = useAppStore((s) => s.timelineTime);
   return (
     <div
       className="pointer-events-none absolute bottom-0 top-0 z-20 w-px bg-coral"
       style={{ left: time * pps }}
     >
-      <div className="absolute -top-0.5 left-1/2 h-2.5 w-2.5 -translate-x-1/2 rotate-45 rounded-[2px] bg-coral" />
+      <div
+        className="pointer-events-auto absolute -top-0.5 left-1/2 h-2.5 w-2.5 -translate-x-1/2 rotate-45 cursor-ew-resize rounded-[2px] bg-coral"
+        onPointerDown={(e) => {
+          e.stopPropagation();
+          onScrubStart(e);
+        }}
+      />
     </div>
   );
 }
@@ -239,10 +335,16 @@ function Clip({
   const last = useRef(0);
   return (
     <div
-      className={`absolute top-1 h-7 overflow-hidden rounded-[8px] text-[10px] font-medium text-white shadow-sm ${
-        selected ? "ring-2 ring-ink/30" : ""
+      data-clip
+      className={`absolute top-1 h-7 overflow-hidden rounded-[8px] text-[10px] font-medium text-white shadow-sm transition-opacity ${
+        selected ? "z-10 opacity-100" : "opacity-[0.88]"
       }`}
-      style={{ left, width, background: color }}
+      style={{
+        left,
+        width,
+        background: color,
+        boxShadow: selected ? "0 0 0 2px #fff, 0 0 0 4px #0a84ff" : undefined,
+      }}
       onPointerDown={(e) => {
         onSelect();
         last.current = 0;
@@ -254,7 +356,7 @@ function Clip({
       }}
     >
       <button
-        className="absolute left-0 top-0 h-full w-1.5 cursor-ew-resize bg-white/30"
+        className={`absolute left-0 top-0 h-full cursor-ew-resize ${selected ? "w-2 bg-white/60" : "w-1.5 bg-white/25"}`}
         onPointerDown={(e) => {
           last.current = 0;
           startDrag(e, (dt) => {
@@ -266,7 +368,7 @@ function Clip({
       />
       <span className="pointer-events-none block truncate px-3 pt-1.5">{label}</span>
       <button
-        className="absolute right-0 top-0 h-full w-1.5 cursor-ew-resize bg-white/30"
+        className={`absolute right-0 top-0 h-full cursor-ew-resize ${selected ? "w-2 bg-white/60" : "w-1.5 bg-white/25"}`}
         onPointerDown={(e) => {
           last.current = 0;
           startDrag(e, (dt) => {
