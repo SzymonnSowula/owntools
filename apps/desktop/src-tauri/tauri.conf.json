@@ -41,6 +41,23 @@
         "decorations": false,
         "shadow": true,
         "visible": false
+      },
+      {
+        "label": "dictation",
+        "title": "suite dictation",
+        "url": "dictation.html",
+        "width": 320,
+        "height": 76,
+        "resizable": false,
+        "maximizable": false,
+        "minimizable": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "decorations": false,
+        "transparent": true,
+        "shadow": false,
+        "focus": false,
+        "visible": false
       }
     ],
     "security": {

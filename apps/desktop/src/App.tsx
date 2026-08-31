@@ -1,49 +1,33 @@
-import { lazy, Suspense, useEffect, type ReactElement } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { isTauri } from "@core/env";
-import { SUITE_NAME } from "@core/branding";
 import { unlockAudio } from "@feature-focus/lib/audio/engine";
-import { VIEWS, type View } from "@feature-focus/types";
+import { VIEWS } from "@feature-focus/types";
 import { useAppStore, type UsageTick } from "@feature-focus/store/useAppStore";
-import { TitleBar } from "@feature-focus/components/TitleBar";
-import { ScrollGuardBanner } from "@feature-focus/components/ScrollGuardBanner";
 import { ShortcutsOverlay } from "@feature-focus/components/ShortcutsOverlay";
 import { QuickCapture } from "@feature-focus/components/QuickCapture";
-import { TodayView } from "@feature-focus/features/today/TodayView";
-import { HeatmapView } from "@feature-focus/features/heatmap/HeatmapView";
-import { TasksView } from "@feature-focus/features/tasks/TasksView";
-import { NotesView } from "@feature-focus/features/notes/NotesView";
-import { NotebookView } from "@feature-focus/features/notebook/NotebookView";
-import { HabitsView } from "@feature-focus/features/habits/HabitsView";
-import { SoundsView } from "@feature-focus/features/sounds/SoundsView";
-import { PianoView } from "@feature-focus/features/piano/PianoView";
-import { PlannerView } from "@feature-focus/features/planner/PlannerView";
-import { JournalView } from "@feature-focus/features/journal/JournalView";
-import { StatsView } from "@feature-focus/features/stats/StatsView";
-import { SettingsView } from "@feature-focus/features/settings/SettingsView";
-import { SuiteSidebar } from "./shell/SuiteSidebar";
+import { Hub } from "./shell/Hub";
+import { FocusTool } from "./shell/FocusTool";
+import { SuiteTitleBar } from "./shell/SuiteTitleBar";
 import { useShellStore } from "./shell/shellStore";
 import { runLegacyImport } from "./shell/importLegacy";
+import { SUITE_NAME } from "@core/branding";
 
 const CreateModule = lazy(() => import("./shell/CreateModule"));
+const LaunchModule = lazy(() => import("@feature-launch/LaunchView"));
+const DictateModule = lazy(() => import("@feature-dictation/DictateView"));
 
-const VIEW_MAP: Record<View, () => ReactElement> = {
-  today: TodayView,
-  heatmap: HeatmapView,
-  tasks: TasksView,
-  notes: NotesView,
-  notebook: NotebookView,
-  habits: HabitsView,
-  sounds: SoundsView,
-  piano: PianoView,
-  planner: PlannerView,
-  journal: JournalView,
-  stats: StatsView,
-  settings: SettingsView,
-};
+function LazyPane({ children }: { children: React.ReactNode }) {
+  return (
+    <main className="create-main mod-create">
+      <Suspense fallback={<div className="grid flex-1 place-items-center text-sm">Loading…</div>}>
+        {children}
+      </Suspense>
+    </main>
+  );
+}
 
 export default function App() {
   const ready = useAppStore((s) => s.ready);
-  const view = useAppStore((s) => s.view);
   const hydrate = useAppStore((s) => s.hydrate);
   const setView = useAppStore((s) => s.setView);
   const setShortcutsOpen = useAppStore((s) => s.setShortcutsOpen);
@@ -52,7 +36,7 @@ export default function App() {
   const shortcutsOpen = useAppStore((s) => s.shortcutsOpen);
   const quickOpen = useAppStore((s) => s.quickOpen);
   const toggleTimer = useAppStore((s) => s.toggleTimer);
-  const section = useShellStore((s) => s.section);
+  const tool = useShellStore((s) => s.tool);
 
   useEffect(() => {
     void (async () => {
@@ -79,7 +63,8 @@ export default function App() {
       );
       unsubs.push(
         await listen("tray-quick-note", () => {
-          useShellStore.getState().setSection("focus");
+          useShellStore.getState().setTool("focus");
+          useShellStore.getState().setFocusOverview(false);
           useAppStore.getState().openQuickCapture("note");
         }),
       );
@@ -94,7 +79,7 @@ export default function App() {
           void (async () => {
             const { showMainWindow } = await import("@core/recorderWindow");
             await showMainWindow();
-            useShellStore.getState().setSection("create");
+            useShellStore.getState().setTool("create");
             const { useAppStore: useEditorStore } = await import(
               "@feature-editor/store/appStore"
             );
@@ -119,7 +104,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (section !== "focus") return;
+    if (tool !== "focus") return;
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null;
       const typing =
@@ -161,14 +146,17 @@ export default function App() {
         if (n >= 1 && n <= 9) {
           e.preventDefault();
           const id = VIEWS[n - 1]?.id;
-          if (id) setView(id);
+          if (id) {
+            setView(id);
+            useShellStore.getState().setFocusOverview(false);
+          }
         }
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [
-    section,
+    tool,
     closeQuickCapture,
     openQuickCapture,
     quickOpen,
@@ -178,31 +166,27 @@ export default function App() {
     toggleTimer,
   ]);
 
-  const Page = VIEW_MAP[view];
-
   return (
     <div className="app mod-focus">
-      <TitleBar />
+      <SuiteTitleBar />
       {!ready ? (
         <div className="loading">{SUITE_NAME}</div>
+      ) : tool === "hub" ? (
+        <Hub />
+      ) : tool === "focus" ? (
+        <FocusTool />
+      ) : tool === "create" ? (
+        <LazyPane>
+          <CreateModule />
+        </LazyPane>
+      ) : tool === "launch" ? (
+        <LazyPane>
+          <LaunchModule />
+        </LazyPane>
       ) : (
-        <div className="shell">
-          <SuiteSidebar />
-          {section === "focus" ? (
-            <main className="main">
-              <ScrollGuardBanner />
-              <Page />
-            </main>
-          ) : (
-            <main className="create-main mod-create">
-              <Suspense
-                fallback={<div className="grid flex-1 place-items-center text-sm">Loading…</div>}
-              >
-                <CreateModule />
-              </Suspense>
-            </main>
-          )}
-        </div>
+        <LazyPane>
+          <DictateModule />
+        </LazyPane>
       )}
       <ShortcutsOverlay />
       <QuickCapture />

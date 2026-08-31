@@ -1,4 +1,5 @@
 mod cursor;
+mod dictation;
 mod ffmpeg;
 mod importer;
 #[cfg(windows)]
@@ -66,7 +67,9 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_autostart::Builder::new().build())
         .plugin(tauri_plugin_fs::init())
-        .plugin(tauri_plugin_dialog::init());
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_http::init())
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build());
 
     builder
         .invoke_handler(tauri::generate_handler![
@@ -79,13 +82,27 @@ pub fn run() {
             cursor::get_screen_size,
             ffmpeg::ffmpeg_available,
             ffmpeg::convert_to_mp4,
-            importer::import_legacy_data
+            importer::import_legacy_data,
+            dictation::dictation_status,
+            dictation::whisper_transcribe,
+            dictation::type_text
         ])
         .setup(|app| {
             #[cfg(windows)]
             {
                 usage::start(app.handle().clone());
                 scroll_guard::start();
+            }
+            {
+                use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
+                let _ = app.global_shortcut().on_shortcut(
+                    "ctrl+shift+space",
+                    |app, _shortcut, event| {
+                        if event.state() == ShortcutState::Pressed {
+                            dictation::toggle(app);
+                        }
+                    },
+                );
             }
             let show = MenuItem::with_id(app, "show", "Show", true, None::<&str>)?;
             let toggle = MenuItem::with_id(
@@ -145,10 +162,10 @@ pub fn run() {
         .on_window_event(|window, event| match event {
             tauri::WindowEvent::CloseRequested { api, .. } => {
                 api.prevent_close();
-                if window.label() == "recorder" {
-                    let _ = window.hide();
-                } else {
+                if window.label() == "main" {
                     conceal(window);
+                } else {
+                    let _ = window.hide();
                 }
             }
             tauri::WindowEvent::Resized(_) => {

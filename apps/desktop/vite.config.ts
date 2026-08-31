@@ -17,6 +17,8 @@ export default defineConfig(async () => ({
       "@feature-focus": resolve(dirname, "../../packages/feature-focus/src"),
       "@feature-recorder": resolve(dirname, "../../packages/feature-recorder/src"),
       "@feature-editor": resolve(dirname, "../../packages/feature-editor/src"),
+      "@feature-launch": resolve(dirname, "../../packages/feature-launch/src"),
+      "@feature-dictation": resolve(dirname, "../../packages/feature-dictation/src"),
     },
   },
   build: {
@@ -24,6 +26,7 @@ export default defineConfig(async () => ({
       input: {
         main: resolve(dirname, "index.html"),
         overlay: resolve(dirname, "overlay.html"),
+        dictation: resolve(dirname, "dictation.html"),
       },
     },
   },

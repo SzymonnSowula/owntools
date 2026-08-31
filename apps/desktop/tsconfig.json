@@ -25,7 +25,9 @@
       "@licensing/*": ["../../packages/licensing/src/*"],
       "@feature-focus/*": ["../../packages/feature-focus/src/*"],
       "@feature-recorder/*": ["../../packages/feature-recorder/src/*"],
-      "@feature-editor/*": ["../../packages/feature-editor/src/*"]
+      "@feature-editor/*": ["../../packages/feature-editor/src/*"],
+      "@feature-launch/*": ["../../packages/feature-launch/src/*"],
+      "@feature-dictation/*": ["../../packages/feature-dictation/src/*"]
     }
   },
   "include": ["src", "../../packages/*/src"],

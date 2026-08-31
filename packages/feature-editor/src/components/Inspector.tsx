@@ -1,15 +1,44 @@
 import type { ReactNode } from "react";
+import { useEffect, useState } from "react";
 import { GRADIENT_PRESETS } from "../lib/gradients";
+import { transcribeCaptions, whisperReady } from "../lib/transcribe";
 import { useAppStore } from "../store/appStore";
 import type { CaptionStyle, Easing, WebcamCorner } from "../types";
 
 export function Inspector() {
   const project = useAppStore((s) => s.project);
+  const media = useAppStore((s) => s.media);
   const selection = useAppStore((s) => s.selection);
   const updateProject = useAppStore((s) => s.updateProject);
   const regenerateZooms = useAppStore((s) => s.regenerateZooms);
   const setExportOpen = useAppStore((s) => s.setExportOpen);
+  const showToast = useAppStore((s) => s.showToast);
+  const [whisperOk, setWhisperOk] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
+
+  useEffect(() => {
+    void whisperReady().then(setWhisperOk);
+  }, []);
+
   if (!project) return null;
+
+  async function autoCaptions() {
+    if (!media?.screenUrl || !project) return;
+    setTranscribing(true);
+    try {
+      const captions = await transcribeCaptions(media.screenUrl, project.speechLang);
+      if (!captions.length) {
+        showToast("No speech detected in the recording.", "info");
+      } else {
+        updateProject({ captions: [...project.captions, ...captions] }, true);
+        showToast(`Added ${captions.length} captions.`, "info");
+      }
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Transcription failed.", "error");
+    } finally {
+      setTranscribing(false);
+    }
+  }
 
   const zoom = selection?.type === "zoom" ? project.zooms.find((z) => z.id === selection.id) : undefined;
   const caption =
@@ -226,6 +255,15 @@ export function Inspector() {
       </Section>
 
       <Section title="Captions & text">
+        {whisperOk ? (
+          <button
+            className="btn btn-secondary mb-3 w-full text-xs"
+            disabled={transcribing}
+            onClick={() => void autoCaptions()}
+          >
+            {transcribing ? "Transcribing…" : "Auto-captions (Whisper, on-device)"}
+          </button>
+        ) : null}
         {caption ? (
           <div className="space-y-2">
             <textarea
