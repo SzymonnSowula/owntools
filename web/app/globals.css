@@ -1,0 +1,84 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --color-ink: #111111;
+  --color-muted: #7c7c7c;
+  --color-paper: #fafafa;
+  --color-card: #ffffff;
+  --color-line: #e6e6e6;
+  --color-accent: #ff715f;
+  --color-teal: #0e9a8a;
+  --color-violet: #6b5bff;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  color: var(--color-ink);
+  background: var(--color-paper);
+  font-family: var(--font-sans);
+  letter-spacing: -0.01em;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--color-accent) 25%, white);
+}
+
+.dotted {
+  background-image: radial-gradient(rgba(17, 17, 17, 0.13) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+
+.wincard {
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  border: 1px solid var(--color-line);
+  border-radius: 14px;
+  box-shadow: 0 18px 44px rgba(17, 17, 17, 0.1);
+  overflow: hidden;
+  text-align: left;
+}
+
+.wincard-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--color-line);
+  background: #f5f5f5;
+}
+
+.wincard-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+}
+
+.wincard-dot.r { background: #ff5f57; }
+.wincard-dot.y { background: #febc2e; }
+.wincard-dot.g { background: #28c840; }
+
+.wincard-title {
+  margin-left: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-muted);
+}
+
+@keyframes floaty {
+  0%, 100% { transform: translateY(0) rotate(var(--tilt, 0deg)); }
+  50% { transform: translateY(-9px) rotate(var(--tilt, 0deg)); }
+}
+
+.floaty {
+  animation: floaty 7s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .floaty { animation: none; }
+}

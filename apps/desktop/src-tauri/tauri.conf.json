@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "suite",
+  "productName": "shipshape",
   "version": "0.1.0",
   "identifier": "app.suite.desktop",
   "build": {
@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "suite",
+        "title": "shipshape",
         "width": 1280,
         "height": 800,
         "minWidth": 960,
@@ -29,7 +29,7 @@
       },
       {
         "label": "recorder",
-        "title": "suite recorder",
+        "title": "shipshape recorder",
         "url": "overlay.html",
         "width": 460,
         "height": 620,
@@ -44,7 +44,7 @@
       },
       {
         "label": "dictation",
-        "title": "suite dictation",
+        "title": "shipshape dictation",
         "url": "dictation.html",
         "width": 320,
         "height": 76,

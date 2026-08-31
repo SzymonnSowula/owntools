@@ -122,12 +122,24 @@ export function PreviewCanvas({
   const { width, height } = canvasSize(project.aspect);
 
   return (
-    <div ref={wrapRef} className="flex min-h-0 flex-1 items-center justify-center p-5">
-      <canvas
-        ref={canvasRef}
-        className="max-h-full max-w-full rounded-[14px] bg-[#111018] shadow-[0_24px_60px_rgba(23,21,31,0.12)]"
-        style={{ aspectRatio: `${width} / ${height}` }}
-      />
+    <div className="desktop-bg flex min-h-0 flex-1 items-center justify-center p-5">
+      <div className="wincard flex flex-1 flex-col" style={{ minWidth: 0, minHeight: 0, alignSelf: "stretch" }}>
+        <div className="wincard-bar">
+          <span className="wincard-dot r" />
+          <span className="wincard-dot y" />
+          <span className="wincard-dot g" />
+          <span className="wincard-title truncate">
+            {project.name.toLowerCase().replace(/\s+/g, "-")}.mp4
+          </span>
+        </div>
+        <div ref={wrapRef} className="flex min-h-0 flex-1 items-center justify-center bg-[#111015] p-3">
+          <canvas
+            ref={canvasRef}
+            className="max-h-full max-w-full rounded-[8px] bg-[#111018]"
+            style={{ aspectRatio: `${width} / ${height}` }}
+          />
+        </div>
+      </div>
     </div>
   );
 }

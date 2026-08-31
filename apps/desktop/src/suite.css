@@ -245,6 +245,53 @@ button.wincard:hover {
 
 .crumb-sep { color: var(--muted, #999); font-weight: 400; }
 
+/* ------------------------------------------------------------------ */
+/* Apple-style pass over the Focus module: dotted desktop + cards as   */
+/* little mac windows (traffic lights drawn in pure CSS).              */
+/* ------------------------------------------------------------------ */
+
+.mod-focus .main {
+  background-color: var(--bg, #fafafa);
+  background-image: radial-gradient(color-mix(in srgb, var(--text, #111) 13%, transparent) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+
+.mod-focus .card {
+  position: relative;
+  border-radius: 14px;
+  box-shadow: 0 14px 32px rgba(17, 17, 17, 0.07);
+  padding-top: 48px;
+  overflow: hidden;
+}
+
+.mod-focus .card.tight {
+  padding-top: 44px;
+}
+
+.mod-focus .card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 32px;
+  border-bottom: 1px solid var(--border, #e5e5e5);
+  background:
+    radial-gradient(circle 5px at 20px 16px, #ff5f57 99%, transparent),
+    radial-gradient(circle 5px at 38px 16px, #febc2e 99%, transparent),
+    radial-gradient(circle 5px at 56px 16px, #28c840 99%, transparent),
+    color-mix(in srgb, var(--bg-elevated, #ffffff) 72%, var(--bg, #fafafa));
+}
+
+:root[data-theme="dark"] .mod-focus .card {
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.45);
+}
+
+/* The sidebar reads as app chrome, not desktop — keep it flat & separated. */
+.mod-focus .sidebar {
+  background: color-mix(in srgb, var(--bg-elevated, #ffffff) 60%, var(--bg, #fafafa));
+}
+
 /* Focus overview tiles */
 .tiles {
   display: grid;

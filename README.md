@@ -1,4 +1,4 @@
-# suite (working title)
+# shipshape
 
 Local-first studio for people who ship. One desktop app (Windows now, macOS next):
 
@@ -13,7 +13,7 @@ Local-first studio for people who ship. One desktop app (Windows now, macOS next
 Planned phases (see `~/.claude/plans/` plan file): on-device dictation
 (whisper.cpp), URL → product-launch-video generator, macOS port, landing.
 
-The name "suite" is a placeholder — see `packages/core/src/branding.ts`,
+The name is "shipshape" (see runner-ups in the file) — see `packages/core/src/branding.ts`,
 `apps/desktop/src-tauri/tauri.conf.json` (productName, identifier) and
 `apps/desktop/index.html` when rebranding.
 

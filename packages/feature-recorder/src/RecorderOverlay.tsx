@@ -293,7 +293,12 @@ export function RecorderOverlay() {
   return (
     <div className="flex h-screen flex-col bg-paper px-5 pb-5">
       <div className="drag-region mb-3 flex items-center justify-between pt-3">
-        <span className="text-sm font-semibold tracking-[-0.02em]">Record</span>
+        <span className="flex items-center gap-1.5">
+          <span className="wincard-dot r" />
+          <span className="wincard-dot y" />
+          <span className="wincard-dot g" />
+          <span className="ml-2 text-sm font-semibold tracking-[-0.02em]">record</span>
+        </span>
         <button className="no-drag btn btn-ghost h-8 px-2 text-xs" onClick={() => void cancel()}>
           Cancel
         </button>

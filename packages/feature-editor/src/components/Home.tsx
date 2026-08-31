@@ -39,12 +39,12 @@ export function Home() {
   }
 
   return (
-    <div className="mesh-home flex min-h-0 flex-1 flex-col px-10 pb-10 pt-6">
+    <div className="desktop-bg flex min-h-0 flex-1 flex-col overflow-y-auto px-10 pb-10 pt-6">
       <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col">
         <div className="mt-8 max-w-xl">
           <Logo size={44} />
-          <h1 className="mt-6 text-[42px] font-semibold leading-[1.05] tracking-[-0.045em] text-ink">
-            create
+          <h1 className="mt-6 text-[42px] font-bold leading-[1.05] tracking-[-0.05em] text-ink">
+            screeni
           </h1>
           <p className="mt-3 text-lg text-muted">Recordings that follow your cursor.</p>
           <p className="mt-4 max-w-md text-sm leading-relaxed text-muted">
@@ -93,27 +93,38 @@ export function Home() {
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {recent.map((item) => (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {recent.map((item, i) => (
                 <button
                   key={item.id}
-                  className="rounded-[16px] border border-line bg-card p-4 text-left shadow-[0_10px_30px_rgba(23,21,31,0.04)] transition hover:-translate-y-0.5 hover:shadow-[0_16px_36px_rgba(23,21,31,0.08)]"
+                  className="wincard"
+                  style={{ transform: `rotate(${i % 2 === 0 ? -0.6 : 0.6}deg)` }}
                   onClick={() => void openRecent(item.id)}
                 >
-                  <div className="flex h-24 items-end rounded-[12px] bg-gradient-to-br from-violet/30 via-teal/25 to-coral/25 p-3">
-                    <span className="text-[11px] font-medium text-ink/70">
-                      {formatTime(item.duration)}
+                  <div className="wincard-bar">
+                    <span className="wincard-dot r" />
+                    <span className="wincard-dot y" />
+                    <span className="wincard-dot g" />
+                    <span className="wincard-title truncate">
+                      {item.name.toLowerCase().replace(/\s+/g, "-")}.mp4
                     </span>
                   </div>
-                  <p className="mt-3 truncate text-sm font-semibold">{item.name}</p>
-                  <p className="mt-1 text-xs text-muted">
-                    {new Date(item.createdAt).toLocaleString(undefined, {
-                      day: "numeric",
-                      month: "short",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </p>
+                  <div className="wincard-body">
+                    <div className="flex h-20 items-end rounded-[10px] bg-gradient-to-br from-violet/30 via-teal/25 to-coral/25 p-3">
+                      <span className="text-[11px] font-medium text-ink/70">
+                        {formatTime(item.duration)}
+                      </span>
+                    </div>
+                    <p className="mt-3 truncate text-sm font-semibold">{item.name}</p>
+                    <p className="mt-1 text-xs text-muted">
+                      {new Date(item.createdAt).toLocaleString(undefined, {
+                        day: "numeric",
+                        month: "short",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </p>
+                  </div>
                 </button>
               ))}
             </div>
