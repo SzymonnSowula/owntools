@@ -30,24 +30,24 @@ export function TodayView() {
       <header className="page-head">
         <div>
           <p className="kicker">{formatTodayHeading()}</p>
-          <h1 className="page-title">Dziś</h1>
+          <h1 className="page-title">Today</h1>
         </div>
         <div className="page-actions">
-          <span className="pill active">{streak} dni serii</span>
-          <span className="pill">{todayMin} min dzisiaj</span>
+          <span className="pill active">{streak} day streak</span>
+          <span className="pill">{todayMin} min today</span>
         </div>
       </header>
 
       <div className="grid-2">
         <div className="stack">
           <section className="card">
-            <p className="kicker">Najważniejsze zadanie</p>
+            <p className="kicker">Most important task</p>
             {mit ? (
               <>
                 <h2 className="mit-title">{mit.title}</h2>
                 <div className="row" style={{ marginTop: 14 }}>
                   <button className="btn primary" onClick={() => toggleTask(mit.id)}>
-                    Oznacz jako zrobione
+                    Mark as done
                   </button>
                   <button
                     className="btn ghost"
@@ -55,23 +55,23 @@ export function TodayView() {
                       useAppStore.getState().setScrollGuard({ enabled: true, taskId: mit.id })
                     }
                   >
-                    Broń scrolla do tego
+                    Guard my scroll for this
                   </button>
                   <button className="btn ghost" onClick={() => setView("tasks")}>
-                    Wszystkie zadania
+                    All tasks
                   </button>
                 </div>
               </>
             ) : (
               <div>
-                <p className="muted">Nic nie jest jeszcze wybrane. Wybierz jedno zadanie, które naprawdę się liczy.</p>
+                <p className="muted">Nothing picked yet. Choose the one task that really matters.</p>
                 <div className="stack" style={{ marginTop: 12 }}>
                   {tasks
                     .filter((t) => !t.done)
                     .slice(0, 4)
                     .map((t) => (
                       <button key={t.id} className="btn ghost" onClick={() => setMit(t.id)}>
-                        Ustaw MIT: {t.title}
+                        Set MIT: {t.title}
                       </button>
                     ))}
                 </div>
@@ -81,7 +81,7 @@ export function TodayView() {
 
           <section className="card">
             <div className="spread">
-              <p className="kicker">{timer.mode === "break" ? "Przerwa" : "Ostry focus"}</p>
+              <p className="kicker">{timer.mode === "break" ? "Break" : "Deep focus"}</p>
               <div className="row">
                 {(["25", "50", "custom"] as const).map((p) => (
                   <button
@@ -89,7 +89,7 @@ export function TodayView() {
                     className={`pill${timer.preset === p ? " active" : ""}`}
                     onClick={() => setTimerPreset(p === "custom" ? "custom" : p)}
                   >
-                    {p === "25" ? "25 / 5" : p === "50" ? "50 / 10" : "Własny"}
+                    {p === "25" ? "25 / 5" : p === "50" ? "50 / 10" : "Custom"}
                   </button>
                 ))}
               </div>
@@ -102,12 +102,12 @@ export function TodayView() {
               className="input"
               value={timer.sessionName}
               onChange={(e) => setSessionName(e.target.value)}
-              placeholder="Nazwa sesji"
+              placeholder="Session name"
               style={{ marginBottom: 12 }}
             />
             {timer.preset === "custom" && (
               <label className="field" style={{ marginBottom: 12 }}>
-                <span>Minuty focusu</span>
+                <span>Focus minutes</span>
                 <input
                   className="input"
                   type="number"
@@ -123,7 +123,7 @@ export function TodayView() {
             )}
             <div className="row">
               <button className="btn primary" onClick={toggleTimer}>
-                {timer.running ? "Pauza" : "Start"}
+                {timer.running ? "Pause" : "Start"}
               </button>
               <button className="btn" onClick={resetTimer}>
                 Reset
@@ -134,7 +134,7 @@ export function TodayView() {
 
         <div className="stack">
           <section className="card">
-            <p className="kicker">Nawyki</p>
+            <p className="kicker">Habits</p>
             <div className="habit-row" style={{ marginTop: 10 }}>
               {habits.map((h) => (
                 <button key={h.id} className="habit-chip" onClick={() => toggleHabit(h.id)}>
@@ -148,16 +148,16 @@ export function TodayView() {
           </section>
 
           <section className="card">
-            <p className="kicker">Następne trzy</p>
+            <p className="kicker">Next three</p>
             {next.length === 0 ? (
-              <p className="muted">Skrzynka jest czysta. To dobry znak.</p>
+              <p className="muted">The inbox is clear. That's a good sign.</p>
             ) : (
               next.map((t) => (
                 <div className="task-line" key={t.id}>
-                  <button className={`check${t.done ? " on" : ""}`} onClick={() => toggleTask(t.id)} aria-label="Zrobione" />
+                  <button className={`check${t.done ? " on" : ""}`} onClick={() => toggleTask(t.id)} aria-label="Done" />
                   <div>
                     <div className="task-title">{t.title}</div>
-                    <div className="task-meta">{t.due ? t.due : "Bez terminu"}</div>
+                    <div className="task-meta">{t.due ? t.due : "No due date"}</div>
                   </div>
                 </div>
               ))
@@ -165,14 +165,14 @@ export function TodayView() {
           </section>
 
           <section className="card">
-            <p className="kicker">Ostatnie 12 tygodni</p>
+            <p className="kicker">Last 12 weeks</p>
             <div style={{ marginTop: 10 }}>
               <HeatmapGrid days={heatmap} goal={goal} mini weeks={12} />
             </div>
           </section>
 
           <button className="btn" onClick={() => setView("journal")}>
-            Rytuał zamknięcia dnia
+            End-of-day ritual
           </button>
         </div>
       </div>

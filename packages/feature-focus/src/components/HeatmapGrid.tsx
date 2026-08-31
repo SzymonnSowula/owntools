@@ -57,7 +57,7 @@ export function HeatmapGrid({
     const day = days[cellIso];
     const minutes = day?.minutes ?? 0;
     const sessions = day?.sessions ?? 0;
-    const check = day?.checkIn ? " · obecność" : "";
+    const check = day?.checkIn ? " · checked in" : "";
     setTip({
       x: r.left + r.width / 2,
       y: r.top,
@@ -67,8 +67,8 @@ export function HeatmapGrid({
 
   const header = mini
     ? null
-    : `${formatSessions(totals.sessions)} / ${formatMinutes(totals.minutes)} w ${
-        year === new Date().getFullYear() ? "ostatnim roku" : String(year)
+    : `${formatSessions(totals.sessions)} / ${formatMinutes(totals.minutes)} in ${
+        year === new Date().getFullYear() ? "the last year" : String(year)
       }`;
 
   const monthWidth = 14;
@@ -102,11 +102,11 @@ export function HeatmapGrid({
           </div>
           <div className="contrib-dows" aria-hidden>
             <span />
-            <span>Pn</span>
+            <span>Mon</span>
             <span />
-            <span>Śr</span>
+            <span>Wed</span>
             <span />
-            <span>Pt</span>
+            <span>Fri</span>
             <span />
           </div>
           <div className="contrib-weeks">
@@ -130,15 +130,15 @@ export function HeatmapGrid({
           </div>
         </div>
         <div className="contrib-legend">
-          <span>Mniej</span>
+          <span>Less</span>
           {([0, 1, 2, 3, 4] as HeatLevel[]).map((l) => (
             <span key={l} className={`contrib-cell l${l}`} />
           ))}
-          <span>Więcej</span>
+          <span>More</span>
         </div>
       </div>
       {!mini && (
-        <aside className="year-list" aria-label="Lata">
+        <aside className="year-list" aria-label="Years">
           {years.map((y) => (
             <button
               key={y}

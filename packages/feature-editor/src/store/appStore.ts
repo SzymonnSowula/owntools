@@ -178,7 +178,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   openRecent: async (id) => {
     const loaded = await loadProjectFromDisk(id);
     if (!loaded || !loaded.media.screenUrl) {
-      get().showToast("Nie udało się otworzyć projektu.", "error");
+      get().showToast("Couldn't open the project.", "error");
       return;
     }
     await get().openProject(loaded.project, loaded.media);
@@ -251,7 +251,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (selection.type === "segment") {
       const segments = removeSegment(project.segments, selection.id);
       if (!segments.length) {
-        get().showToast("Zostaw przynajmniej jeden fragment wideo.", "info");
+        get().showToast("Keep at least one video segment.", "info");
         return;
       }
       get().updateProject({ segments, duration: project.duration }, true);
@@ -314,7 +314,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       id: uid("cap"),
       start: source,
       end: Math.min(project.duration, source + 2.4),
-      text: "Twój napis",
+      text: "Your caption",
       style: "tiktok",
     };
     get().updateProject({ captions: [...project.captions, caption] }, true);
@@ -329,7 +329,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       id: uid("txt"),
       start: source,
       end: Math.min(project.duration, source + 3),
-      text: "Nagłówek",
+      text: "Heading",
       x: 0.5,
       y: 0.18,
       fontSize: 0.06,

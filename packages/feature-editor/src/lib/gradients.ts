@@ -27,7 +27,7 @@ export const GRADIENT_PRESETS: GradientPreset[] = [
   },
   {
     id: "citrus",
-    name: "Błękit i słońce",
+    name: "Blue & sun",
     base: "#12324a",
     blobs: [
       { x: 0.2, y: 0.28, r: 0.58, color: "#38bdf8" },
@@ -38,7 +38,7 @@ export const GRADIENT_PRESETS: GradientPreset[] = [
   },
   {
     id: "sky",
-    name: "Jasny błękit",
+    name: "Sky",
     base: "#dbeafe",
     blobs: [
       { x: 0.2, y: 0.15, r: 0.55, color: "#bfdbfe", blend: "source-over" },
@@ -49,7 +49,7 @@ export const GRADIENT_PRESETS: GradientPreset[] = [
   },
   {
     id: "noir",
-    name: "Ciemna elegancja",
+    name: "Noir",
     base: "#0c0b12",
     blobs: [
       { x: 0.22, y: 0.2, r: 0.5, color: "#312e81" },
@@ -60,7 +60,7 @@ export const GRADIENT_PRESETS: GradientPreset[] = [
   },
   {
     id: "mint",
-    name: "Mięta",
+    name: "Mint",
     base: "#ecfdf5",
     blobs: [
       { x: 0.18, y: 0.22, r: 0.52, color: "#a7f3d0", blend: "source-over" },
@@ -71,7 +71,7 @@ export const GRADIENT_PRESETS: GradientPreset[] = [
   },
   {
     id: "sunset",
-    name: "Zachód",
+    name: "Sunset",
     base: "#3b1020",
     blobs: [
       { x: 0.22, y: 0.25, r: 0.55, color: "#fb7185" },

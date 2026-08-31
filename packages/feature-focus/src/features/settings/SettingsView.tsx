@@ -16,7 +16,7 @@ export function SettingsView() {
       if (on) await a.enable();
       else await a.disable();
     } catch {
-      /* plugin niedostępny w przeglądarce */
+      /* plugin unavailable in the browser */
     }
   };
 
@@ -30,8 +30,8 @@ export function SettingsView() {
     <div className="page">
       <header className="page-head">
         <div>
-          <p className="kicker">Preferencje</p>
-          <h1 className="page-title">Ustawienia</h1>
+          <p className="kicker">Preferences</p>
+          <h1 className="page-title">Settings</h1>
         </div>
       </header>
 
@@ -39,17 +39,17 @@ export function SettingsView() {
         <section className="card stack">
           <div className="spread">
             <div>
-              <strong>Motyw</strong>
+              <strong>Theme</strong>
               <div className="muted" style={{ fontSize: 12 }}>
-                Jasny stalowy albo głębki charcoal
+                Light steel or deep charcoal
               </div>
             </div>
             <div className="row">
               <button className={`pill${settings.theme === "light" ? " active" : ""}`} onClick={() => update({ theme: "light" })}>
-                Jasny
+                Light
               </button>
               <button className={`pill${settings.theme === "dark" ? " active" : ""}`} onClick={() => update({ theme: "dark" })}>
-                Ciemny
+                Dark
               </button>
             </div>
           </div>
@@ -72,7 +72,7 @@ export function SettingsView() {
             />
           </label>
           <label className="field">
-            <span>Przerwa (min)</span>
+            <span>Break (min)</span>
             <input
               className="input"
               type="number"
@@ -83,7 +83,7 @@ export function SettingsView() {
             />
           </label>
           <label className="field">
-            <span>Cel heatmapy (min aktywnego czasu / dzień)</span>
+            <span>Heatmap goal (min of active time / day)</span>
             <input
               className="input"
               type="number"
@@ -102,7 +102,7 @@ export function SettingsView() {
               checked={settings.notifications}
               onChange={(e) => update({ notifications: e.target.checked })}
             />
-            Powiadomienia po sesji
+            Notifications after a session
           </label>
           <label className="row">
             <input
@@ -110,7 +110,7 @@ export function SettingsView() {
               checked={settings.usageTracking}
               onChange={(e) => useAppStore.getState().setUsageTracking(e.target.checked)}
             />
-            Śledź czas w aplikacjach i na stronach
+            Track time in apps and on websites
           </label>
           <label className="row">
             <input
@@ -118,7 +118,7 @@ export function SettingsView() {
               checked={settings.contributeOnTaskComplete}
               onChange={(e) => update({ contributeOnTaskComplete: e.target.checked })}
             />
-            Drobny ręczny wpis na heatmapie po ukończeniu zadania
+            Small manual heatmap entry when a task is completed
           </label>
           <label className="row">
             <input
@@ -126,13 +126,13 @@ export function SettingsView() {
               checked={settings.autostart}
               onChange={(e) => void toggleAutostart(e.target.checked)}
             />
-            Uruchamiaj z systemem (Windows)
+            Start with the system (Windows)
           </label>
           <div className="spread">
             <div>
-              <strong>Język dyktowania</strong>
+              <strong>Dictation language</strong>
               <div className="muted" style={{ fontSize: 12 }}>
-                Web Speech API, bez chmury po naszej stronie. Wymaga pakietu językowego Windows.
+                Web Speech API, no cloud on our side. Requires a Windows language pack.
               </div>
             </div>
             <div className="row">
@@ -151,8 +151,7 @@ export function SettingsView() {
             </div>
           </div>
           <p className="faint" style={{ fontSize: 12, margin: 0 }}>
-            Autostart wymaga wtyczki Tauri. W podglądzie przeglądarki opcja jest tylko zapamiętywana lokalnie.
-            Język interfejsu: polski.
+            Autostart requires the Tauri plugin. In the browser preview the option is only remembered locally.
           </p>
         </section>
 
@@ -160,10 +159,10 @@ export function SettingsView() {
 
         <section className="card">
           <p className="muted" style={{ marginTop: 0 }}>
-            Zamknięcie okna ukrywa aplikację w zasobniku. Aby wyjść całkowicie, użyj menu ikony albo przycisku poniżej.
+            Closing the window hides the app in the tray. To quit completely, use the tray icon menu or the button below.
           </p>
           <button className="btn" onClick={() => void quit()}>
-            Wyjdź
+            Quit
           </button>
         </section>
       </div>
@@ -182,10 +181,10 @@ function ScrollGuardSettings() {
   return (
     <section className="card stack">
       <div>
-        <strong>Blokada scrolla</strong>
+        <strong>Scroll guard</strong>
         <p className="muted" style={{ margin: "6px 0 0", fontSize: 12 }}>
-          Na wybranych stronach kółko myszy, touchpad i Page Down nie działają, dopóki nie odhaczysz
-          konkretnego zadania. Czytać i klikać nadal można.
+          On the selected sites the mouse wheel, touchpad, and Page Down stop working until you check off
+          a specific task. You can still read and click.
         </p>
       </div>
       <label className="row">
@@ -194,16 +193,16 @@ function ScrollGuardSettings() {
           checked={settings.scrollGuardEnabled}
           onChange={(e) => setGuard({ enabled: e.target.checked })}
         />
-        Włącz blokadę, aż zadanie będzie zrobione
+        Enable the guard until the task is done
       </label>
       <label className="field">
-        <span>Zadanie-klucz</span>
+        <span>Key task</span>
         <select
           className="select"
           value={settings.scrollGuardTaskId ?? ""}
           onChange={(e) => setGuard({ taskId: e.target.value || null })}
         >
-          <option value="">— wybierz zadanie —</option>
+          <option value="">— choose a task —</option>
           {open.map((t) => (
             <option key={t.id} value={t.id}>
               {t.title}
@@ -212,7 +211,7 @@ function ScrollGuardSettings() {
         </select>
       </label>
       <label className="field">
-        <span>Strony (jedna na linię)</span>
+        <span>Sites (one per line)</span>
         <textarea
           className="textarea"
           defaultValue={siteListText(settings.scrollGuardSites)}
@@ -223,8 +222,8 @@ function ScrollGuardSettings() {
         />
       </label>
       <p className="faint" style={{ fontSize: 12, margin: 0 }}>
-        Domyślnie: x.com, twitter.com, tiktok.com, instagram.com. Działa w aplikacji desktopowej, nie w
-        podglądzie przeglądarki. Po odhaczeniu zadania blokada sama spada.
+        Defaults: x.com, twitter.com, tiktok.com, instagram.com. Works in the desktop app, not in the
+        browser preview. Once the task is checked off, the guard lifts on its own.
       </p>
     </section>
   );

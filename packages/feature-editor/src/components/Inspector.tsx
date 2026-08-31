@@ -18,7 +18,7 @@ export function Inspector() {
 
   return (
     <aside className="scroll-thin flex w-[300px] shrink-0 flex-col overflow-y-auto border-l border-line bg-card">
-      <Section title="Tło">
+      <Section title="Background">
         <div className="grid grid-cols-3 gap-2">
           {GRADIENT_PRESETS.map((preset) => (
             <button
@@ -39,7 +39,7 @@ export function Inspector() {
           ))}
         </div>
         <label className="mt-3 block text-xs text-muted">
-          Własne tło
+          Custom background
           <input
             type="file"
             accept="image/*"
@@ -56,7 +56,7 @@ export function Inspector() {
           />
         </label>
         <Slider
-          label="Margines"
+          label="Padding"
           min={0.04}
           max={0.22}
           step={0.005}
@@ -64,7 +64,7 @@ export function Inspector() {
           onChange={(padding) => updateProject({ background: { ...project.background, padding } })}
         />
         <Slider
-          label="Zaokrąglenie okna"
+          label="Corner radius"
           min={8}
           max={48}
           step={1}
@@ -74,7 +74,7 @@ export function Inspector() {
           }
         />
         <Slider
-          label="Cień"
+          label="Shadow"
           min={0}
           max={1}
           step={0.01}
@@ -93,12 +93,12 @@ export function Inspector() {
           />
         </label>
         <button className="btn btn-secondary mt-2 w-full text-xs" onClick={regenerateZooms}>
-          Wygeneruj z kursora
+          Generate from cursor
         </button>
         {zoom ? (
           <div className="mt-3 space-y-2">
             <Slider
-              label="Skala"
+              label="Scale"
               min={1}
               max={3}
               step={0.05}
@@ -110,7 +110,7 @@ export function Inspector() {
               }
             />
             <Slider
-              label="Pozycja X"
+              label="Position X"
               min={0.05}
               max={0.95}
               step={0.01}
@@ -122,7 +122,7 @@ export function Inspector() {
               }
             />
             <Slider
-              label="Pozycja Y"
+              label="Position Y"
               min={0.05}
               max={0.95}
               step={0.01}
@@ -134,7 +134,7 @@ export function Inspector() {
               }
             />
             <label className="flex items-center justify-between text-sm">
-              Śledź kursor
+              Follow cursor
               <input
                 type="checkbox"
                 checked={zoom.followCursor}
@@ -167,13 +167,13 @@ export function Inspector() {
             </label>
           </div>
         ) : (
-          <p className="mt-2 text-xs text-muted">Zaznacz blok zoomu na osi, aby go edytować.</p>
+          <p className="mt-2 text-xs text-muted">Select a zoom block on the timeline to edit it.</p>
         )}
       </Section>
 
-      <Section title="Kamera">
+      <Section title="Camera">
         <label className="flex items-center justify-between text-sm">
-          Pokaż kamerę
+          Show camera
           <input
             type="checkbox"
             checked={project.webcam.enabled}
@@ -198,7 +198,7 @@ export function Inspector() {
           ))}
         </div>
         <Slider
-          label="Rozmiar"
+          label="Size"
           min={0.12}
           max={0.4}
           step={0.01}
@@ -206,7 +206,7 @@ export function Inspector() {
           onChange={(size) => updateProject({ webcam: { ...project.webcam, size } })}
         />
         <Slider
-          label="Zaokrąglenie"
+          label="Radius"
           min={8}
           max={48}
           step={1}
@@ -214,7 +214,7 @@ export function Inspector() {
           onChange={(radius) => updateProject({ webcam: { ...project.webcam, radius } })}
         />
         <label className="mt-2 flex items-center justify-between text-sm">
-          Obramowanie
+          Border
           <input
             type="checkbox"
             checked={project.webcam.border}
@@ -225,7 +225,7 @@ export function Inspector() {
         </label>
       </Section>
 
-      <Section title="Napisy i tekst">
+      <Section title="Captions & text">
         {caption ? (
           <div className="space-y-2">
             <textarea
@@ -254,7 +254,7 @@ export function Inspector() {
                     })
                   }
                 >
-                  {style === "tiktok" ? "TikTok" : "Napisy"}
+                  {style === "tiktok" ? "TikTok" : "Subtitles"}
                 </button>
               ))}
             </div>
@@ -271,7 +271,7 @@ export function Inspector() {
                 }
               />
               <Num
-                label="Koniec"
+                label="End"
                 value={caption.end}
                 onChange={(end) =>
                   updateProject({
@@ -293,7 +293,7 @@ export function Inspector() {
               }
             />
             <Slider
-              label="Rozmiar"
+              label="Size"
               min={0.02}
               max={0.14}
               step={0.005}
@@ -305,7 +305,7 @@ export function Inspector() {
               }
             />
             <label className="block text-xs text-muted">
-              Kolor
+              Color
               <input
                 type="color"
                 className="ml-2 h-7 w-12 rounded border border-line"
@@ -320,7 +320,7 @@ export function Inspector() {
               />
             </label>
             <Slider
-              label="Waga"
+              label="Weight"
               min={400}
               max={800}
               step={100}
@@ -333,13 +333,13 @@ export function Inspector() {
             />
           </div>
         ) : (
-          <p className="text-xs text-muted">Zaznacz napis lub tekst na osi czasu.</p>
+          <p className="text-xs text-muted">Select a caption or text on the timeline.</p>
         )}
       </Section>
 
       <div className="mt-auto border-t border-line p-4">
         <button className="btn btn-primary w-full" onClick={() => setExportOpen(true)}>
-          Eksportuj
+          Export
         </button>
       </div>
     </aside>

@@ -24,7 +24,7 @@ export function Home() {
     video.src = url;
     // MediaRecorder WebMs report Infinity until we force a duration probe.
     const duration = await ensureFiniteDuration(video);
-    if (!duration) throw new Error("Nie można odczytać długości wideo.");
+    if (!duration) throw new Error("Couldn't read the video duration.");
     const project = emptyProject({
       name: file.name.replace(/\.[^.]+$/, ""),
       duration,
@@ -71,7 +71,7 @@ export function Home() {
                 const file = e.target.files?.[0];
                 if (file) {
                   void importVideo(file).catch((err) =>
-                    showToast(err instanceof Error ? err.message : "Import się nie powiódł.", "error"),
+                    showToast(err instanceof Error ? err.message : "Import failed.", "error"),
                   );
                 }
                 e.currentTarget.value = "";

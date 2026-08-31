@@ -1,7 +1,7 @@
 export async function waitForMetadata(video: HTMLVideoElement): Promise<void> {
   if (video.readyState >= 1 && Number.isFinite(video.duration)) return;
   await new Promise<void>((resolve, reject) => {
-    const timeout = window.setTimeout(() => reject(new Error("Wideo nie załadowało się.")), 20000);
+    const timeout = window.setTimeout(() => reject(new Error("The video didn't load.")), 20000);
     const ok = () => {
       window.clearTimeout(timeout);
       video.removeEventListener("loadedmetadata", ok);
@@ -12,7 +12,7 @@ export async function waitForMetadata(video: HTMLVideoElement): Promise<void> {
       window.clearTimeout(timeout);
       video.removeEventListener("loadedmetadata", ok);
       video.removeEventListener("error", fail);
-      reject(new Error("Nie można odczytać wideo."));
+      reject(new Error("Couldn't read the video."));
     };
     video.addEventListener("loadedmetadata", ok);
     video.addEventListener("error", fail);

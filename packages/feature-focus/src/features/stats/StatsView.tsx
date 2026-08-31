@@ -47,62 +47,62 @@ export function StatsView() {
     <div className="page grid-surface">
       <header className="page-head">
         <div>
-          <p className="kicker">Spokojne liczby</p>
-          <h1 className="page-title">Statystyki</h1>
+          <p className="kicker">Calm numbers</p>
+          <h1 className="page-title">Stats</h1>
         </div>
       </header>
 
       <div className="grid-4" style={{ marginBottom: 16 }}>
         <article className="card">
           <div className="stat-hero">{streak}</div>
-          <div className="stat-label">Dni serii</div>
+          <div className="stat-label">Day streak</div>
         </article>
         <article className="card">
           <div className="stat-hero">{weekMin}</div>
-          <div className="stat-label">Minut w tym tygodniu</div>
+          <div className="stat-label">Minutes this week</div>
         </article>
         <article className="card">
           <div className="stat-hero">{yearMin}</div>
-          <div className="stat-label">Minut w tym roku</div>
+          <div className="stat-label">Minutes this year</div>
         </article>
         <article className="card">
           <div className="stat-hero">{tasksDone}</div>
-          <div className="stat-label">Zadań ukończonych</div>
+          <div className="stat-label">Tasks completed</div>
         </article>
       </div>
 
       <div className="grid-2">
         <section className="card">
           <div className="spread">
-            <span>Cel tygodnia</span>
+            <span>Weekly goal</span>
             <span className="muted">{weekPct}%</span>
           </div>
           <div className="meter" style={{ marginTop: 12 }}>
             <span style={{ width: `${weekPct}%` }} />
           </div>
           <p className="muted" style={{ margin: "10px 0 0", fontSize: 12 }}>
-            {weekMin} / {weekGoal} min (pięć dni × {goal})
+            {weekMin} / {weekGoal} min (five days × {goal})
           </p>
         </section>
         <section className="card">
           <div className="spread">
-            <span>Nawyki w tym tygodniu</span>
+            <span>Habits this week</span>
             <span className="muted">{habitPct}%</span>
           </div>
           <div className="meter" style={{ marginTop: 12 }}>
             <span style={{ width: `${habitPct}%` }} />
           </div>
           <p className="muted" style={{ margin: "10px 0 0", fontSize: 12 }}>
-            Dziś domknięte zadania: {tasksToday}
+            Tasks closed today: {tasksToday}
           </p>
         </section>
       </div>
 
       <section className="card" style={{ marginTop: 16 }}>
-        <strong>Aplikacje w tym tygodniu</strong>
+        <strong>Apps this week</strong>
         <ul className="usage-list" style={{ marginTop: 14 }}>
           {weekApps.length === 0 ? (
-            <li className="muted">Brak zmierzonego czasu — odpal desktopowe focus i pracuj normalnie.</li>
+            <li className="muted">No time measured yet — launch the desktop focus app and work as usual.</li>
           ) : (
             weekApps.map((a) => (
               <li key={a.id}>

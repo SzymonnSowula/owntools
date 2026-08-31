@@ -3,7 +3,7 @@ export function uid(prefix = "id"): string {
 }
 
 export function defaultProjectName(date = new Date()): string {
-  return `Nagranie ${date.toLocaleString("pl-PL", {
+  return `Recording ${date.toLocaleString(undefined, {
     day: "numeric",
     month: "short",
     hour: "2-digit",

@@ -25,8 +25,8 @@ export function PlannerView() {
     <div className="page">
       <header className="page-head">
         <div>
-          <p className="kicker">Bloki czasu</p>
-          <h1 className="page-title">Planer</h1>
+          <p className="kicker">Time blocks</p>
+          <h1 className="page-title">Planner</h1>
         </div>
       </header>
 
@@ -45,27 +45,27 @@ export function PlannerView() {
           <input className="input" type="time" value={start} onChange={(e) => setStart(e.target.value)} />
         </label>
         <label className="field">
-          <span>Koniec</span>
+          <span>End</span>
           <input className="input" type="time" value={end} onChange={(e) => setEnd(e.target.value)} />
         </label>
         <label className="field">
-          <span>Co robisz</span>
+          <span>What you're doing</span>
           <input
             className="input"
-            placeholder="Głęboka praca"
+            placeholder="Deep work"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
           />
         </label>
         <button className="btn primary" type="submit" style={{ alignSelf: "end" }}>
-          Dodaj
+          Add
         </button>
       </form>
 
       {blocks.length === 0 ? (
         <div className="empty">
-          <h3>Dzień jeszcze nie ułożony</h3>
-          <p>Dodaj kilka bloków — na przykład 90 minut głębokiej pracy i krótką administrację.</p>
+          <h3>The day isn't planned yet</h3>
+          <p>Add a few blocks — for example 90 minutes of deep work and a short admin session.</p>
         </div>
       ) : (
         <div className="card">
@@ -77,10 +77,10 @@ export function PlannerView() {
               <span className="block-title">{b.title}</span>
               <div className="row">
                 <button className="btn small" onClick={() => toggleBlock(b.id)}>
-                  {b.done ? "Cofnij" : "Gotowe"}
+                  {b.done ? "Undo" : "Done"}
                 </button>
                 <button className="btn small ghost" onClick={() => removeBlock(b.id)}>
-                  Usuń
+                  Remove
                 </button>
               </div>
             </div>

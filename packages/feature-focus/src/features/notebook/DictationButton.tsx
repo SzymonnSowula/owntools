@@ -98,11 +98,11 @@ export function DictationButton({ lang, onFinal, onInterim }: Props) {
         aria-pressed={status === "listening"}
       >
         <span className={`pulse${status === "listening" ? " on" : ""}`} />
-        {status === "listening" ? "Słucham…" : "Dyktuj"}
+        {status === "listening" ? "Listening…" : "Dictate"}
       </button>
       {status === "unsupported" && (
         <span className="faint" style={{ fontSize: 11 }}>
-          Brak Web Speech
+          No Web Speech
         </span>
       )}
       {error && <p className="dictate-error">{error}</p>}

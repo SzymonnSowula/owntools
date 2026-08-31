@@ -109,22 +109,22 @@ export function PianoView() {
     <div className="page">
       <header className="page-head">
         <div>
-          <p className="kicker">Ciche dźwięki</p>
-          <h1 className="page-title">Pianino</h1>
+          <p className="kicker">Quiet sounds</p>
+          <h1 className="page-title">Piano</h1>
         </div>
         <div className="page-actions">
           <button
             className={`btn${piano.ambient ? " primary" : ""}`}
             onClick={() => setPiano({ ambient: !piano.ambient })}
           >
-            {piano.ambient ? "Ambient włączony" : "Ambient piano"}
+            {piano.ambient ? "Ambient on" : "Ambient piano"}
           </button>
         </div>
       </header>
 
       <section className="card" style={{ marginBottom: 16 }}>
         <div className="mixer-row">
-          <span>Głośność</span>
+          <span>Volume</span>
           <input
             type="range"
             min={0}
@@ -136,7 +136,7 @@ export function PianoView() {
           <span className="faint">{Math.round(piano.volume * 100)}</span>
         </div>
         <div className="mixer-row">
-          <span>Tempo ambientu</span>
+          <span>Ambient tempo</span>
           <input
             type="range"
             min={18}
@@ -148,7 +148,7 @@ export function PianoView() {
           <span className="faint">{piano.tempo}</span>
         </div>
         <p className="muted" style={{ margin: "8px 0 0" }}>
-          Klawisze A–K (oktawa C4) oraz Z–M (C3). Czarne: W E T Y U. Ambient gra rzadkie dźwięki w C-moll pentatonicznej.
+          Keys A–K (C4 octave) and Z–M (C3). Black keys: W E T Y U. Ambient plays sparse notes in C minor pentatonic.
         </p>
       </section>
 

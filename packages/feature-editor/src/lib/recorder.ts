@@ -40,7 +40,7 @@ export function recordStream(stream: MediaStream): {
     recorder.ondataavailable = (e) => {
       if (e.data.size) chunks.push(e.data);
     };
-    recorder.onerror = () => reject(new Error("Nagrywanie się nie powiodło."));
+    recorder.onerror = () => reject(new Error("Recording failed."));
     recorder.onstop = () => {
       const type = recorder.mimeType || mime || "video/webm";
       resolve(new Blob(chunks, { type }));

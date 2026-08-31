@@ -35,26 +35,26 @@ export function NotesView() {
     <div className="page wide">
       <header className="page-head">
         <div>
-          <p className="kicker">Tablica</p>
-          <h1 className="page-title">Notatki</h1>
+          <p className="kicker">Board</p>
+          <h1 className="page-title">Notes</h1>
         </div>
         <div className="page-actions">
           <button className={`pill${showArchived ? " active" : ""}`} onClick={() => setShowArchived((v) => !v)}>
-            {showArchived ? "Archiwum" : "Pokaż archiwum"}
+            {showArchived ? "Archive" : "Show archive"}
           </button>
-          <button className="btn primary" onClick={() => addNote("Nowa myśl", "paper")}>
-            Nowa kartka
+          <button className="btn primary" onClick={() => addNote("New thought", "paper")}>
+            New note
           </button>
         </div>
       </header>
 
       {visible.length === 0 ? (
         <div className="empty">
-          <h3>{showArchived ? "Archiwum jest puste" : "Czysta tablica"}</h3>
+          <h3>{showArchived ? "The archive is empty" : "A clean board"}</h3>
           <p>
             {showArchived
-              ? "Nic tu nie odłożyłeś. Przypięte i aktywne notatki zostają na desce."
-              : "Połóż pierwszą kartkę. Krótko, konkretnie, bez formatowania."}
+              ? "Nothing put away here. Pinned and active notes stay on the board."
+              : "Put down the first note. Short, concrete, no formatting."}
           </p>
         </div>
       ) : (
@@ -73,7 +73,7 @@ export function NotesView() {
                 <textarea
                   value={n.content}
                   onChange={(e) => updateNote(n.id, { content: e.target.value })}
-                  placeholder="Napisz…"
+                  placeholder="Write…"
                 />
                 <div className="sticky-tools">
                   {NOTE_COLORS.map((c: NoteColor) => (
@@ -88,7 +88,7 @@ export function NotesView() {
                     className={`icon-btn${n.pinned ? " active" : ""}`}
                     style={{ width: 24, height: 24 }}
                     onClick={() => updateNote(n.id, { pinned: !n.pinned })}
-                    aria-label="Przypnij"
+                    aria-label="Pin"
                   >
                     •
                   </button>
@@ -96,7 +96,7 @@ export function NotesView() {
                     className="icon-btn"
                     style={{ width: 24, height: 24 }}
                     onClick={() => updateNote(n.id, { archived: !n.archived })}
-                    aria-label="Archiwizuj"
+                    aria-label="Archive"
                   >
                     ▭
                   </button>

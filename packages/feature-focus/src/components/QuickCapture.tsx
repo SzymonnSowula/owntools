@@ -4,11 +4,11 @@ import { useAppStore } from "../store/useAppStore";
 import { DictationButton } from "../features/notebook/DictationButton";
 
 const MODES: { id: CaptureMode; label: string }[] = [
-  { id: "task", label: "Zadanie" },
-  { id: "note", label: "Karteczka" },
-  { id: "habit", label: "Nawyk" },
-  { id: "page", label: "Nowa strona" },
-  { id: "append", label: "Doklej do notatnika" },
+  { id: "task", label: "Task" },
+  { id: "note", label: "Sticky note" },
+  { id: "habit", label: "Habit" },
+  { id: "page", label: "New page" },
+  { id: "append", label: "Append to notebook" },
 ];
 
 export function QuickCapture() {
@@ -55,18 +55,18 @@ export function QuickCapture() {
 
   const placeholder =
     mode === "task"
-      ? "Nowe zadanie…"
+      ? "New task…"
       : mode === "note"
-        ? "Krótka karteczka…"
+        ? "A short note…"
         : mode === "habit"
-          ? "Nazwa nawyku (zaznaczy dziś)"
+          ? "Habit name (checks today)"
           : mode === "page"
-            ? "Tytuł strony w notatniku…"
-            : "Akapit do bieżącej strony…";
+            ? "Notebook page title…"
+            : "Paragraph for the current page…";
 
   return (
     <div className="overlay" onClick={close} role="presentation">
-      <div className="palette" role="dialog" aria-label="Szybkie dodawanie" onClick={(e) => e.stopPropagation()}>
+      <div className="palette" role="dialog" aria-label="Quick capture" onClick={(e) => e.stopPropagation()}>
         <div className="row" style={{ marginBottom: 8, flexWrap: "wrap" }}>
           {MODES.map((m) => (
             <button
@@ -101,7 +101,7 @@ export function QuickCapture() {
         />
         {interim && <p className="nb-live">{interim}</p>}
         <p className="faint" style={{ margin: "8px 4px 0", fontSize: 12 }}>
-          Enter zapisuje. Esc zamyka. Dyktuj dopisuje tekst.
+          Enter saves. Esc closes. Dictate appends text.
         </p>
       </div>
     </div>

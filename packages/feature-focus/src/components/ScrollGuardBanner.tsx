@@ -15,19 +15,19 @@ export function ScrollGuardBanner() {
       {now?.scrollLocked ? (
         <>
           <span>
-            Scroll na <strong>{now.site ?? "tej stronie"}</strong> wstrzymany — najpierw: {task?.title}
+            Scrolling on <strong>{now.site ?? "this site"}</strong> is paused — first: {task?.title}
           </span>
           <button className="btn small" onClick={() => task && toggleTask(task.id)}>
-            Zrobione
+            Done
           </button>
         </>
       ) : (
         <>
           <span>
-            Blokada scrolla czeka na {task?.title}. x.com / TikTok / Instagram bez kółka, dopóki to nie spadnie z listy.
+            Scroll-lock is waiting on {task?.title}. x.com / TikTok / Instagram won't scroll until it's off the list.
           </span>
           <button className="btn small ghost" onClick={() => setView("settings")}>
-            Ustawienia
+            Settings
           </button>
         </>
       )}

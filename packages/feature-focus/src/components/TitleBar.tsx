@@ -30,17 +30,17 @@ export function TitleBar() {
   return (
     <header className="titlebar">
       <div className="titlebar-drag" data-tauri-drag-region>
-        <span className="titlebar-hint">focus</span>
+        <span className="titlebar-hint">suite</span>
       </div>
       <div className="win-controls">
-        <button className="win-btn" aria-label="Ukryj do zasobnika" onClick={() => void act("hide")}>
+        <button className="win-btn" aria-label="Hide to tray" onClick={() => void act("hide")}>
           <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden>
             <rect x="1" y="5" width="8" height="1" fill="currentColor" />
           </svg>
         </button>
         <button
           className="win-btn"
-          aria-label={maximized ? "Przywróć" : "Maksymalizuj"}
+          aria-label={maximized ? "Restore" : "Maximize"}
           onClick={() => void act("max")}
         >
           {maximized ? (
@@ -54,7 +54,7 @@ export function TitleBar() {
             </svg>
           )}
         </button>
-        <button className="win-btn close" aria-label="Ukryj (wyjście z zasobnika)" onClick={() => void act("close")}>
+        <button className="win-btn close" aria-label="Hide (quit from tray)" onClick={() => void act("close")}>
           <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden>
             <path d="M2 2l6 6M8 2L2 8" stroke="currentColor" strokeWidth="1.2" />
           </svg>

@@ -5,10 +5,10 @@ import { sourceToTimeline, timelineDuration } from "../lib/segments";
 import { useAppStore } from "../store/appStore";
 
 const TRACKS = [
-  { key: "video", label: "Wideo", color: "#0e9a8a" },
+  { key: "video", label: "Video", color: "#0e9a8a" },
   { key: "zoom", label: "Zoom", color: "#6b5bff" },
-  { key: "captions", label: "Napisy", color: "#ff715f" },
-  { key: "text", label: "Tekst", color: "#d97706" },
+  { key: "captions", label: "Captions", color: "#ff715f" },
+  { key: "text", label: "Text", color: "#d97706" },
 ] as const;
 
 export function Timeline({ project }: { project: Project }) {
@@ -58,9 +58,9 @@ export function Timeline({ project }: { project: Project }) {
   return (
     <div className="border-t border-line bg-card">
       <div className="flex items-center justify-between px-4 py-2 text-xs text-muted">
-        <span>Oś czasu · Spacja odtwarzanie · S split · Del usuń · Ctrl+Z cofnij</span>
+        <span>Timeline · Space play · S split · Del delete · Ctrl+Z undo</span>
         <label className="flex items-center gap-2">
-          Zoom osi
+          Zoom
           <input
             className="slider w-28"
             type="range"

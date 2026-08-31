@@ -11,19 +11,19 @@ export function SoundsView() {
     <div className="page">
       <header className="page-head">
         <div>
-          <p className="kicker">Tło</p>
-          <h1 className="page-title">Dźwięki</h1>
+          <p className="kicker">Background</p>
+          <h1 className="page-title">Sounds</h1>
         </div>
         <div className="page-actions">
           <button className="btn primary" onClick={() => setPlaying(!sounds.playing)}>
-            {sounds.playing ? "Zatrzymaj" : "Odtwarzaj"}
+            {sounds.playing ? "Stop" : "Play"}
           </button>
         </div>
       </header>
 
       <section className="card">
         <div className="mixer-row">
-          <span>Głośność</span>
+          <span>Volume</span>
           <input
             type="range"
             min={0}
@@ -50,7 +50,7 @@ export function SoundsView() {
         ))}
       </section>
       <p className="muted" style={{ marginTop: 16, maxWidth: "52ch" }}>
-        Szum jest liczony na bieżąco — bez sampli i bez sieci. Mikser działa razem z timerem, także w tle.
+        The noise is generated in real time — no samples, no network. The mixer runs alongside the timer, even in the background.
       </p>
     </div>
   );

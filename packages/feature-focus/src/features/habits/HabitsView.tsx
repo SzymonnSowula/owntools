@@ -25,8 +25,8 @@ export function HabitsView() {
     <div className="page">
       <header className="page-head">
         <div>
-          <p className="kicker">Codzienność</p>
-          <h1 className="page-title">Nawyki</h1>
+          <p className="kicker">Every day</p>
+          <h1 className="page-title">Habits</h1>
         </div>
       </header>
 
@@ -42,19 +42,19 @@ export function HabitsView() {
         <input
           className="input"
           style={{ flex: 1 }}
-          placeholder="Nowy nawyk…"
+          placeholder="New habit…"
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
         <button className="btn primary" type="submit">
-          Dodaj
+          Add
         </button>
       </form>
 
       {habits.length === 0 ? (
         <div className="empty">
-          <h3>Brak rytuałów</h3>
-          <p>Dodaj trzy rzeczy, które chcesz robić codziennie. Reszta to szum.</p>
+          <h3>No rituals yet</h3>
+          <p>Add three things you want to do every day. The rest is noise.</p>
         </div>
       ) : (
         <div className="stack">
@@ -64,11 +64,11 @@ export function HabitsView() {
                 <div>
                   <strong>{h.name}</strong>
                   <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
-                    Seria: {streakOf(h.checks)} dni
+                    Streak: {streakOf(h.checks)} days
                   </div>
                 </div>
                 <button className="btn small ghost" onClick={() => removeHabit(h.id)}>
-                  Usuń
+                  Remove
                 </button>
               </div>
               <div className="dots" style={{ marginTop: 14 }}>
@@ -84,7 +84,7 @@ export function HabitsView() {
               </div>
               <div className="row" style={{ marginTop: 14 }}>
                 <button className="btn small" onClick={() => toggleHabit(h.id)}>
-                  {h.checks[todayIso()] ? "Cofnij dziś" : "Zaznacz dziś"}
+                  {h.checks[todayIso()] ? "Undo today" : "Check today"}
                 </button>
               </div>
             </section>

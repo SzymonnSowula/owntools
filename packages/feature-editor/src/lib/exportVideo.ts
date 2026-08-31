@@ -70,7 +70,7 @@ function throwIfAborted(signal?: AbortSignal): void {
 
 async function fetchBlob(url: string): Promise<Blob> {
   const res = await fetch(url);
-  if (!res.ok) throw new Error("Nie udało się wczytać nagrania do eksportu.");
+  if (!res.ok) throw new Error("Couldn't load the recording for export.");
   return res.blob();
 }
 
@@ -137,7 +137,7 @@ async function exportWithWebCodecs(
   const screenInput = new Input({ formats: ALL_FORMATS, source: new BlobSource(screenBlob) });
   const screenTrack = await screenInput.getPrimaryVideoTrack();
   if (!screenTrack || !(await screenTrack.canDecode())) {
-    throw new Error("Nie można zdekodować nagrania w tym środowisku.");
+    throw new Error("Can't decode the recording in this environment.");
   }
 
   // project.duration comes from a <video> seek probe and can overshoot the
@@ -173,7 +173,7 @@ async function exportWithWebCodecs(
   canvas.width = width;
   canvas.height = height;
   const ctx = canvas.getContext("2d", { alpha: false });
-  if (!ctx) throw new Error("Nie udało się utworzyć kontekstu canvas.");
+  if (!ctx) throw new Error("Couldn't create a canvas context.");
 
   const vw = project.videoWidth || screenTrack.displayWidth || 1920;
   const vh = project.videoHeight || screenTrack.displayHeight || 1080;
@@ -300,7 +300,7 @@ async function exportWithWebCodecs(
 
   const buffer = (output.target as BufferTarget).buffer;
   if (!buffer || buffer.byteLength === 0) {
-    throw new Error("Eksport zapisał pusty plik. Spróbuj ponownie.");
+    throw new Error("Export produced an empty file. Try again.");
   }
   onProgress?.(1, "finalize");
   return {
@@ -336,7 +336,7 @@ async function exportWithMediaRecorder(
   canvas.width = width;
   canvas.height = height;
   const ctx = canvas.getContext("2d", { alpha: false });
-  if (!ctx) throw new Error("Nie udało się utworzyć kontekstu canvas.");
+  if (!ctx) throw new Error("Couldn't create a canvas context.");
 
   await ensureFiniteDuration(screen);
   if (webcam?.src) await ensureFiniteDuration(webcam).catch(() => 0);
@@ -348,7 +348,7 @@ async function exportWithMediaRecorder(
   const videoTrack = canvasStream.getVideoTracks()[0] as MediaStreamTrack & {
     requestFrame?: () => void;
   };
-  if (!videoTrack) throw new Error("Nie udało się przechwycić klatek canvas.");
+  if (!videoTrack) throw new Error("Couldn't capture canvas frames.");
 
   const recorder = new MediaRecorder(new MediaStream([videoTrack]), {
     mimeType: mime,
@@ -359,9 +359,9 @@ async function exportWithMediaRecorder(
     if (e.data.size) chunks.push(e.data);
   };
   const stopped = new Promise<Blob>((resolve, reject) => {
-    recorder.onerror = () => reject(new Error("Eksport się nie powiódł."));
+    recorder.onerror = () => reject(new Error("Export failed."));
     recorder.onstop = () => {
-      if (!chunks.length) reject(new Error("Eksport zapisał pusty plik. Spróbuj ponownie."));
+      if (!chunks.length) reject(new Error("Export produced an empty file. Try again."));
       else resolve(new Blob(chunks, { type: mime }));
     };
   });
@@ -424,7 +424,7 @@ export async function exportProject(
     }
   }
 
-  if (!screen) throw new Error("Brak wideo do eksportu.");
+  if (!screen) throw new Error("No video to export.");
   return exportWithMediaRecorder(project, screen, webcam, background, options);
 }
 

@@ -124,7 +124,7 @@ export function BlockEditor({
     }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "e") {
       e.preventDefault();
-      document.execCommand("insertHTML", false, `<code>${document.getSelection()?.toString() || "kod"}</code>`);
+      document.execCommand("insertHTML", false, `<code>${document.getSelection()?.toString() || "code"}</code>`);
     }
     if (e.key === "ArrowUp" && e.altKey) {
       e.preventDefault();
@@ -188,14 +188,14 @@ export function BlockEditor({
             <button
               className="nb-handle"
               draggable
-              title="Przeciągnij albo Alt+↑/↓"
+              title="Drag or Alt+↑/↓"
               onDragStart={(e) => e.dataTransfer.setData("text/plain", String(index))}
               onClick={() => move(index, -1)}
-              aria-label="W górę"
+              aria-label="Move up"
             >
               ⋮⋮
             </button>
-            <button className="nb-mini" onClick={() => move(index, 1)} aria-label="W dół">
+            <button className="nb-mini" onClick={() => move(index, 1)} aria-label="Move down">
               ↓
             </button>
           </div>
@@ -221,7 +221,7 @@ export function BlockEditor({
               <span>{item.hint}</span>
             </button>
           ))}
-          {filtered(slash.q).length === 0 && <p className="faint">Nic nie pasuje</p>}
+          {filtered(slash.q).length === 0 && <p className="faint">Nothing matches</p>}
         </div>
       )}
     </div>
@@ -259,7 +259,7 @@ function BlockBody({
       <div className="nb-image">
         <input
           className="input"
-          placeholder="https://… adres obrazu"
+          placeholder="https://… image address"
           value={block.url ?? ""}
           onChange={(e) => onPatch({ url: e.target.value })}
           onFocus={onFocus}
@@ -316,7 +316,7 @@ function BlockBody({
           className="btn small ghost"
           onClick={() => onPatch({ rows: [...rows, Array(rows[0]?.length ?? 2).fill("")] })}
         >
-          Dodaj wiersz
+          Add row
         </button>
       </div>
     );
@@ -325,7 +325,7 @@ function BlockBody({
     const target = pages.find((p) => p.id === block.pageId);
     return (
       <button className="nb-pagelink" onClick={() => block.pageId && onOpenPage(block.pageId)}>
-        {target ? `${target.icon} ${target.title || "Bez tytułu"}` : "Brak strony"}
+        {target ? `${target.icon} ${target.title || "Untitled"}` : "No page"}
       </button>
     );
   }
@@ -336,7 +336,7 @@ function BlockBody({
         <button
           className={`check${block.checked ? " on" : ""}`}
           onClick={() => onPatch({ checked: !block.checked })}
-          aria-label="Zrobione"
+          aria-label="Done"
         />
       )}
       {block.type === "bullet" && <span className="nb-bullet">•</span>}
@@ -371,7 +371,7 @@ function BlockBody({
               className="nb-edit"
               contentEditable
               suppressContentEditableWarning
-              data-placeholder="Pusto. Napisz albo zostaw."
+              data-placeholder="Empty. Write or leave it."
               dangerouslySetInnerHTML={{ __html: child.text || "" }}
               onBlur={(e) => {
                 const next = [...(block.children ?? [])];
@@ -384,7 +384,7 @@ function BlockBody({
             className="btn small ghost"
             onClick={() => onChildren([...(block.children ?? []), createBlock("paragraph")])}
           >
-            Dodaj w środku
+            Add inside
           </button>
         </div>
       )}
@@ -436,11 +436,11 @@ function Editable({
 }
 
 function placeholder(type: BlockType): string {
-  if (type.startsWith("heading")) return "Nagłówek";
-  if (type === "quote") return "Cytat";
-  if (type === "callout") return "Ważna myśl";
-  if (type === "todo") return "Zadanie";
-  if (type === "bullet" || type === "numbered") return "Lista";
-  if (type === "toggle") return "Rozwijane";
-  return "Napisz albo / na bloki";
+  if (type.startsWith("heading")) return "Heading";
+  if (type === "quote") return "Quote";
+  if (type === "callout") return "Key thought";
+  if (type === "todo") return "Task";
+  if (type === "bullet" || type === "numbered") return "List";
+  if (type === "toggle") return "Toggle";
+  return "Write, or / for blocks";
 }

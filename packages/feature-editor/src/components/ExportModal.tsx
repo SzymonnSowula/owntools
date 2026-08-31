@@ -9,10 +9,10 @@ import { invokeSafe, isTauri } from "../lib/tauri";
 import { useAppStore } from "../store/appStore";
 
 const PHASE_LABEL: Record<ExportPhase, string> = {
-  prepare: "Przygotowuję…",
-  audio: "Renderuję dźwięk…",
-  video: "Renderuję klatki…",
-  finalize: "Zapisuję plik…",
+  prepare: "Preparing…",
+  audio: "Rendering audio…",
+  video: "Rendering frames…",
+  finalize: "Writing file…",
 };
 
 export function ExportModal({
@@ -61,7 +61,7 @@ export function ExportModal({
 
   async function run() {
     if (!media) {
-      showToast("Brak wideo do eksportu.", "error");
+      showToast("No video to export.", "error");
       return;
     }
     setPlaying(false);
@@ -93,16 +93,16 @@ export function ExportModal({
           outExt = "mp4";
           saved = mp4Path;
         } catch {
-          /* zostaw WebM, jeśli konwersja padnie */
+          /* keep the WebM if conversion fails */
         }
       }
 
       if (!saved) await blobToFileDownload(blob, `${base}.${outExt}`);
-      showToast(outExt === "mp4" ? "Zapisano MP4." : "Zapisano wideo.", "info");
+      showToast(outExt === "mp4" ? "MP4 saved." : "Video saved.", "info");
       setOpen(false);
     } catch (err) {
       if ((err as { name?: string }).name !== "AbortError") {
-        showToast(err instanceof Error ? err.message : "Eksport się nie powiódł.", "error");
+        showToast(err instanceof Error ? err.message : "Export failed.", "error");
       }
     } finally {
       setBusy(false);
@@ -114,20 +114,20 @@ export function ExportModal({
     if (activateLicense(licenseInput)) {
       setPro(true);
       setShowLicense(false);
-      showToast("Licencja aktywna. Dzięki za wsparcie!", "info");
+      showToast("License active. Thanks for the support!", "info");
     } else {
-      showToast("Nieprawidłowy klucz licencji.", "error");
+      showToast("Invalid license key.", "error");
     }
   }
 
   return (
     <div className="absolute inset-0 z-50 grid place-items-center bg-[#17151f]/35 p-6">
       <div className="w-full max-w-md rounded-[18px] border border-line bg-card p-6 shadow-[0_30px_80px_rgba(23,21,31,0.18)]">
-        <h2 className="text-lg font-semibold tracking-[-0.03em]">Eksport</h2>
+        <h2 className="text-lg font-semibold tracking-[-0.03em]">Export</h2>
         <p className="mt-1 text-sm text-muted">
           {canMp4
-            ? "Zapisze MP4 gotowy na YouTube, LinkedIn, Slacka czy Dysk."
-            : "Zapisze WebM (Chrome, VLC, Discord)."}
+            ? "Saves an MP4 ready for YouTube, LinkedIn, Slack, or Drive."
+            : "Saves a WebM (Chrome, VLC, Discord)."}
         </p>
 
         <div className="mt-4 grid grid-cols-3 gap-2">
@@ -172,14 +172,14 @@ export function ExportModal({
                   onKeyDown={(e) => e.key === "Enter" && tryActivate()}
                 />
                 <button className="btn btn-secondary h-8 px-3 text-xs" onClick={tryActivate}>
-                  Aktywuj
+                  Activate
                 </button>
               </div>
             ) : (
               <span>
-                Wersja darmowa dodaje mały znak „Made with Screeni”.{" "}
+                The free version adds a small "Made with Screeni" badge.{" "}
                 <button className="font-semibold text-teal-2 underline" onClick={() => setShowLicense(true)}>
-                  Mam klucz licencji
+                  I have a license key
                 </button>
               </span>
             )}
@@ -209,10 +209,10 @@ export function ExportModal({
               setProgress(null);
             }}
           >
-            {busy ? "Przerwij" : "Anuluj"}
+            {busy ? "Stop" : "Cancel"}
           </button>
           <button className="btn btn-primary flex-1" disabled={busy} onClick={() => void run()}>
-            {busy ? "Eksportuję…" : canMp4 ? "Zapisz MP4" : "Zapisz wideo"}
+            {busy ? "Exporting…" : canMp4 ? "Save MP4" : "Save video"}
           </button>
         </div>
       </div>

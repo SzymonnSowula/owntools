@@ -32,15 +32,15 @@ export function HeatmapView() {
     <div className="page wide">
       <header className="page-head">
         <div>
-          <p className="kicker">Czas przy komputerze</p>
-          <h1 className="page-title">Heatmapa</h1>
+          <p className="kicker">Time at the computer</p>
+          <h1 className="page-title">Heatmap</h1>
         </div>
         <div className="page-actions">
           <button className={`pill${tracking ? " active" : ""}`} onClick={() => setTracking(!tracking)}>
-            {tracking ? "Śledzenie włączone" : "Śledzenie wyłączone"}
+            {tracking ? "Tracking on" : "Tracking off"}
           </button>
           <button className="btn" onClick={() => checkInDay()}>
-            {heatmap[today]?.checkIn ? "Dzień odznaczony" : "Oznacz dziś"}
+            {heatmap[today]?.checkIn ? "Day checked in" : "Check in today"}
           </button>
           <button className="btn ghost" onClick={() => addFocusMinutes(15, 0)}>
             +15 min
@@ -51,15 +51,15 @@ export function HeatmapView() {
       <section className="card usage-now">
         {!isTauri() ? (
           <p className="muted" style={{ margin: 0 }}>
-            Tracker działa w aplikacji desktopowej. W przeglądarce heatmapa nie widzi okien.
+            The tracker runs in the desktop app. In the browser the heatmap can't see windows.
           </p>
         ) : now?.idle ? (
           <p style={{ margin: 0 }}>
-            <span className="dot idle" /> Bezczynność — czas nie jest doliczany.
+            <span className="dot idle" /> Idle — time is not being counted.
           </p>
         ) : (
           <p style={{ margin: 0 }}>
-            <span className="dot live" /> Teraz: <strong>{now?.appName || "—"}</strong>
+            <span className="dot live" /> Now: <strong>{now?.appName || "—"}</strong>
             {now?.site ? (
               <>
                 {" "}
@@ -86,14 +86,14 @@ export function HeatmapView() {
       <div className="grid-2" style={{ marginTop: 16 }}>
         <section className="card">
           <div className="spread">
-            <strong>Aplikacje</strong>
-            <span className="muted">{selected === today ? "dziś" : selected}</span>
+            <strong>Apps</strong>
+            <span className="muted">{selected === today ? "today" : selected}</span>
           </div>
           <p className="muted" style={{ margin: "6px 0 14px", fontSize: 12 }}>
-            {formatDuration(totalSec)} aktywnego czasu · {day?.sessions ?? 0} sesji
+            {formatDuration(totalSec)} active time · {day?.sessions ?? 0} sessions
           </p>
           {apps.length === 0 ? (
-            <p className="muted">Brak danych z tego dnia. Zostaw focus w zasobniku — liczy się pierwsze okno.</p>
+            <p className="muted">No data for this day. Leave focus in the tray — the first window counts.</p>
           ) : (
             <ul className="usage-list">
               {apps.map((a) => (
@@ -112,14 +112,14 @@ export function HeatmapView() {
         </section>
         <section className="card">
           <div className="spread">
-            <strong>Strony</strong>
-            <span className="muted">z paska adresu</span>
+            <strong>Sites</strong>
+            <span className="muted">from the address bar</span>
           </div>
           <p className="muted" style={{ margin: "6px 0 14px", fontSize: 12 }}>
-            Chrome, Edge, Firefox, Brave — domena, bez pełnej historii.
+            Chrome, Edge, Firefox, Brave — domain only, no full history.
           </p>
           {sites.length === 0 ? (
-            <p className="muted">Brak stron. Otwórz przeglądarkę z widocznym paskiem adresu.</p>
+            <p className="muted">No sites yet. Open a browser with the address bar visible.</p>
           ) : (
             <ul className="usage-list">
               {sites.map((s) => (
@@ -139,9 +139,9 @@ export function HeatmapView() {
       </div>
 
       <p className="muted" style={{ marginTop: 16, maxWidth: "62ch" }}>
-        Heatmapa liczy aktywny czas przy komputerze (nie bezczynność powyżej minuty). Każda sesja
-        zaczyna się po powrocie z pauzy. Intensywność względem celu {goal} min / dzień. Dane zostają
-        na tym komputerze.
+        The heatmap counts active time at the computer (idle over a minute doesn't count). Each
+        session starts after returning from a pause. Intensity is relative to the goal of {goal} min
+        / day. Data stays on this computer.
       </p>
     </div>
   );

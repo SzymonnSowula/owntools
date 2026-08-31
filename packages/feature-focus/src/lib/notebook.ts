@@ -2,21 +2,21 @@ import { uid } from "./ids";
 import type { BlockType, NbBlock, NotebookPage, NotebookState } from "../types";
 
 export const BLOCK_CATALOG: { type: BlockType; label: string; hint: string; slash: string }[] = [
-  { type: "paragraph", label: "Tekst", hint: "Zwykły akapit", slash: "tekst" },
-  { type: "heading1", label: "Nagłówek 1", hint: "Duży tytuł", slash: "h1" },
-  { type: "heading2", label: "Nagłówek 2", hint: "Średni tytuł", slash: "h2" },
-  { type: "heading3", label: "Nagłówek 3", hint: "Mały tytuł", slash: "h3" },
-  { type: "bullet", label: "Lista", hint: "Wypunktowanie", slash: "lista" },
-  { type: "numbered", label: "Lista numerowana", hint: "1, 2, 3", slash: "numer" },
-  { type: "todo", label: "Do zrobienia", hint: "Checkbox", slash: "zadanie" },
-  { type: "toggle", label: "Rozwijane", hint: "Ukryj szczegóły", slash: "toggle" },
-  { type: "quote", label: "Cytat", hint: "Wyróżniony fragment", slash: "cytat" },
-  { type: "callout", label: "Callout", hint: "Ramka z ikoną", slash: "callout" },
-  { type: "code", label: "Kod", hint: "Blok kodu", slash: "kod" },
-  { type: "divider", label: "Linia", hint: "Rozdzielacz", slash: "linia" },
-  { type: "table", label: "Tabela", hint: "Dwie kolumny", slash: "tabela" },
-  { type: "image", label: "Obraz (URL)", hint: "Osadź po adresie", slash: "obraz" },
-  { type: "pageLink", label: "Link do strony", hint: "Podstrona notatnika", slash: "strona" },
+  { type: "paragraph", label: "Text", hint: "Plain paragraph", slash: "text" },
+  { type: "heading1", label: "Heading 1", hint: "Large title", slash: "h1" },
+  { type: "heading2", label: "Heading 2", hint: "Medium title", slash: "h2" },
+  { type: "heading3", label: "Heading 3", hint: "Small title", slash: "h3" },
+  { type: "bullet", label: "List", hint: "Bulleted list", slash: "list" },
+  { type: "numbered", label: "Numbered list", hint: "1, 2, 3", slash: "numbered" },
+  { type: "todo", label: "To-do", hint: "Checkbox", slash: "todo" },
+  { type: "toggle", label: "Toggle", hint: "Hide details", slash: "toggle" },
+  { type: "quote", label: "Quote", hint: "Highlighted passage", slash: "quote" },
+  { type: "callout", label: "Callout", hint: "Box with an icon", slash: "callout" },
+  { type: "code", label: "Code", hint: "Code block", slash: "code" },
+  { type: "divider", label: "Divider", hint: "Separator line", slash: "divider" },
+  { type: "table", label: "Table", hint: "Two columns", slash: "table" },
+  { type: "image", label: "Image (URL)", hint: "Embed from a link", slash: "image" },
+  { type: "pageLink", label: "Page link", hint: "Notebook subpage", slash: "page" },
 ];
 
 export function createBlock(type: BlockType = "paragraph", extra: Partial<NbBlock> = {}): NbBlock {
@@ -40,7 +40,7 @@ export function emptyNotebook(): NotebookState {
 }
 
 export function createPage(
-  title = "Bez tytułu",
+  title = "Untitled",
   parentId: string | null = null,
   blocks?: NbBlock[],
 ): NotebookPage {
@@ -62,46 +62,46 @@ export function createPage(
 export type TemplateId = "meeting" | "brain" | "day" | "retro";
 
 export const TEMPLATES: { id: TemplateId; title: string; desc: string; icon: string }[] = [
-  { id: "meeting", title: "Notatka ze spotkania", desc: "Cel, ustalenia, następne kroki", icon: "🗓️" },
-  { id: "brain", title: "Brain dump", desc: "Wszystko z głowy, bez porządku", icon: "🧠" },
-  { id: "day", title: "Plan dnia", desc: "MIT, bloki, zamknięcie", icon: "☀️" },
-  { id: "retro", title: "Retrospektywa", desc: "Co działa, co zmienić", icon: "🔁" },
+  { id: "meeting", title: "Meeting notes", desc: "Goal, decisions, next steps", icon: "🗓️" },
+  { id: "brain", title: "Brain dump", desc: "Everything out of your head, no order", icon: "🧠" },
+  { id: "day", title: "Day plan", desc: "MIT, blocks, shutdown", icon: "☀️" },
+  { id: "retro", title: "Retrospective", desc: "What works, what to change", icon: "🔁" },
 ];
 
 export function blocksForTemplate(id: TemplateId): NbBlock[] {
   if (id === "meeting") {
     return [
-      createBlock("heading2", { text: "Cel" }),
+      createBlock("heading2", { text: "Goal" }),
       createBlock("paragraph"),
-      createBlock("heading2", { text: "Ustalenia" }),
+      createBlock("heading2", { text: "Decisions" }),
       createBlock("bullet"),
-      createBlock("heading2", { text: "Następne kroki" }),
+      createBlock("heading2", { text: "Next steps" }),
       createBlock("todo"),
     ];
   }
   if (id === "brain") {
     return [
-      createBlock("paragraph", { text: "Pisz bez cenzury. Porządek przyjdzie później." }),
+      createBlock("paragraph", { text: "Write without censoring. Order comes later." }),
       createBlock("paragraph"),
       createBlock("paragraph"),
     ];
   }
   if (id === "day") {
     return [
-      createBlock("heading2", { text: "Najważniejsze" }),
+      createBlock("heading2", { text: "Most important" }),
       createBlock("todo"),
-      createBlock("heading2", { text: "Reszta" }),
+      createBlock("heading2", { text: "The rest" }),
       createBlock("bullet"),
-      createBlock("heading2", { text: "Nie dzisiaj" }),
+      createBlock("heading2", { text: "Not today" }),
       createBlock("paragraph"),
     ];
   }
   return [
-    createBlock("heading2", { text: "Co poszło dobrze" }),
+    createBlock("heading2", { text: "What went well" }),
     createBlock("bullet"),
-    createBlock("heading2", { text: "Co tarło" }),
+    createBlock("heading2", { text: "What dragged" }),
     createBlock("bullet"),
-    createBlock("heading2", { text: "Co zmieniam" }),
+    createBlock("heading2", { text: "What I'm changing" }),
     createBlock("todo"),
   ];
 }
@@ -145,7 +145,7 @@ export function pagePath(pages: NotebookPage[], id: string): NotebookPage[] {
 export function childPages(pages: NotebookPage[], parentId: string | null): NotebookPage[] {
   return pages
     .filter((p) => p.parentId === parentId && !p.archived)
-    .sort((a, b) => a.title.localeCompare(b.title, "pl"));
+    .sort((a, b) => a.title.localeCompare(b.title));
 }
 
 export function sanitizeHtml(html: string): string {

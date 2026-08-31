@@ -3,10 +3,10 @@ import type { Priority } from "../../types";
 import { useAppStore } from "../../store/useAppStore";
 
 const PRI: { id: Priority; label: string }[] = [
-  { id: 0, label: "Brak" },
-  { id: 1, label: "Niski" },
-  { id: 2, label: "Średni" },
-  { id: 3, label: "Wysoki" },
+  { id: 0, label: "None" },
+  { id: 1, label: "Low" },
+  { id: 2, label: "Medium" },
+  { id: 3, label: "High" },
 ];
 
 export function TasksView() {
@@ -45,8 +45,8 @@ export function TasksView() {
     <div className="page">
       <header className="page-head">
         <div>
-          <p className="kicker">Listy</p>
-          <h1 className="page-title">Zadania</h1>
+          <p className="kicker">Lists</p>
+          <h1 className="page-title">Tasks</h1>
         </div>
       </header>
 
@@ -67,7 +67,7 @@ export function TasksView() {
           <input
             className="input"
             style={{ width: 140, padding: "6px 10px" }}
-            placeholder="Nowa lista"
+            placeholder="New list"
             value={listName}
             onChange={(e) => setListName(e.target.value)}
           />
@@ -86,18 +86,18 @@ export function TasksView() {
           <input
             className="input"
             style={{ flex: 1 }}
-            placeholder="Dodaj zadanie do tej listy…"
+            placeholder="Add a task to this list…"
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
           />
           <button className="btn primary" type="submit">
-            Dodaj
+            Add
           </button>
         </form>
         <div className="row" style={{ marginTop: 12 }}>
           {(["open", "done", "all"] as const).map((f) => (
             <button key={f} className={`pill${filter === f ? " active" : ""}`} onClick={() => setFilter(f)}>
-              {f === "open" ? "Otwarte" : f === "done" ? "Zrobione" : "Wszystkie"}
+              {f === "open" ? "Open" : f === "done" ? "Done" : "All"}
             </button>
           ))}
         </div>
@@ -105,15 +105,15 @@ export function TasksView() {
 
       {visible.length === 0 ? (
         <div className="empty">
-          <h3>Tu jest cicho</h3>
-          <p>Ta lista nie ma zadań w tym filtrze. Dodaj jedną konkretną rzecz albo przełącz widok.</p>
+          <h3>It's quiet here</h3>
+          <p>This list has no tasks in this filter. Add one concrete thing or switch the view.</p>
         </div>
       ) : (
         <div className="card">
           {visible.map((t) => (
             <div className={`task-line${t.done ? " done" : ""}`} key={t.id}>
-              <button className={`check${t.done ? " on" : ""}`} onClick={() => toggleTask(t.id)} aria-label="Gotowe" />
-              <span className={`pri p${t.priority}`} title="Priorytet" />
+              <button className={`check${t.done ? " on" : ""}`} onClick={() => toggleTask(t.id)} aria-label="Done" />
+              <span className={`pri p${t.priority}`} title="Priority" />
               <div style={{ flex: 1 }}>
                 <div className="task-title">{t.title}</div>
                 <div className="task-meta">
@@ -143,7 +143,7 @@ export function TasksView() {
                   <input
                     className="input"
                     style={{ padding: "5px 10px", fontSize: 12 }}
-                    placeholder="Podzadanie"
+                    placeholder="Subtask"
                     value={subDraft[t.id] ?? ""}
                     onChange={(e) => setSubDraft((d) => ({ ...d, [t.id]: e.target.value }))}
                   />
@@ -182,7 +182,7 @@ export function TasksView() {
                   }
                 >
                   {settings.scrollGuardTaskId === t.id && settings.scrollGuardEnabled
-                    ? "Chroni"
+                    ? "Guarding"
                     : "Scroll-lock"}
                 </button>
                 {t.pageId ? (
@@ -193,15 +193,15 @@ export function TasksView() {
                       setView("notebook");
                     }}
                   >
-                    Strona
+                    Page
                   </button>
                 ) : (
                   <button className="btn small ghost" onClick={() => createPageFromTask(t.id)}>
-                    Do notatnika
+                    To notebook
                   </button>
                 )}
                 <button className="btn small ghost" onClick={() => deleteTask(t.id)}>
-                  Usuń
+                  Delete
                 </button>
               </div>
             </div>

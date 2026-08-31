@@ -394,7 +394,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     const heatmap = bumpDay(get().heatmap, date, minutes, sessions);
     const prev = get().usage[date] ?? { date, seconds: 0, sessions: 0, apps: {}, sites: {} };
     const extra = Math.round(minutes * 60);
-    const cur = prev.apps.manual ?? { id: "manual", name: "Dodane ręcznie", seconds: 0 };
+    const cur = prev.apps.manual ?? { id: "manual", name: "Added manually", seconds: 0 };
     set({
       heatmap,
       usage: {
@@ -482,7 +482,7 @@ export const useAppStore = create<AppState>((set, get) => ({
           const { invoke } = await import("@tauri-apps/api/core");
           await invoke("usage_set_enabled", { enabled: on });
         } catch {
-          /* podgląd w przeglądarce */
+          /* browser preview */
         }
       })();
     }
@@ -601,8 +601,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       });
       if (settings.notifications) {
         void notify(
-          "Sesja zakończona",
-          `Przerwa: ${Math.round(pause / 60000)} min. Dobrze zrobione.`,
+          "Session finished",
+          `Break: ${Math.round(pause / 60000)} min. Well done.`,
         );
       }
     } else {
@@ -618,7 +618,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         },
       });
       if (settings.notifications) {
-        void notify("Koniec przerwy", "Gdy będziesz gotowy, wróć do focusu.");
+        void notify("Break over", "When you're ready, get back to focus.");
       }
     }
     scheduleSave(get);
@@ -690,7 +690,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     scheduleSave(get);
   },
 
-  createNotebookPage: (title = "Bez tytułu", parentId = null, blocks) => {
+  createNotebookPage: (title = "Untitled", parentId = null, blocks) => {
     const page = createPage(title, parentId, blocks);
     set({
       view: "notebook",
@@ -778,7 +778,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     let notebook = get().notebook;
     let page = notebook.pages.find((p) => p.id === notebook.activePageId && !p.archived);
     if (!page) {
-      page = createPage("Dyktando");
+      page = createPage("Dictation");
       notebook = { pages: [...notebook.pages, page], activePageId: page.id };
     }
     const blocks = page.blocks.map((b) => ({ ...b }));
@@ -811,7 +811,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     let page = notebook.pages.find((p) => p.id === notebook.activePageId && !p.archived);
     if (!page) page = notebook.pages.find((p) => !p.archived);
     if (!page) {
-      get().createNotebookPage(text.slice(0, 48) || "Szybka notatka");
+      get().createNotebookPage(text.slice(0, 48) || "Quick note");
       get().setNotebookBlocks(get().notebook.activePageId!, [
         createBlock("paragraph", { text }),
       ]);
@@ -828,7 +828,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     const task = get().tasks.find((t) => t.id === taskId);
     if (!task) return;
     const blocks = [
-      createBlock("paragraph", { text: "Ze skrzynki zadań." }),
+      createBlock("paragraph", { text: "From the task inbox." }),
       ...task.subtasks.map((s) => createBlock("todo", { text: s.title, checked: s.done })),
     ];
     const id = get().createNotebookPage(task.title, null, blocks);
@@ -852,7 +852,7 @@ function nativeScrollGuard(get: () => AppState) {
       });
       await invoke("scroll_guard_note", { site: s.usageNow?.site ?? null });
     } catch {
-      /* podgląd */
+      /* preview */
     }
   })();
 }

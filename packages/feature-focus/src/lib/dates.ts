@@ -23,43 +23,43 @@ export function startOfWeekSunday(d: Date): Date {
 }
 
 export const MONTHS_SHORT = [
-  "sty",
-  "lut",
-  "mar",
-  "kwi",
-  "maj",
-  "cze",
-  "lip",
-  "sie",
-  "wrz",
-  "paź",
-  "lis",
-  "gru",
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
 ];
 
 export const MONTHS_LONG = [
-  "stycznia",
-  "lutego",
-  "marca",
-  "kwietnia",
-  "maja",
-  "czerwca",
-  "lipca",
-  "sierpnia",
-  "września",
-  "października",
-  "listopada",
-  "grudnia",
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
 ];
 
 const WEEKDAYS = [
-  "niedziela",
-  "poniedziałek",
-  "wtorek",
-  "środa",
-  "czwartek",
-  "piątek",
-  "sobota",
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
 ];
 
 export function formatLongDate(iso: string): string {
@@ -87,11 +87,11 @@ export function plural(
 }
 
 export function formatMinutes(n: number): string {
-  return `${n} ${plural(n, "minuta", "minuty", "minut")}`;
+  return `${n} ${plural(n, "minute", "minutes", "minutes")}`;
 }
 
 export function formatSessions(n: number): string {
-  return `${n} ${plural(n, "sesja", "sesje", "sesji")}`;
+  return `${n} ${plural(n, "session", "sessions", "sessions")}`;
 }
 
 export function formatMs(ms: number): string {

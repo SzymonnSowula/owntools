@@ -50,7 +50,7 @@ export function NotebookView() {
 
   const newPage = (parentId: string | null = null, template?: TemplateId) => {
     const blocks = template ? blocksForTemplate(template) : undefined;
-    const title = template ? TEMPLATES.find((t) => t.id === template)?.title : "Bez tytułu";
+    const title = template ? TEMPLATES.find((t) => t.id === template)?.title : "Untitled";
     createNotebookPage(title, parentId, blocks);
   };
 
@@ -64,21 +64,21 @@ export function NotebookView() {
       <aside className="nb-side">
         <div className="spread" style={{ marginBottom: 12 }}>
           <span className="kicker" style={{ margin: 0 }}>
-            Notatnik
+            Notebook
           </span>
           <button className="btn small" onClick={() => newPage(null)}>
-            Nowa strona
+            New page
           </button>
         </div>
         <input
           className="input"
-          placeholder="Szukaj stron…"
+          placeholder="Search pages…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
         {favorites.length > 0 && (
           <div className="nb-group">
-            <p className="kicker">Ulubione</p>
+            <p className="kicker">Favorites</p>
             {favorites.map((p) => (
               <PageButton
                 key={p.id}
@@ -90,7 +90,7 @@ export function NotebookView() {
           </div>
         )}
         <div className="nb-group">
-          <p className="kicker">Strony</p>
+          <p className="kicker">Pages</p>
           <Tree
             pages={query ? pages.filter((p) => !p.archived && p.title.toLowerCase().includes(query.toLowerCase())) : roots}
             all={pages}
@@ -101,25 +101,25 @@ export function NotebookView() {
             onFav={toggleNotebookFavorite}
             onArchive={archiveNotebookPage}
           />
-          {roots.length === 0 && !query && <p className="faint">Brak stron</p>}
+          {roots.length === 0 && !query && <p className="faint">No pages</p>}
         </div>
         <button className={`pill${trash ? " active" : ""}`} onClick={() => setTrash((v) => !v)}>
-          Kosz ({archived.length})
+          Trash ({archived.length})
         </button>
         {trash && (
           <div className="nb-group">
-            {archived.length === 0 && <p className="faint">Pusto</p>}
+            {archived.length === 0 && <p className="faint">Empty</p>}
             {archived.map((p) => (
               <div key={p.id} className="spread" style={{ gap: 6, marginBottom: 6 }}>
                 <span>
-                  {p.icon} {p.title || "Bez tytułu"}
+                  {p.icon} {p.title || "Untitled"}
                 </span>
                 <span className="row">
                   <button className="btn small ghost" onClick={() => restoreNotebookPage(p.id)}>
-                    Przywróć
+                    Restore
                   </button>
                   <button className="btn small ghost" onClick={() => deleteNotebookPage(p.id)}>
-                    Usuń
+                    Delete
                   </button>
                 </span>
               </div>
@@ -131,15 +131,15 @@ export function NotebookView() {
       <div className="nb-main">
         {!active ? (
           <div className="nb-empty">
-            <p className="kicker">Czysty notes</p>
-            <h1 className="page-title">Nowa strona</h1>
+            <p className="kicker">A clean notebook</p>
+            <h1 className="page-title">New page</h1>
             <p className="muted" style={{ maxWidth: "42ch" }}>
-              Notatnik trzyma strony i bloki — nie karteczki. Wybierz szablon albo zacznij od pustej kartki.
+              The notebook holds pages and blocks — not sticky notes. Pick a template or start from a blank page.
             </p>
             <div className="nb-templates">
               <button className="card tight nb-tpl" onClick={() => newPage(null)}>
-                <strong>Pusta strona</strong>
-                <span className="muted">Tytuł i pierwszy akapit</span>
+                <strong>Blank page</strong>
+                <span className="muted">Title and a first paragraph</span>
               </button>
               {TEMPLATES.map((t) => (
                 <button key={t.id} className="card tight nb-tpl" onClick={() => newPage(null, t.id)}>
@@ -161,7 +161,7 @@ export function NotebookView() {
                     <span key={c.id} className="faint">
                       {i > 0 && " / "}
                       <button className="btn small ghost" onClick={() => setActiveNotebookPage(c.id)}>
-                        {c.icon} {c.title || "Bez tytułu"}
+                        {c.icon} {c.title || "Untitled"}
                       </button>
                     </span>
                   ))}
@@ -169,10 +169,10 @@ export function NotebookView() {
                 <div className="row">
                   <DictationButton lang={speechLang} onFinal={onCommand} onInterim={setInterim} />
                   <button className="pill" onClick={() => toggleNotebookFavorite(active.id)}>
-                    {active.favorite ? "Ulubione" : "Do ulubionych"}
+                    {active.favorite ? "Favorite" : "Add to favorites"}
                   </button>
                   <button className="pill" onClick={() => archiveNotebookPage(active.id)}>
-                    Do kosza
+                    To trash
                   </button>
                 </div>
               </div>
@@ -191,18 +191,18 @@ export function NotebookView() {
                     key={c || "none"}
                     className={`nb-cover-swatch ${c}${active.cover === c ? " on" : ""}`}
                     onClick={() => updateNotebookPage(active.id, { cover: c })}
-                    aria-label={c || "bez okładki"}
+                    aria-label={c || "no cover"}
                   />
                 ))}
               </div>
               <input
                 className="nb-title"
                 value={active.title}
-                placeholder="Bez tytułu"
+                placeholder="Untitled"
                 onChange={(e) => updateNotebookPage(active.id, { title: e.target.value })}
               />
               <p className="faint" style={{ margin: "0 0 24px", fontSize: 12 }}>
-                Ostatnia zmiana {formatLongDate(active.updatedAt.slice(0, 10))}
+                Last edited {formatLongDate(active.updatedAt.slice(0, 10))}
               </p>
               {interim && <p className="nb-live">{interim}</p>}
               <BlockEditor
@@ -211,7 +211,7 @@ export function NotebookView() {
                 onChange={(blocks: NbBlock[]) => setNotebookBlocks(active.id, blocks)}
                 onOpenPage={setActiveNotebookPage}
                 onCreateChild={() => {
-                  const child = createPage("Podstrona", active.id);
+                  const child = createPage("Subpage", active.id);
                   useAppStore.getState().addNotebookPageObject(child);
                   return child.id;
                 }}
@@ -236,7 +236,7 @@ function PageButton({
 }) {
   return (
     <button className={`nb-item${active ? " on" : ""}`} onClick={onOpen}>
-      {page.icon} {page.title || "Bez tytułu"}
+      {page.icon} {page.title || "Untitled"}
     </button>
   );
 }
@@ -268,15 +268,15 @@ function Tree({
           <div key={p.id}>
             <div className={`nb-item-row${p.id === activeId ? " on" : ""}`}>
               <button className="nb-item" onClick={() => onOpen(p.id)}>
-                {p.icon} {p.title || "Bez tytułu"}
+                {p.icon} {p.title || "Untitled"}
               </button>
-              <button className="nb-mini" title="Ulubione" onClick={() => onFav(p.id)}>
+              <button className="nb-mini" title="Favorite" onClick={() => onFav(p.id)}>
                 {p.favorite ? "★" : "☆"}
               </button>
-              <button className="nb-mini" title="Podstrona" onClick={() => onNewChild(p.id)}>
+              <button className="nb-mini" title="Subpage" onClick={() => onNewChild(p.id)}>
                 +
               </button>
-              <button className="nb-mini" title="Kosz" onClick={() => onArchive(p.id)}>
+              <button className="nb-mini" title="Trash" onClick={() => onArchive(p.id)}>
                 ×
               </button>
             </div>

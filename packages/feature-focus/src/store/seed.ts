@@ -41,21 +41,21 @@ export function seedState(): AppData {
   const tasks: Task[] = [
     {
       id: uid(),
-      title: "Dokończyć plan tygodnia i wybrać jedno MIT",
+      title: "Finish the weekly plan and pick one MIT",
       listId: "today",
       priority: 3,
       due: today,
       done: false,
       subtasks: [
-        { id: uid(), title: "Przejrzeć kalendarz", done: true },
-        { id: uid(), title: "Wykreślić rzeczy nieistotne", done: false },
+        { id: uid(), title: "Review the calendar", done: true },
+        { id: uid(), title: "Cross out what doesn't matter", done: false },
       ],
       createdAt: now,
       mit: true,
     },
     {
       id: uid(),
-      title: "90 minut głębokiej pracy bez skrzynki",
+      title: "90 minutes of deep work, inbox closed",
       listId: "today",
       priority: 2,
       due: today,
@@ -66,7 +66,7 @@ export function seedState(): AppData {
     },
     {
       id: uid(),
-      title: "Odpisać na dwa odłożone wątki",
+      title: "Reply to two postponed threads",
       listId: "inbox",
       priority: 1,
       done: false,
@@ -76,7 +76,7 @@ export function seedState(): AppData {
     },
     {
       id: uid(),
-      title: "Przygotować notatki do przeglądu piątkowego",
+      title: "Prepare notes for the Friday review",
       listId: "later",
       priority: 1,
       done: false,
@@ -90,7 +90,7 @@ export function seedState(): AppData {
     {
       id: uid(),
       content:
-        "Zasada dnia: jedna rzecz, która jeśli zostanie zrobiona, uczyni resztę mniej ważną.",
+        "Rule of the day: one thing that, once done, makes everything else matter less.",
       color: "sage",
       x: 32,
       y: 28,
@@ -103,7 +103,7 @@ export function seedState(): AppData {
     {
       id: uid(),
       content:
-        "Telefon w drugim pokoju. Szum deszczu. Timer 50/10. Po sesji — krótki spacer.",
+        "Phone in the other room. Rain noise. 50/10 timer. After the session — a short walk.",
       color: "mist",
       x: 280,
       y: 120,
@@ -116,14 +116,14 @@ export function seedState(): AppData {
   ];
 
   const habits: Habit[] = [
-    { id: uid(), name: "Ruch", checks: seedHabitChecks("Ruch"), createdAt: now },
+    { id: uid(), name: "Movement", checks: seedHabitChecks("Movement"), createdAt: now },
     {
       id: uid(),
-      name: "Czytanie",
-      checks: seedHabitChecks("Czytanie"),
+      name: "Reading",
+      checks: seedHabitChecks("Reading"),
       createdAt: now,
     },
-    { id: uid(), name: "Woda", checks: seedHabitChecks("Woda"), createdAt: now },
+    { id: uid(), name: "Water", checks: seedHabitChecks("Water"), createdAt: now },
   ];
 
   return {
@@ -144,9 +144,9 @@ export function seedState(): AppData {
       scrollGuardTaskId: null,
     },
     lists: [
-      { id: "inbox", name: "Skrzynka", builtin: "inbox" },
-      { id: "today", name: "Dziś", builtin: "today" },
-      { id: "later", name: "Później", builtin: "later" },
+      { id: "inbox", name: "Inbox", builtin: "inbox" },
+      { id: "today", name: "Today", builtin: "today" },
+      { id: "later", name: "Later", builtin: "later" },
     ],
     tasks,
     notes,
@@ -159,7 +159,7 @@ export function seedState(): AppData {
       mode: "focus",
       remainingMs: 25 * 60 * 1000,
       durationMs: 25 * 60 * 1000,
-      sessionName: "Głęboka praca",
+      sessionName: "Deep work",
       preset: "25",
       endAt: null,
     },
@@ -169,7 +169,7 @@ export function seedState(): AppData {
         date: today,
         start: "08:30",
         end: "09:00",
-        title: "Rozruch i MIT",
+        title: "Warm-up and MIT",
         done: false,
       },
       {
@@ -177,7 +177,7 @@ export function seedState(): AppData {
         date: today,
         start: "09:00",
         end: "11:00",
-        title: "Głęboka praca",
+        title: "Deep work",
         done: false,
       },
       {
@@ -185,7 +185,7 @@ export function seedState(): AppData {
         date: today,
         start: "14:00",
         end: "14:50",
-        title: "Skrzynka i administracja",
+        title: "Inbox and admin",
         done: false,
       },
     ],

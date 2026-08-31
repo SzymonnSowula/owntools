@@ -20,23 +20,23 @@ export function JournalView() {
     <div className="page">
       <header className="page-head">
         <div>
-          <p className="kicker">Rytuał zamknięcia</p>
-          <h1 className="page-title">Dziennik</h1>
+          <p className="kicker">Closing ritual</p>
+          <h1 className="page-title">Journal</h1>
         </div>
       </header>
 
       <section className="card stack" style={{ marginBottom: 20 }}>
         <label className="field">
-          <span>Co zrobione</span>
+          <span>What got done</span>
           <textarea className="textarea" value={done} onChange={(e) => setDone(e.target.value)} />
         </label>
         <label className="field">
-          <span>Co jutro</span>
+          <span>What's next tomorrow</span>
           <textarea className="textarea" value={tomorrow} onChange={(e) => setTomorrow(e.target.value)} />
         </label>
         <div>
           <span className="muted" style={{ fontSize: 12 }}>
-            Ocena dnia
+            Day rating
           </span>
           <div className="stars" style={{ marginTop: 8 }}>
             {([1, 2, 3, 4, 5] as const).map((n) => (
@@ -51,15 +51,15 @@ export function JournalView() {
             className="btn primary"
             onClick={() => saveJournal({ date: today, done, tomorrow, rating })}
           >
-            Zapisz dzisiejszy wpis
+            Save today's entry
           </button>
         </div>
       </section>
 
       {history.length === 0 ? (
         <div className="empty">
-          <h3>Jeszcze bez historii</h3>
-          <p>Po kilku dniach pojawi się tu krótki ślad zamknięć — bez wykresów, tylko słowa i ocena.</p>
+          <h3>No history yet</h3>
+          <p>After a few days a short trail of closings will appear here — no charts, just words and a rating.</p>
         </div>
       ) : (
         <div className="stack">
@@ -67,11 +67,11 @@ export function JournalView() {
             <article className="card" key={j.id}>
               <div className="spread">
                 <strong>{formatLongDate(j.date)}</strong>
-                <span className="muted">Ocena {j.rating}/5</span>
+                <span className="muted">Rating {j.rating}/5</span>
               </div>
               <p style={{ margin: "10px 0 0" }}>{j.done || "—"}</p>
               <p className="muted" style={{ margin: "6px 0 0" }}>
-                Jutro: {j.tomorrow || "—"}
+                Tomorrow: {j.tomorrow || "—"}
               </p>
             </article>
           ))}

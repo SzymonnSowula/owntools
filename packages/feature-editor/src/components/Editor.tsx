@@ -140,7 +140,7 @@ export function Editor() {
   if (!project || !media) {
     return (
       <div className="grid flex-1 place-items-center text-sm text-muted">
-        Brak otwartego projektu.
+        No project open.
       </div>
     );
   }
@@ -157,18 +157,18 @@ export function Editor() {
           onChange={(e) => updateProject({ name: e.target.value })}
         />
         <div className="ml-2 flex flex-wrap gap-1.5">
-          <Tool onClick={() => setPlaying(!playing)}>{playing ? "Pauza" : "Odtwórz"}</Tool>
+          <Tool onClick={() => setPlaying(!playing)}>{playing ? "Pause" : "Play"}</Tool>
           <Tool onClick={splitAtPlayhead}>Split</Tool>
           <Tool onClick={() => addZoom("in")}>Zoom in</Tool>
           <Tool onClick={() => addZoom("out")}>Zoom out</Tool>
-          <Tool onClick={addCaption}>Napis</Tool>
-          <Tool onClick={addText}>Tekst</Tool>
-          <Tool onClick={deleteSelection}>Usuń</Tool>
+          <Tool onClick={addCaption}>Caption</Tool>
+          <Tool onClick={addText}>Text</Tool>
+          <Tool onClick={deleteSelection}>Delete</Tool>
           <Tool disabled={historyIndex <= 0} onClick={undo}>
-            Cofnij
+            Undo
           </Tool>
           <Tool disabled={historyIndex >= history.length - 1} onClick={redo}>
-            Ponów
+            Redo
           </Tool>
           <Tool onClick={() => fileRef.current?.click()}>Import</Tool>
         </div>
