@@ -5,6 +5,7 @@ import { exportProject, blobToFileDownload, probeExportSupport } from "../lib/ex
 import { canvasSize } from "../lib/compositor";
 import { activateLicense, isPro } from "@licensing/license";
 import { exportBlobToPath } from "../lib/projectIo";
+import { captionsToSrt } from "../lib/srt";
 import { invokeSafe, isTauri } from "../lib/tauri";
 import { useAppStore } from "../store/appStore";
 
@@ -110,6 +111,19 @@ export function ExportModal({
     }
   }
 
+  async function saveSrt() {
+    try {
+      const srt = captionsToSrt(project.captions, project.segments);
+      const blob = new Blob([srt], { type: "text/plain" });
+      const base = project.name.replace(/[^\w\-]+/g, "_") || "screeni";
+      const saved = await exportBlobToPath(blob, `${base}.srt`, "srt");
+      if (saved === null && !isTauri()) await blobToFileDownload(blob, `${base}.srt`);
+      if (saved !== null || !isTauri()) showToast("Subtitles saved.", "info");
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Couldn't save subtitles.", "error");
+    }
+  }
+
   function tryActivate() {
     if (activateLicense(licenseInput)) {
       setPro(true);
@@ -159,6 +173,16 @@ export function ExportModal({
             </button>
           ))}
         </div>
+
+        {project.captions.length > 0 ? (
+          <button
+            className="btn btn-secondary mt-3 w-full text-xs"
+            disabled={busy}
+            onClick={() => void saveSrt()}
+          >
+            Download .srt
+          </button>
+        ) : null}
 
         {!pro ? (
           <div className="mt-4 rounded-[12px] border border-line bg-paper px-3 py-2.5 text-xs text-muted">

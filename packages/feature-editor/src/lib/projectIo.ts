@@ -145,19 +145,30 @@ export async function listProjectFolders(): Promise<string[]> {
   return entries.filter((e) => e.isDirectory).map((e) => e.name ?? "");
 }
 
+function filterFor(ext: string): { name: string; extensions: string[] } {
+  switch (ext) {
+    case "mp4":
+      return { name: "MP4", extensions: ["mp4"] };
+    case "webm":
+      return { name: "WebM", extensions: ["webm"] };
+    case "srt":
+      return { name: "Subtitles", extensions: ["srt"] };
+    case "txt":
+      return { name: "Text", extensions: ["txt"] };
+    default:
+      return { name: ext.toUpperCase(), extensions: [ext] };
+  }
+}
+
 export async function exportBlobToPath(
   blob: Blob,
   defaultName: string,
-  ext: "webm" | "mp4" = "webm",
+  ext: string = "webm",
 ): Promise<string | null> {
   if (!isTauri()) return null;
   const path = await save({
     defaultPath: defaultName,
-    filters: [
-      ext === "mp4"
-        ? { name: "MP4", extensions: ["mp4"] }
-        : { name: "WebM", extensions: ["webm"] },
-    ],
+    filters: [filterFor(ext)],
   });
   if (!path) return null;
   const buffer = new Uint8Array(await blob.arrayBuffer());

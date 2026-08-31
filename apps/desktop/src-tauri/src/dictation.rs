@@ -68,13 +68,15 @@ pub fn dictation_status(app: AppHandle) -> Result<DictationStatus, String> {
 }
 
 /// Transcribes a 16 kHz mono WAV. When `json` is true, returns whisper's JSON
-/// (with segment timestamps); otherwise plain text.
+/// (with segment timestamps); otherwise plain text. When `translate` is true,
+/// whisper translates the speech to English (`-tr`).
 #[tauri::command]
 pub async fn whisper_transcribe(
     app: AppHandle,
     wav: String,
     lang: String,
     json: bool,
+    translate: bool,
 ) -> Result<String, String> {
     let exe = find_exe(&app).ok_or("Whisper engine not installed.")?;
     let model = find_model(&app).ok_or("Whisper model not installed.")?;
@@ -91,6 +93,9 @@ pub async fn whisper_transcribe(
             .arg("-l")
             .arg(if lang.is_empty() { "auto" } else { &lang })
             .arg("-np"); // no runtime prints
+        if translate {
+            cmd.arg("-tr"); // translate to English
+        }
         if json {
             cmd.arg("-oj").arg("-of").arg(&out_base_str);
         } else {

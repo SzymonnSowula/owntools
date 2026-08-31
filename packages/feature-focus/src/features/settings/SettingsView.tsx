@@ -107,6 +107,14 @@ export function SettingsView() {
           <label className="row">
             <input
               type="checkbox"
+              checked={settings.timerFullscreen}
+              onChange={(e) => update({ timerFullscreen: e.target.checked })}
+            />
+            Timer takes over the whole screen (Esc leaves anytime)
+          </label>
+          <label className="row">
+            <input
+              type="checkbox"
               checked={settings.usageTracking}
               onChange={(e) => useAppStore.getState().setUsageTracking(e.target.checked)}
             />

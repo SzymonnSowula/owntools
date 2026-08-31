@@ -5,33 +5,36 @@ import { formatMs } from "@feature-focus/lib/dates";
 import { useAppStore } from "@feature-focus/store/useAppStore";
 import { ScrollGuardBanner } from "@feature-focus/components/ScrollGuardBanner";
 import { TodayView } from "@feature-focus/features/today/TodayView";
-import { HeatmapView } from "@feature-focus/features/heatmap/HeatmapView";
-import { TasksView } from "@feature-focus/features/tasks/TasksView";
-import { NotesView } from "@feature-focus/features/notes/NotesView";
-import { NotebookView } from "@feature-focus/features/notebook/NotebookView";
 import { HabitsView } from "@feature-focus/features/habits/HabitsView";
-import { SoundsView } from "@feature-focus/features/sounds/SoundsView";
-import { PianoView } from "@feature-focus/features/piano/PianoView";
-import { PlannerView } from "@feature-focus/features/planner/PlannerView";
-import { JournalView } from "@feature-focus/features/journal/JournalView";
-import { StatsView } from "@feature-focus/features/stats/StatsView";
 import { SettingsView } from "@feature-focus/features/settings/SettingsView";
+import { TasksHub } from "@feature-focus/features/hubs/TasksHub";
+import { NotesHub } from "@feature-focus/features/hubs/NotesHub";
+import { StatsHub } from "@feature-focus/features/hubs/StatsHub";
+import { SoundsHub } from "@feature-focus/features/hubs/SoundsHub";
 import { useShellStore } from "./shellStore";
 
-const VIEW_MAP: Record<View, () => ReactElement> = {
+const VIEW_MAP = {
   today: TodayView,
-  heatmap: HeatmapView,
-  tasks: TasksView,
-  notes: NotesView,
-  notebook: NotebookView,
+  tasks: TasksHub,
+  notes: NotesHub,
   habits: HabitsView,
-  sounds: SoundsView,
-  piano: PianoView,
-  planner: PlannerView,
-  journal: JournalView,
-  stats: StatsView,
+  stats: StatsHub,
+  sounds: SoundsHub,
   settings: SettingsView,
+} satisfies Partial<Record<View, () => ReactElement>>;
+
+/** Legacy view ids may live in persisted state — fold them into their hub. */
+const LEGACY_VIEW_TARGET: Partial<Record<View, View>> = {
+  heatmap: "stats",
+  notebook: "notes",
+  journal: "notes",
+  planner: "tasks",
+  piano: "sounds",
 };
+
+export function normalizeView(view: View): View {
+  return LEGACY_VIEW_TARGET[view] ?? view;
+}
 
 export const FOCUS_ICONS: Record<View, ReactElement> = {
   today: (
@@ -151,7 +154,7 @@ export function FocusTool() {
   const overview = useShellStore((s) => s.focusOverview);
   const setFocusOverview = useShellStore((s) => s.setFocusOverview);
 
-  const Page = VIEW_MAP[view];
+  const Page = VIEW_MAP[normalizeView(view) as keyof typeof VIEW_MAP] ?? TodayView;
 
   return (
     <div className="shell">
@@ -172,7 +175,7 @@ export function FocusTool() {
           {VIEWS.map((item) => (
             <button
               key={item.id}
-              className={`nav-item${!overview && view === item.id ? " active" : ""}`}
+              className={`nav-item${!overview && normalizeView(view) === item.id ? " active" : ""}`}
               onClick={() => {
                 setView(item.id);
                 setFocusOverview(false);

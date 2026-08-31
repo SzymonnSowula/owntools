@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { WinDots, ToolIcons } from "@ui/WinDots";
 import { Logo } from "./Logo";
+import { TranscribeModal } from "./TranscribeModal";
 import { formatTime } from "../lib/time";
 import { uid } from "../lib/id";
 import { ensureFiniteDuration } from "../lib/videoEl";
@@ -12,6 +13,7 @@ export function Home() {
   const openRecent = useAppStore((s) => s.openRecent);
   const openProject = useAppStore((s) => s.openProject);
   const showToast = useAppStore((s) => s.showToast);
+  const setTranscribeOpen = useAppStore((s) => s.setTranscribeOpen);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -62,6 +64,9 @@ export function Home() {
             </button>
             <button className="btn btn-secondary px-5 py-3" onClick={() => fileRef.current?.click()}>
               Open editor
+            </button>
+            <button className="btn btn-secondary px-5 py-3" onClick={() => setTranscribeOpen(true)}>
+              Transcribe a file
             </button>
             <input
               ref={fileRef}
@@ -130,6 +135,7 @@ export function Home() {
           )}
         </section>
       </div>
+      <TranscribeModal />
     </div>
   );
 }

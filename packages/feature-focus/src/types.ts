@@ -15,7 +15,7 @@ export type View =
 export type Priority = 0 | 1 | 2 | 3;
 export type Theme = "light" | "dark";
 export type TimerMode = "focus" | "break";
-export type TimerPreset = "25" | "50" | "custom";
+export type TimerPreset = "25" | "50" | "custom" | "stopwatch";
 export type CaptureMode = "task" | "note" | "habit" | "page" | "append";
 export type SpeechLang = "pl-PL" | "en-US";
 export type BlockType =
@@ -125,6 +125,8 @@ export interface TimerState {
   sessionName: string;
   preset: TimerPreset;
   endAt: number | null;
+  /** Stopwatch only: epoch ms anchor such that elapsed = now - startedAt. */
+  startedAt?: number | null;
 }
 
 export interface PlannerBlock {
@@ -158,6 +160,7 @@ export interface PianoSettings {
 
 export interface Settings {
   theme: Theme;
+  timerFullscreen: boolean;
   pomodoroFocus: number;
   pomodoroBreak: number;
   notifications: boolean;
@@ -244,15 +247,10 @@ export const NOISE_LAYERS: { id: NoiseId; label: string }[] = [
 
 export const VIEWS: { id: View; label: string; hint: string }[] = [
   { id: "today", label: "Today", hint: "Daily dashboard" },
-  { id: "heatmap", label: "Heatmap", hint: "Time at the computer" },
-  { id: "tasks", label: "Tasks", hint: "Lists and priorities" },
-  { id: "notes", label: "Notes", hint: "Sticky notes" },
-  { id: "notebook", label: "Notebook", hint: "Pages and blocks" },
+  { id: "tasks", label: "Tasks", hint: "Lists & day plan" },
+  { id: "notes", label: "Notes", hint: "Pages, board & journal" },
   { id: "habits", label: "Habits", hint: "Daily rituals" },
-  { id: "sounds", label: "Sounds", hint: "Noise and background" },
-  { id: "piano", label: "Piano", hint: "Quiet sounds" },
-  { id: "planner", label: "Planner", hint: "Time blocks" },
-  { id: "journal", label: "Journal", hint: "Shutdown" },
-  { id: "stats", label: "Stats", hint: "Calm numbers" },
+  { id: "stats", label: "Stats", hint: "Numbers & heatmap" },
+  { id: "sounds", label: "Sounds", hint: "Ambient & piano" },
   { id: "settings", label: "Settings", hint: "Preferences" },
 ];

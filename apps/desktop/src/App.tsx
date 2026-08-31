@@ -7,6 +7,7 @@ import { ShortcutsOverlay } from "@feature-focus/components/ShortcutsOverlay";
 import { QuickCapture } from "@feature-focus/components/QuickCapture";
 import { Hub } from "./shell/Hub";
 import { FocusTool } from "./shell/FocusTool";
+import { FocusTimerOverlay } from "./shell/FocusTimerOverlay";
 import { SuiteTitleBar } from "./shell/SuiteTitleBar";
 import { useShellStore } from "./shell/shellStore";
 import { runLegacyImport } from "./shell/importLegacy";
@@ -190,6 +191,7 @@ export default function App() {
       )}
       <ShortcutsOverlay />
       <QuickCapture />
+      <FocusTimerOverlay />
     </div>
   );
 }

@@ -14,6 +14,8 @@ export function TodayView() {
   const resetTimer = useAppStore((s) => s.resetTimer);
   const setTimerPreset = useAppStore((s) => s.setTimerPreset);
   const setSessionName = useAppStore((s) => s.setSessionName);
+  const settings = useAppStore((s) => s.settings);
+  const updateSettings = useAppStore((s) => s.updateSettings);
   const toggleTask = useAppStore((s) => s.toggleTask);
   const toggleHabit = useAppStore((s) => s.toggleHabit);
   const setMit = useAppStore((s) => s.setMit);
@@ -81,23 +83,34 @@ export function TodayView() {
 
           <section className="card">
             <div className="spread">
-              <p className="kicker">{timer.mode === "break" ? "Break" : "Deep focus"}</p>
+              <p className="kicker">
+                {timer.preset === "stopwatch" ? "Stopwatch" : timer.mode === "break" ? "Break" : "Deep focus"}
+              </p>
               <div className="row">
-                {(["25", "50", "custom"] as const).map((p) => (
+                {(["25", "50", "custom", "stopwatch"] as const).map((p) => (
                   <button
                     key={p}
                     className={`pill${timer.preset === p ? " active" : ""}`}
-                    onClick={() => setTimerPreset(p === "custom" ? "custom" : p)}
+                    onClick={() => setTimerPreset(p)}
                   >
-                    {p === "25" ? "25 / 5" : p === "50" ? "50 / 10" : "Custom"}
+                    {p === "25" ? "25 / 5" : p === "50" ? "50 / 10" : p === "custom" ? "Custom" : "Stopwatch"}
                   </button>
                 ))}
+                <button
+                  className={`pill${settings.timerFullscreen ? " active" : ""}`}
+                  title={settings.timerFullscreen ? "Timer takes over the screen (click for background mode)" : "Timer runs in the background (click for full screen)"}
+                  onClick={() => updateSettings({ timerFullscreen: !settings.timerFullscreen })}
+                >
+                  ⛶
+                </button>
               </div>
             </div>
             <div className="timer-face">{formatMs(timer.remainingMs)}</div>
-            <div className={`timer-bar${timer.mode === "break" ? " break" : ""}`}>
-              <span style={{ width: `${Math.min(100, progress * 100)}%` }} />
-            </div>
+            {timer.preset !== "stopwatch" && (
+              <div className={`timer-bar${timer.mode === "break" ? " break" : ""}`}>
+                <span style={{ width: `${Math.min(100, progress * 100)}%` }} />
+              </div>
+            )}
             <input
               className="input"
               value={timer.sessionName}

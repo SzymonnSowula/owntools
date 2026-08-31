@@ -131,6 +131,7 @@ export function seedState(): AppData {
     view: "today",
     settings: {
       theme: "light",
+      timerFullscreen: true,
       pomodoroFocus: 25,
       pomodoroBreak: 5,
       notifications: true,

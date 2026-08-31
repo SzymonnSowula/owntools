@@ -178,6 +178,7 @@ function bumpDay(
 }
 
 function focusMs(settings: Settings, preset: TimerPreset, current: number): number {
+  if (preset === "stopwatch") return 0;
   if (preset === "25") return 25 * 60 * 1000;
   if (preset === "50") return 50 * 60 * 1000;
   return current || settings.pomodoroFocus * 60 * 1000;
@@ -210,7 +211,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         ready: true,
         shortcutsOpen: false,
         quickOpen: false,
-        timer: { ...loaded.timer, running: false, endAt: null },
+        timer: { ...loaded.timer, running: false, endAt: null, startedAt: null },
       });
     } else {
       set({ ready: true });
@@ -506,6 +507,18 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   startTimer: () => {
     const timer = get().timer;
+    if (timer.preset === "stopwatch") {
+      set({
+        timer: {
+          ...timer,
+          running: true,
+          endAt: null,
+          startedAt: Date.now() - timer.remainingMs,
+        },
+      });
+      scheduleSave(get);
+      return;
+    }
     const remaining = Math.max(1000, timer.remainingMs);
     set({
       timer: {
@@ -519,6 +532,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
   pauseTimer: () => {
     const timer = get().timer;
+    if (timer.preset === "stopwatch") {
+      const elapsed = timer.startedAt ? Math.max(0, Date.now() - timer.startedAt) : timer.remainingMs;
+      set({ timer: { ...timer, running: false, remainingMs: elapsed, startedAt: null, endAt: null } });
+      scheduleSave(get);
+      return;
+    }
     const remaining = timer.endAt ? Math.max(0, timer.endAt - Date.now()) : timer.remainingMs;
     set({ timer: { ...timer, running: false, remainingMs: remaining, endAt: null } });
     scheduleSave(get);
@@ -529,6 +548,13 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
   resetTimer: () => {
     const { settings, timer } = get();
+    if (timer.preset === "stopwatch") {
+      set({
+        timer: { ...timer, running: false, remainingMs: 0, durationMs: 0, endAt: null, startedAt: null },
+      });
+      scheduleSave(get);
+      return;
+    }
     const durationMs =
       timer.mode === "break"
         ? breakMs(settings, timer.preset)
@@ -541,11 +567,13 @@ export const useAppStore = create<AppState>((set, get) => ({
   setTimerPreset: (preset) => {
     const { settings } = get();
     const durationMs =
-      preset === "25"
-        ? 25 * 60 * 1000
-        : preset === "50"
-          ? 50 * 60 * 1000
-          : settings.pomodoroFocus * 60 * 1000;
+      preset === "stopwatch"
+        ? 0
+        : preset === "25"
+          ? 25 * 60 * 1000
+          : preset === "50"
+            ? 50 * 60 * 1000
+            : settings.pomodoroFocus * 60 * 1000;
     set({
       timer: {
         ...get().timer,
@@ -555,6 +583,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         durationMs,
         remainingMs: durationMs,
         endAt: null,
+        startedAt: null,
       },
     });
     scheduleSave(get);
@@ -580,6 +609,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
   tickTimer: () => {
     const timer = get().timer;
+    if (timer.preset === "stopwatch") {
+      if (timer.running && timer.startedAt) {
+        set({ timer: { ...timer, remainingMs: Math.max(0, Date.now() - timer.startedAt) } });
+      }
+      return;
+    }
     if (!timer.running || !timer.endAt) return;
     const remainingMs = timer.endAt - Date.now();
     if (remainingMs > 0) {

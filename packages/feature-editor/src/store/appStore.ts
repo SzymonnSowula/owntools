@@ -96,6 +96,7 @@ interface AppState {
   toast: Toast | null;
   exportOpen: boolean;
   exportProgress: number | null;
+  transcribeOpen: boolean;
   history: EditorSnapshot[];
   historyIndex: number;
   speechLang: SpeechLang;
@@ -114,6 +115,7 @@ interface AppState {
   setSelection: (s: Selection | null) => void;
   setExportOpen: (v: boolean) => void;
   setExportProgress: (v: number | null) => void;
+  setTranscribeOpen: (v: boolean) => void;
   undo: () => void;
   redo: () => void;
   splitAtPlayhead: () => void;
@@ -136,6 +138,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   toast: null,
   exportOpen: false,
   exportProgress: null,
+  transcribeOpen: false,
   history: [],
   historyIndex: -1,
   speechLang: "pl-PL",
@@ -214,6 +217,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   setSelection: (selection) => set({ selection }),
   setExportOpen: (exportOpen) => set({ exportOpen }),
   setExportProgress: (exportProgress) => set({ exportProgress }),
+  setTranscribeOpen: (transcribeOpen) => set({ transcribeOpen }),
 
   undo: () => {
     const { project, history, historyIndex } = get();

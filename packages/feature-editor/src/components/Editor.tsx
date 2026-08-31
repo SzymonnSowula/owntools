@@ -7,6 +7,7 @@ import { ExportModal } from "./ExportModal";
 import { formatTime } from "../lib/time";
 import { ensureFiniteDuration } from "../lib/videoEl";
 import { sourceToTimeline, timelineDuration, timelineToSource, segmentAtTimeline } from "../lib/segments";
+import { cutIntervalsFromSegments, detectSilence } from "../lib/silence";
 import { useAppStore } from "../store/appStore";
 
 export function Editor() {
@@ -25,6 +26,8 @@ export function Editor() {
   const historyIndex = useAppStore((s) => s.historyIndex);
   const history = useAppStore((s) => s.history);
   const updateProject = useAppStore((s) => s.updateProject);
+  const showToast = useAppStore((s) => s.showToast);
+  const [autoCutBusy, setAutoCutBusy] = useState(false);
 
   const screenRef = useRef<HTMLVideoElement>(null);
   const webcamRef = useRef<HTMLVideoElement>(null);
@@ -145,6 +148,41 @@ export function Editor() {
     );
   }
 
+  async function autoCut() {
+    if (!project || !media || autoCutBusy) return;
+    setAutoCutBusy(true);
+    setPlaying(false);
+    try {
+      const blob = await fetch(media.screenUrl).then((r) => {
+        if (!r.ok) throw new Error("Couldn't load the recording.");
+        return r.blob();
+      });
+      let intervals: { start: number; end: number }[];
+      try {
+        ({ intervals } = await detectSilence(blob));
+      } catch {
+        showToast("This recording has no audio to analyze.", "error");
+        return;
+      }
+      if (!intervals.length) {
+        showToast("No long pauses found.");
+        return;
+      }
+      const next = cutIntervalsFromSegments(project.segments, intervals);
+      const removed = timelineDuration(project.segments) - timelineDuration(next);
+      if (!next.length || removed <= 0.01) {
+        showToast("No long pauses found.");
+        return;
+      }
+      updateProject({ segments: next }, true);
+      showToast(`Removed ${intervals.length} ${intervals.length === 1 ? "pause" : "pauses"} (${removed.toFixed(1)}s).`);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Auto-cut failed.", "error");
+    } finally {
+      setAutoCutBusy(false);
+    }
+  }
+
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-paper">
       <div className="flex items-center gap-2 border-b border-line/80 px-4 py-2">
@@ -159,6 +197,9 @@ export function Editor() {
         <div className="ml-2 flex flex-wrap gap-1.5">
           <Tool onClick={() => setPlaying(!playing)}>{playing ? "Pause" : "Play"}</Tool>
           <Tool onClick={splitAtPlayhead}>Split</Tool>
+          <Tool disabled={autoCutBusy} onClick={() => void autoCut()}>
+            {autoCutBusy ? "Analyzing…" : "Auto-cut"}
+          </Tool>
           <Tool onClick={() => addZoom("in")}>Zoom in</Tool>
           <Tool onClick={() => addZoom("out")}>Zoom out</Tool>
           <Tool onClick={addCaption}>Caption</Tool>

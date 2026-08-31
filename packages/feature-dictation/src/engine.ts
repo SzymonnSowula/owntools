@@ -121,11 +121,15 @@ export async function installDictation(
   }
 }
 
-/** Transcribes an audio blob. Returns plain text (json=false) or whisper JSON. */
+/**
+ * Transcribes an audio blob. Returns plain text (json=false) or whisper JSON.
+ * When `translate` is true, whisper translates the speech to English.
+ */
 export async function transcribeBlob(
   blob: Blob,
   lang: DictationLang,
   json = false,
+  translate = false,
 ): Promise<string> {
   if (!isTauri()) throw new Error("Transcription needs the desktop app.");
   const wav = await blobToWhisperWav(blob);
@@ -142,6 +146,7 @@ export async function transcribeBlob(
       wav: absolute,
       lang: lang === "auto" ? "auto" : lang,
       json,
+      translate,
     });
   } finally {
     const { remove } = await import("@tauri-apps/plugin-fs");
