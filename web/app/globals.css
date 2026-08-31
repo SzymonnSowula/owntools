@@ -2,14 +2,14 @@
 
 @theme {
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  --color-ink: #111111;
+  --color-ink: #1d1d1f;
   --color-muted: #7c7c7c;
   --color-paper: #fafafa;
   --color-card: #ffffff;
   --color-line: #e6e6e6;
-  --color-accent: #ff715f;
-  --color-teal: #0e9a8a;
-  --color-violet: #6b5bff;
+  --color-accent: #0a84ff;
+  --color-teal: #0a84ff;
+  --color-violet: #5e5ce6;
 }
 
 html {

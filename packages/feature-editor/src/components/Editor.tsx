@@ -185,12 +185,12 @@ export function Editor() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-paper">
-      <div className="flex items-center gap-2 border-b border-line/80 px-4 py-2">
+      <div className="flex flex-wrap items-center gap-2 border-b border-line/80 px-4 py-2">
         <button className="btn btn-ghost h-8 px-2 text-xs" onClick={() => void setView("home")}>
           Home
         </button>
         <input
-          className="field h-8 max-w-xs"
+          className="field h-8 min-w-0 max-w-xs flex-1 basis-40"
           value={project.name}
           onChange={(e) => updateProject({ name: e.target.value })}
         />

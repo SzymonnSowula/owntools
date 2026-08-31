@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   dictationStatus,
   parseWhisperJson,
@@ -18,9 +18,14 @@ const LANGS: { value: DictationLang; label: string }[] = [
   { value: "pl", label: "Polski" },
 ];
 
-export function TranscribeModal() {
-  const open = useAppStore((s) => s.transcribeOpen);
-  const setOpen = useAppStore((s) => s.setTranscribeOpen);
+export interface TranscribeModalProps {
+  open: boolean;
+  onClose: () => void;
+  /** Preselects the "Translate to English" checkbox each time the modal opens. */
+  initialTranslate?: boolean;
+}
+
+export function TranscribeModal({ open, onClose, initialTranslate }: TranscribeModalProps) {
   const showToast = useAppStore((s) => s.showToast);
   const [file, setFile] = useState<File | null>(null);
   const [lang, setLang] = useState<DictationLang>("auto");
@@ -28,6 +33,10 @@ export function TranscribeModal() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [segments, setSegments] = useState<WhisperSegment[] | null>(null);
+
+  useEffect(() => {
+    if (open) setTranslate(Boolean(initialTranslate));
+  }, [open, initialTranslate]);
 
   if (!open) return null;
 
@@ -75,7 +84,7 @@ export function TranscribeModal() {
   }
 
   return (
-    <div className="absolute inset-0 z-50 grid place-items-center bg-[#17151f]/35 p-6">
+    <div className="fixed inset-0 z-[80] grid place-items-center bg-[#17151f]/35 p-6">
       <div className="w-full max-w-md rounded-[18px] border border-line bg-card p-6 shadow-[0_30px_80px_rgba(23,21,31,0.18)]">
         <h2 className="text-lg font-semibold tracking-[-0.03em]">Transcribe a file</h2>
         <p className="mt-1 text-sm text-muted">
@@ -129,7 +138,7 @@ export function TranscribeModal() {
         </div>
 
         <div className="mt-6 flex gap-2">
-          <button className="btn btn-secondary flex-1" disabled={busy} onClick={() => setOpen(false)}>
+          <button className="btn btn-secondary flex-1" disabled={busy} onClick={onClose}>
             Close
           </button>
           {segments ? (

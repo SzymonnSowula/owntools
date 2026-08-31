@@ -46,7 +46,7 @@ export function Inspector() {
   const text = selection?.type === "text" ? project.texts.find((t) => t.id === selection.id) : undefined;
 
   return (
-    <aside className="scroll-thin flex w-[300px] shrink-0 flex-col overflow-y-auto border-l border-line bg-card">
+    <aside className="scroll-thin flex w-[260px] shrink-0 flex-col overflow-y-auto border-l border-line bg-card min-[1180px]:w-[300px]">
       <Section title="Background">
         <div className="grid grid-cols-3 gap-2">
           {GRADIENT_PRESETS.map((preset) => (

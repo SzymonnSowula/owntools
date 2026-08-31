@@ -5,10 +5,10 @@ import { sourceToTimeline, timelineDuration } from "../lib/segments";
 import { useAppStore } from "../store/appStore";
 
 const TRACKS = [
-  { key: "video", label: "Video", color: "#0e9a8a" },
-  { key: "zoom", label: "Zoom", color: "#6b5bff" },
-  { key: "captions", label: "Captions", color: "#ff715f" },
-  { key: "text", label: "Text", color: "#d97706" },
+  { key: "video", label: "Video", color: "#0a84ff" },
+  { key: "zoom", label: "Zoom", color: "#5e5ce6" },
+  { key: "captions", label: "Captions", color: "#32ade6" },
+  { key: "text", label: "Text", color: "#3a3a3c" },
 ] as const;
 
 export function Timeline({ project }: { project: Project }) {
@@ -109,7 +109,7 @@ export function Timeline({ project }: { project: Project }) {
                         key={seg.id}
                         left={left}
                         width={w}
-                        color="#0e9a8a"
+                        color="#0a84ff"
                         selected={selected}
                         label={formatTime(seg.end - seg.start)}
                         onSelect={() => setSelection({ type: "segment", id: seg.id })}
@@ -143,7 +143,7 @@ export function Timeline({ project }: { project: Project }) {
                       key={z.id}
                       left={sourceToTimeline(z.start, project.segments) * pps}
                       width={Math.max(8, (z.end - z.start) * pps)}
-                      color="#6b5bff"
+                      color="#5e5ce6"
                       selected={selection?.type === "zoom" && selection.id === z.id}
                       label={`${z.scale.toFixed(1)}×`}
                       onSelect={() => setSelection({ type: "zoom", id: z.id })}
@@ -159,7 +159,7 @@ export function Timeline({ project }: { project: Project }) {
                       key={c.id}
                       left={sourceToTimeline(c.start, project.segments) * pps}
                       width={Math.max(8, (c.end - c.start) * pps)}
-                      color="#ff715f"
+                      color="#32ade6"
                       selected={selection?.type === "caption" && selection.id === c.id}
                       label={c.text}
                       onSelect={() => setSelection({ type: "caption", id: c.id })}
@@ -175,7 +175,7 @@ export function Timeline({ project }: { project: Project }) {
                       key={t.id}
                       left={sourceToTimeline(t.start, project.segments) * pps}
                       width={Math.max(8, (t.end - t.start) * pps)}
-                      color="#d97706"
+                      color="#3a3a3c"
                       selected={selection?.type === "text" && selection.id === t.id}
                       label={t.text}
                       onSelect={() => setSelection({ type: "text", id: t.id })}

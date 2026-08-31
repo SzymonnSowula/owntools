@@ -1,3 +1,6 @@
+/* Wrapped in a cascade layer so the suite-level overrides in suite.css
+ * (un-layered) always win, regardless of bundle order. */
+@layer focus-legacy {
 :root {
   --bg: #fafafa;
   --bg-elevated: #ffffff;
@@ -892,4 +895,6 @@
 
 @media (prefers-reduced-motion: reduce) {
   .mod-focus, .mod-focus *, .mod-focus *::before, .mod-focus *::after { transition: none !important; }
+}
+
 }

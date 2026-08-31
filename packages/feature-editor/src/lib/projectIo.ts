@@ -155,6 +155,10 @@ function filterFor(ext: string): { name: string; extensions: string[] } {
       return { name: "Subtitles", extensions: ["srt"] };
     case "txt":
       return { name: "Text", extensions: ["txt"] };
+    case "m4a":
+      return { name: "Audio", extensions: ["m4a"] };
+    case "wav":
+      return { name: "Audio", extensions: ["wav"] };
     default:
       return { name: ext.toUpperCase(), extensions: [ext] };
   }

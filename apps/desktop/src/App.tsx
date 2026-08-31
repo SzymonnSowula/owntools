@@ -14,6 +14,7 @@ import { runLegacyImport } from "./shell/importLegacy";
 import { SUITE_NAME } from "@core/branding";
 
 const CreateModule = lazy(() => import("./shell/CreateModule"));
+const HubToolModals = lazy(() => import("./shell/HubToolModals"));
 const LaunchModule = lazy(() => import("@feature-launch/LaunchView"));
 const DictateModule = lazy(() => import("@feature-dictation/DictateView"));
 
@@ -38,6 +39,7 @@ export default function App() {
   const quickOpen = useAppStore((s) => s.quickOpen);
   const toggleTimer = useAppStore((s) => s.toggleTimer);
   const tool = useShellStore((s) => s.tool);
+  const hubTool = useShellStore((s) => s.hubTool);
 
   useEffect(() => {
     void (async () => {
@@ -189,6 +191,13 @@ export default function App() {
           <DictateModule />
         </LazyPane>
       )}
+      {hubTool !== null ? (
+        <div className="mod-create">
+          <Suspense fallback={null}>
+            <HubToolModals />
+          </Suspense>
+        </div>
+      ) : null}
       <ShortcutsOverlay />
       <QuickCapture />
       <FocusTimerOverlay />

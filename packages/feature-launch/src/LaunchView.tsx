@@ -125,9 +125,9 @@ export default function LaunchView() {
   }
 
   return (
-    <div className="desktop-bg flex min-h-0 flex-1 gap-6 overflow-hidden px-6 py-6">
+    <div className="desktop-bg flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-6 py-6 lg:flex-row lg:overflow-hidden">
       {/* Left: brief */}
-      <div className="scroll-thin w-[340px] shrink-0 overflow-y-auto pr-1">
+      <div className="scroll-thin w-full shrink-0 pr-1 lg:w-[340px] lg:overflow-y-auto">
         <h1 className="text-[34px] font-bold leading-none tracking-[-0.05em] text-ink">launch</h1>
         <p className="mt-2 text-sm text-muted">
           Paste your product's URL — we'll pull the name, tagline, colors and hero shot. Tweak

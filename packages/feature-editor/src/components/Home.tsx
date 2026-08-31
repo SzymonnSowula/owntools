@@ -13,6 +13,7 @@ export function Home() {
   const openRecent = useAppStore((s) => s.openRecent);
   const openProject = useAppStore((s) => s.openProject);
   const showToast = useAppStore((s) => s.showToast);
+  const transcribeOpen = useAppStore((s) => s.transcribeOpen);
   const setTranscribeOpen = useAppStore((s) => s.setTranscribeOpen);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -135,7 +136,7 @@ export function Home() {
           )}
         </section>
       </div>
-      <TranscribeModal />
+      <TranscribeModal open={transcribeOpen} onClose={() => setTranscribeOpen(false)} />
     </div>
   );
 }
