@@ -267,7 +267,7 @@ export default function LaunchView() {
         </div>
         {!isPro() ? (
           <p className="mt-2 text-right text-xs text-muted">
-            Free version adds a small "Made with Screeni" badge — a Pro key removes it.
+            Free version adds a small "made with shipshape" badge — a Pro key removes it.
           </p>
         ) : null}
       </div>

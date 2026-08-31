@@ -194,7 +194,7 @@ export function drawWatermark(
   ctx.font = `600 ${fontSize}px Outfit, ui-sans-serif, system-ui, sans-serif`;
   ctx.textAlign = "left";
   ctx.textBaseline = "middle";
-  const label = "Made with Screeni";
+  const label = "made with shipshape";
   const dot = fontSize * 0.5;
   const textW = ctx.measureText(label).width;
   const w = textW + dot + fontSize * 0.5 + padX * 2;

@@ -201,7 +201,7 @@ export function ExportModal({
               </div>
             ) : (
               <span>
-                The free version adds a small "Made with Screeni" badge.{" "}
+                The free version adds a small "made with shipshape" badge.{" "}
                 <button className="font-semibold text-teal-2 underline" onClick={() => setShowLicense(true)}>
                   I have a license key
                 </button>
