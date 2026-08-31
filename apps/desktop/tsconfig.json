@@ -1,0 +1,33 @@
+{
+  "compilerOptions": {
+    "target": "ES2021",
+    "useDefineForClassFields": true,
+    "lib": ["ES2021", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+
+    "baseUrl": ".",
+    "paths": {
+      "@ui/*": ["../../packages/ui/src/*"],
+      "@core/*": ["../../packages/core/src/*"],
+      "@licensing/*": ["../../packages/licensing/src/*"],
+      "@feature-focus/*": ["../../packages/feature-focus/src/*"],
+      "@feature-recorder/*": ["../../packages/feature-recorder/src/*"],
+      "@feature-editor/*": ["../../packages/feature-editor/src/*"]
+    }
+  },
+  "include": ["src", "../../packages/*/src"],
+  "references": [{ "path": "./tsconfig.node.json" }]
+}

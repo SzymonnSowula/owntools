@@ -1,0 +1,258 @@
+export type View =
+  | "today"
+  | "heatmap"
+  | "tasks"
+  | "notes"
+  | "notebook"
+  | "habits"
+  | "sounds"
+  | "piano"
+  | "planner"
+  | "journal"
+  | "stats"
+  | "settings";
+
+export type Priority = 0 | 1 | 2 | 3;
+export type Theme = "light" | "dark";
+export type TimerMode = "focus" | "break";
+export type TimerPreset = "25" | "50" | "custom";
+export type CaptureMode = "task" | "note" | "habit" | "page" | "append";
+export type SpeechLang = "pl-PL" | "en-US";
+export type BlockType =
+  | "paragraph"
+  | "heading1"
+  | "heading2"
+  | "heading3"
+  | "bullet"
+  | "numbered"
+  | "todo"
+  | "toggle"
+  | "quote"
+  | "divider"
+  | "callout"
+  | "code"
+  | "table"
+  | "image"
+  | "pageLink";
+export type NoiseId = "white" | "pink" | "brown" | "rain" | "fan" | "cafe" | "ocean";
+
+export interface TaskList {
+  id: string;
+  name: string;
+  builtin?: "inbox" | "today" | "later";
+}
+
+export interface Subtask {
+  id: string;
+  title: string;
+  done: boolean;
+}
+
+export interface Task {
+  id: string;
+  title: string;
+  listId: string;
+  priority: Priority;
+  due?: string;
+  done: boolean;
+  doneAt?: string;
+  subtasks: Subtask[];
+  createdAt: string;
+  mit: boolean;
+  pageId?: string;
+}
+
+export interface Note {
+  id: string;
+  content: string;
+  color: NoteColor;
+  x: number;
+  y: number;
+  z: number;
+  pinned: boolean;
+  archived: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type NoteColor = "paper" | "mist" | "sage" | "blush" | "lilac" | "sand";
+
+export interface Habit {
+  id: string;
+  name: string;
+  checks: Record<string, boolean>;
+  createdAt: string;
+}
+
+export interface HeatmapDay {
+  date: string;
+  minutes: number;
+  seconds: number;
+  sessions: number;
+  checkIn?: boolean;
+}
+
+export interface UsageBucket {
+  id: string;
+  name: string;
+  seconds: number;
+}
+
+export interface UsageDay {
+  date: string;
+  seconds: number;
+  sessions: number;
+  apps: Record<string, UsageBucket>;
+  sites: Record<string, UsageBucket>;
+}
+
+export interface UsageNow {
+  idle: boolean;
+  tracking: boolean;
+  appId: string;
+  appName: string;
+  title: string;
+  site: string | null;
+  scrollLocked: boolean;
+  at: number;
+}
+
+export interface TimerState {
+  running: boolean;
+  mode: TimerMode;
+  remainingMs: number;
+  durationMs: number;
+  sessionName: string;
+  preset: TimerPreset;
+  endAt: number | null;
+}
+
+export interface PlannerBlock {
+  id: string;
+  date: string;
+  start: string;
+  end: string;
+  title: string;
+  done: boolean;
+}
+
+export interface JournalEntry {
+  id: string;
+  date: string;
+  done: string;
+  tomorrow: string;
+  rating: 1 | 2 | 3 | 4 | 5;
+}
+
+export interface SoundMix {
+  playing: boolean;
+  master: number;
+  layers: Record<NoiseId, number>;
+}
+
+export interface PianoSettings {
+  volume: number;
+  ambient: boolean;
+  tempo: number;
+}
+
+export interface Settings {
+  theme: Theme;
+  pomodoroFocus: number;
+  pomodoroBreak: number;
+  notifications: boolean;
+  heatmapGoalMinutes: number;
+  contributeOnTaskComplete: boolean;
+  autostart: boolean;
+  speechLang: SpeechLang;
+  usageTracking: boolean;
+  scrollGuardEnabled: boolean;
+  scrollGuardSites: string[];
+  scrollGuardTaskId: string | null;
+}
+
+export interface NbBlock {
+  id: string;
+  type: BlockType;
+  text: string;
+  indent?: number;
+  checked?: boolean;
+  collapsed?: boolean;
+  lang?: string;
+  url?: string;
+  pageId?: string;
+  rows?: string[][];
+  callout?: string;
+  children?: NbBlock[];
+}
+
+export interface NotebookPage {
+  id: string;
+  parentId: string | null;
+  title: string;
+  icon: string;
+  cover: string;
+  favorite: boolean;
+  archived: boolean;
+  createdAt: string;
+  updatedAt: string;
+  blocks: NbBlock[];
+}
+
+export interface NotebookState {
+  pages: NotebookPage[];
+  activePageId: string | null;
+}
+
+export interface AppData {
+  version: 2;
+  view: View;
+  settings: Settings;
+  lists: TaskList[];
+  tasks: Task[];
+  notes: Note[];
+  habits: Habit[];
+  heatmap: Record<string, HeatmapDay>;
+  heatmapYear: number;
+  usage: Record<string, UsageDay>;
+  timer: TimerState;
+  planner: PlannerBlock[];
+  journal: JournalEntry[];
+  sounds: SoundMix;
+  piano: PianoSettings;
+  notebook: NotebookState;
+}
+
+export const NOTE_COLORS: NoteColor[] = [
+  "paper",
+  "mist",
+  "sage",
+  "blush",
+  "lilac",
+  "sand",
+];
+
+export const NOISE_LAYERS: { id: NoiseId; label: string }[] = [
+  { id: "white", label: "Biały szum" },
+  { id: "pink", label: "Różowy szum" },
+  { id: "brown", label: "Brązowy szum" },
+  { id: "rain", label: "Deszcz" },
+  { id: "fan", label: "Wentylator" },
+  { id: "cafe", label: "Kawiarnia" },
+  { id: "ocean", label: "Ocean" },
+];
+
+export const VIEWS: { id: View; label: string; hint: string }[] = [
+  { id: "today", label: "Dziś", hint: "Pulpit dnia" },
+  { id: "heatmap", label: "Heatmapa", hint: "Czas przy komputerze" },
+  { id: "tasks", label: "Zadania", hint: "Listy i priorytety" },
+  { id: "notes", label: "Notatki", hint: "Przypinki" },
+  { id: "notebook", label: "Notatnik", hint: "Strony i bloki" },
+  { id: "habits", label: "Nawyki", hint: "Codzienne rytuały" },
+  { id: "sounds", label: "Dźwięki", hint: "Szum i tło" },
+  { id: "piano", label: "Pianino", hint: "Ciche dźwięki" },
+  { id: "planner", label: "Planer", hint: "Bloki czasu" },
+  { id: "journal", label: "Dziennik", hint: "Shutdown" },
+  { id: "stats", label: "Statystyki", hint: "Spokojne liczby" },
+  { id: "settings", label: "Ustawienia", hint: "Preferencje" },
+];

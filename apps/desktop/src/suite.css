@@ -1,0 +1,171 @@
+/*
+ * Suite-level stylesheet.
+ * Tailwind is loaded WITHOUT preflight: the Focus module ships its own legacy
+ * stylesheet (scoped under .mod-focus) and a global reset would fight it.
+ * The Create module (editor) gets a scoped mini-preflight under .mod-create.
+ * Load order matters: legacy.css first, this file last.
+ */
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme" layer(theme);
+@import "tailwindcss/utilities" layer(utilities);
+@source "../../../packages";
+@source "./";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Outfit", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --color-ink: #17151f;
+  --color-muted: #6f6878;
+  --color-paper: #f3f0ea;
+  --color-card: #fffcf8;
+  --color-line: #e6e0d6;
+  --color-teal: #0e9a8a;
+  --color-teal-2: #0b7d70;
+  --color-violet: #6b5bff;
+  --color-coral: #ff715f;
+}
+
+/* Global base — deliberately minimal; modules own their surfaces. */
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  overflow: hidden;
+  user-select: none;
+  font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
+  background: var(--bg, #fafafa);
+  color: var(--text, #111111);
+}
+
+input,
+textarea {
+  user-select: text;
+}
+
+.drag-region {
+  -webkit-app-region: drag;
+  app-region: drag;
+}
+
+.no-drag {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
+/* Shell additions on top of the Focus legacy styles. */
+.mod-focus .nav-group-label {
+  margin: 10px 10px 4px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted, #777);
+}
+
+.create-main {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ------------------------------------------------------------------ */
+/* Create module (editor) — scoped preflight + component classes.      */
+/* ------------------------------------------------------------------ */
+
+.mod-create,
+.mod-create *,
+.mod-create *::before,
+.mod-create *::after {
+  box-sizing: border-box;
+  border-width: 0;
+  border-style: solid;
+  border-color: currentColor;
+}
+
+.mod-create {
+  color: var(--color-ink);
+  background: var(--color-paper);
+  font-family: var(--font-sans);
+}
+
+.mod-create button,
+.mod-create input,
+.mod-create textarea,
+.mod-create select {
+  font-family: inherit;
+  font-size: 100%;
+  color: inherit;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+}
+
+.mod-create button {
+  cursor: pointer;
+}
+
+.mod-create h1,
+.mod-create h2,
+.mod-create h3,
+.mod-create p {
+  margin: 0;
+}
+
+.mod-create :focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--color-violet) 55%, white);
+  outline-offset: 2px;
+}
+
+.mod-create .btn {
+  @apply inline-flex items-center justify-center gap-2 rounded-[12px] px-4 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-40;
+}
+
+.mod-create .btn-primary {
+  @apply bg-teal text-white shadow-[0_10px_24px_rgba(14,154,138,0.28)] hover:bg-teal-2;
+}
+
+.mod-create .btn-secondary {
+  @apply border border-line bg-card text-ink shadow-sm hover:bg-white;
+}
+
+.mod-create .btn-ghost {
+  @apply text-muted hover:bg-white/70 hover:text-ink;
+}
+
+.mod-create .field {
+  @apply w-full rounded-[12px] border border-line bg-white px-3 py-2 text-sm text-ink shadow-sm;
+}
+
+.mod-create .slider {
+  @apply h-1.5 w-full cursor-pointer appearance-none rounded-full bg-line;
+}
+
+.mod-create .slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: var(--color-teal);
+  border: 2px solid white;
+  box-shadow: 0 2px 8px rgba(14, 154, 138, 0.35);
+}
+
+.mod-create .mesh-home {
+  background:
+    radial-gradient(900px 500px at 12% -10%, rgba(107, 91, 255, 0.22), transparent 55%),
+    radial-gradient(700px 480px at 92% 0%, rgba(14, 154, 138, 0.2), transparent 50%),
+    radial-gradient(600px 420px at 70% 110%, rgba(255, 113, 95, 0.16), transparent 50%),
+    var(--color-paper);
+}
+
+.mod-create .scroll-thin {
+  scrollbar-width: thin;
+  scrollbar-color: #d5cfc4 transparent;
+}
