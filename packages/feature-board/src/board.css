@@ -1,0 +1,525 @@
+/*
+ * board module — Excalidraw inside the suite's chrome.
+ * Everything here is scoped under .mod-board; Excalidraw's own stylesheet is
+ * scoped under .excalidraw and stays untouched. The first block maps
+ * Excalidraw's design tokens onto the suite's, so the editor follows the five
+ * themes (accent, cards, ink) without any per-theme rules of its own.
+ */
+
+.mod-board {
+  position: relative;
+  color: var(--color-ink);
+  background: var(--color-paper);
+  font-family: var(--font-sans);
+}
+
+.board-root {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.board-canvas {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
+.board-canvas-inner {
+  position: absolute;
+  inset: 0;
+}
+
+.board-loading {
+  display: grid;
+  flex: 1;
+  place-items: center;
+  font-size: 13px;
+  color: var(--color-muted);
+}
+
+/* Excalidraw tokens → suite tokens. Doubled class for specificity over the
+   editor's own `.excalidraw { … }` blocks, whatever order the bundles land in. */
+.mod-board .excalidraw.excalidraw {
+  --ui-font: var(--font-sans);
+  --color-primary: var(--color-accent);
+  --color-primary-darker: var(--color-accent-2);
+  --color-primary-darkest: var(--color-accent-2);
+  --color-primary-hover: var(--color-accent-2);
+  --color-primary-light: color-mix(in srgb, var(--color-accent) 16%, var(--color-card));
+  --color-primary-light-darker: color-mix(in srgb, var(--color-accent) 26%, var(--color-card));
+  --color-surface-primary-container: color-mix(in srgb, var(--color-accent) 16%, var(--color-card));
+  --color-on-primary-container: var(--color-accent-2);
+  --color-brand-hover: var(--color-accent-2);
+  --color-brand-active: var(--color-accent-2);
+  --color-selection: var(--color-accent);
+  --select-highlight-color: var(--color-accent);
+  --focus-highlight-color: color-mix(in srgb, var(--color-accent) 45%, transparent);
+  --island-bg-color: var(--color-card);
+  --popup-bg-color: var(--color-card);
+  --sidebar-bg-color: var(--color-card);
+  --color-on-surface: var(--color-ink);
+  --border-radius-lg: 10px;
+}
+
+.mod-board .excalidraw.excalidraw.theme--dark {
+  --color-primary: color-mix(in srgb, var(--color-accent) 84%, white);
+  --color-primary-darker: color-mix(in srgb, var(--color-accent) 72%, white);
+  --color-primary-darkest: color-mix(in srgb, var(--color-accent) 60%, white);
+  --color-primary-hover: color-mix(in srgb, var(--color-accent) 72%, white);
+  --color-on-primary-container: #ffffff;
+  --color-surface-primary-container: color-mix(in srgb, var(--color-accent) 30%, var(--color-card));
+  --color-brand-hover: color-mix(in srgb, var(--color-accent) 72%, white);
+  --color-brand-active: color-mix(in srgb, var(--color-accent) 60%, white);
+}
+
+/* The app root's focus ring would frame the whole canvas after a keyboard focus. */
+.mod-focus .mod-board .excalidraw-container:focus-visible {
+  outline: none;
+}
+
+/* ------------------------------------------------------------------ */
+/* Top-left chrome: boards button + title, floated over the canvas     */
+/* right of Excalidraw's hamburger island.                             */
+/* ------------------------------------------------------------------ */
+
+.board-topleft {
+  position: absolute;
+  top: 16px;
+  left: calc(16px + 36px + 8px);
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  /* Stop short of the centred toolbar (about 600px wide on a full set of tools). */
+  max-width: max(44px, calc(50% - 372px));
+}
+
+.board-chip {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  min-width: 0;
+  padding: 0 12px;
+  border: 1px solid color-mix(in srgb, var(--color-ink) 9%, transparent);
+  border-radius: 10px;
+  background: var(--color-card);
+  color: var(--color-ink);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.06),
+    0 6px 16px rgba(0, 0, 0, 0.05);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+}
+
+.board-chip:hover {
+  background: color-mix(in srgb, var(--color-card) 90%, var(--color-ink));
+}
+
+.board-chip-icon {
+  flex: none;
+  width: 40px;
+  padding: 0;
+  justify-content: center;
+}
+
+.board-chip svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+}
+
+.board-title-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.board-title .board-title-pen {
+  width: 12px;
+  height: 12px;
+  color: var(--color-muted);
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.board-title:hover .board-title-pen {
+  opacity: 1;
+}
+
+.board-title-input {
+  height: 40px;
+  width: 240px;
+  padding: 0 11px;
+  border: 1px solid var(--color-accent);
+  border-radius: 10px;
+  background: var(--color-card);
+  color: var(--color-ink);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 22%, transparent);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  outline: none;
+}
+
+@media (max-width: 1040px) {
+  .board-title-text {
+    display: none;
+  }
+}
+
+.board-notice {
+  position: absolute;
+  left: 50%;
+  bottom: 68px;
+  z-index: 5;
+  max-width: min(520px, 80%);
+  padding: 9px 14px;
+  border-radius: 10px;
+  background: var(--color-ink);
+  color: var(--color-paper);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+  font-size: 12.5px;
+  font-weight: 500;
+  transform: translateX(-50%);
+}
+
+/* ------------------------------------------------------------------ */
+/* Boards popover                                                      */
+/* ------------------------------------------------------------------ */
+
+.board-pop {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  width: 340px;
+  max-height: min(70vh, 560px);
+  border: 1px solid var(--color-line);
+  border-radius: 14px;
+  background: var(--color-card);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.16);
+  overflow: hidden;
+}
+
+.board-pop-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px 9px;
+  border-bottom: 1px solid var(--color-line);
+}
+
+.board-pop-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+.board-pop-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.board-mini {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 9px;
+  border: 1px solid var(--color-line);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--color-ink);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.board-mini:hover {
+  background: color-mix(in srgb, var(--color-ink) 6%, transparent);
+}
+
+.board-mini.primary {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: #fff;
+}
+
+.board-mini.primary:hover {
+  border-color: var(--color-accent-2);
+  background: var(--color-accent-2);
+}
+
+.board-mini svg {
+  width: 13px;
+  height: 13px;
+}
+
+.board-list {
+  padding: 6px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.board-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.board-row:hover {
+  background: color-mix(in srgb, var(--color-ink) 5%, transparent);
+}
+
+.board-row.active {
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+}
+
+.board-row:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--color-accent) 55%, transparent);
+  outline-offset: -2px;
+}
+
+.board-thumb {
+  display: grid;
+  flex: none;
+  width: 64px;
+  height: 44px;
+  place-items: center;
+  border: 1px solid var(--color-line);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--color-muted);
+  overflow: hidden;
+}
+
+.board-thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.board-row-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.board-row-name {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--color-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.board-row-meta {
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--color-muted);
+}
+
+.board-row-input {
+  width: 100%;
+  height: 24px;
+  padding: 0 6px;
+  border: 1px solid var(--color-accent);
+  border-radius: 6px;
+  background: var(--color-card);
+  color: var(--color-ink);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  outline: none;
+}
+
+.board-row-tools {
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.board-row:hover .board-row-tools,
+.board-row:focus-within .board-row-tools {
+  opacity: 1;
+}
+
+.board-icon-btn {
+  appearance: none;
+  display: grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--color-muted);
+  cursor: pointer;
+}
+
+.board-icon-btn:hover {
+  background: color-mix(in srgb, var(--color-ink) 8%, transparent);
+  color: var(--color-ink);
+}
+
+.board-icon-btn.danger:hover {
+  background: color-mix(in srgb, var(--color-coral) 14%, transparent);
+  color: var(--color-coral);
+}
+
+.board-icon-btn svg {
+  width: 13px;
+  height: 13px;
+}
+
+.board-pop-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--color-line);
+  font-size: 11px;
+  color: var(--color-muted);
+}
+
+.board-link {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-accent);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.board-link:hover {
+  text-decoration: underline;
+}
+
+.board-link svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Top-right export menu — lives inside Excalidraw's island row, so   */
+/* the editor's variables (island colour, shadow, UI font) apply.      */
+/* ------------------------------------------------------------------ */
+
+.board-tr {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.board-tr-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: var(--lg-button-size);
+  padding: 0 0.75rem;
+  border: 0;
+  border-radius: var(--border-radius-lg);
+  background: var(--island-bg-color);
+  color: var(--icon-fill-color);
+  box-shadow: var(--shadow-island);
+  font-family: var(--ui-font);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.board-tr-btn:hover {
+  background: var(--button-hover-bg);
+}
+
+.board-tr-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.board-tr-btn svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.board-tr-pop {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 10;
+  min-width: 240px;
+  padding: 6px;
+  border: 1px solid var(--dialog-border-color);
+  border-radius: var(--border-radius-lg);
+  background: var(--island-bg-color);
+  box-shadow: var(--shadow-island);
+}
+
+.board-tr-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--color-on-surface);
+  font-family: var(--ui-font);
+  font-size: 0.875rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.board-tr-item:hover {
+  background: var(--button-hover-bg);
+}
+
+.board-tr-item svg {
+  width: 1rem;
+  height: 1rem;
+  color: var(--icon-fill-color);
+}
+
+.board-tr-sep {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--dialog-border-color);
+}
+
+/* Welcome screen wordmark next to the brand mark. */
+.board-welcome-word {
+  margin-left: 0.45rem;
+  font-family: var(--font-display);
+  font-size: 1.7rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}

@@ -1,9 +1,18 @@
 import { useEffect, useRef, useState } from "react";
-import type { AspectRatio, Project } from "../types";
+import type { AspectRatio, Project, ShareLink } from "../types";
 import type { ExportPhase } from "../lib/exportVideo";
 import { exportProject, blobToFileDownload, probeExportSupport } from "../lib/exportVideo";
-import { canvasSize } from "../lib/compositor";
+import { canvasSize, drawFrame } from "../lib/compositor";
+import { timelineDuration, timelineToSource } from "../lib/segments";
+import {
+  createShareLink,
+  deleteShareLink,
+  describeShareError,
+  isShareExpired,
+  type SharePhase,
+} from "../lib/share";
 import { activateLicense, isPro } from "@licensing/license";
+import { PRICING_URL, SUITE_NAME } from "@core/branding";
 import { exportBlobToPath } from "../lib/projectIo";
 import { captionsToSrt } from "../lib/srt";
 import { invokeSafe, isTauri } from "../lib/tauri";
@@ -16,16 +25,28 @@ const PHASE_LABEL: Record<ExportPhase, string> = {
   finalize: "Writing file…",
 };
 
+const SHARE_LABEL: Record<SharePhase, string> = {
+  creating: "Asking shipshape.app for an upload…",
+  uploading: "Uploading…",
+  finishing: "Publishing the link…",
+};
+
+function shortDate(ms: number): string {
+  return new Date(ms).toLocaleDateString(undefined, { day: "numeric", month: "short" });
+}
+
 export function ExportModal({
   project,
   screen,
   webcam,
   background,
+  overlayImages,
 }: {
   project: Project;
   screen: HTMLVideoElement | null;
   webcam: HTMLVideoElement | null;
   background: HTMLImageElement | null;
+  overlayImages?: Record<string, HTMLImageElement>;
 }) {
   const open = useAppStore((s) => s.exportOpen);
   const setOpen = useAppStore((s) => s.setExportOpen);
@@ -33,9 +54,14 @@ export function ExportModal({
   const setProgress = useAppStore((s) => s.setExportProgress);
   const media = useAppStore((s) => s.media);
   const updateProject = useAppStore((s) => s.updateProject);
+  const persistProject = useAppStore((s) => s.persistProject);
   const showToast = useAppStore((s) => s.showToast);
   const setPlaying = useAppStore((s) => s.setPlaying);
   const [busy, setBusy] = useState(false);
+  const [shareBusy, setShareBusy] = useState(false);
+  const [sharePhase, setSharePhase] = useState<SharePhase | null>(null);
+  const [shareFraction, setShareFraction] = useState(0);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const [phase, setPhase] = useState<ExportPhase>("prepare");
   const [fps, setFps] = useState<30 | 60>(60);
   const [hasFfmpeg, setHasFfmpeg] = useState(false);
@@ -74,13 +100,14 @@ export function ExportModal({
       const { blob, ext } = await exportProject(project, media, screen, webcam, background, {
         fps,
         watermark: !isPro(),
+        overlayImages,
         signal: abort.current.signal,
         onProgress: (p, ph) => {
           setProgress(p);
           setPhase(ph);
         },
       });
-      const base = project.name.replace(/[^\w\-]+/g, "_") || "screeni";
+      const base = project.name.replace(/[^\w\-]+/g, "_") || SUITE_NAME;
       let outExt = ext;
       let saved = await exportBlobToPath(blob, `${base}.${ext}`, ext);
 
@@ -111,11 +138,137 @@ export function ExportModal({
     }
   }
 
+  /** The frame under the playhead, at 1280 px wide — the link preview and the player's poster. */
+  async function makePoster(): Promise<Blob | null> {
+    try {
+      const state = useAppStore.getState();
+      const full = canvasSize(project.aspect);
+      const scale = 1280 / full.width;
+      const width = Math.round(full.width * scale);
+      const height = Math.round(full.height * scale);
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return null;
+      drawFrame({
+        ctx,
+        width,
+        height,
+        sourceTime: timelineToSource(state.timelineTime, project.segments),
+        timelineTime: state.timelineTime,
+        timelineDuration: timelineDuration(project.segments),
+        project,
+        screenVideo: screen,
+        webcamVideo: webcam,
+        backgroundImage: background,
+        overlayImages,
+        watermark: !isPro(),
+      });
+      return await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.85));
+    } catch {
+      return null;
+    }
+  }
+
+  async function copyLink(link: ShareLink) {
+    try {
+      await navigator.clipboard.writeText(link.url);
+      setCopiedId(link.id);
+      window.setTimeout(() => setCopiedId((id) => (id === link.id ? null : id)), 1800);
+    } catch {
+      showToast(link.url, "info");
+    }
+  }
+
+  async function openLink(link: ShareLink) {
+    try {
+      if (isTauri()) {
+        const { openUrl } = await import("@tauri-apps/plugin-opener");
+        await openUrl(link.url);
+      } else {
+        window.open(link.url, "_blank", "noopener");
+      }
+    } catch {
+      showToast("Couldn't open the link.", "error");
+    }
+  }
+
+  async function removeLink(link: ShareLink) {
+    try {
+      await deleteShareLink(link);
+      updateProject({ shares: project.shares.filter((s) => s.id !== link.id) });
+      await persistProject().catch(() => undefined);
+      showToast("Link removed.", "info");
+    } catch (err) {
+      showToast(describeShareError(err), "error");
+    }
+  }
+
+  /** Renders the video, uploads it and copies the link — one click, no file dialog. */
+  async function share() {
+    if (!media) {
+      showToast("No video to export.", "error");
+      return;
+    }
+    setPlaying(false);
+    setShareBusy(true);
+    setBusy(true);
+    setProgress(0.01);
+    setPhase("prepare");
+    setSharePhase(null);
+    abort.current = new AbortController();
+    try {
+      const poster = await makePoster();
+      const { blob, ext } = await exportProject(project, media, screen, webcam, background, {
+        fps,
+        watermark: !isPro(),
+        overlayImages,
+        signal: abort.current.signal,
+        onProgress: (p, ph) => {
+          setProgress(p);
+          setPhase(ph);
+        },
+      });
+      setProgress(null);
+      const { width, height } = canvasSize(project.aspect);
+      const link = await createShareLink(
+        {
+          blob,
+          ext,
+          name: project.name,
+          width,
+          height,
+          duration: timelineDuration(project.segments),
+          poster,
+        },
+        (ph, fraction) => {
+          setSharePhase(ph);
+          setShareFraction(fraction);
+        },
+        abort.current.signal,
+      );
+      updateProject({ shares: [link, ...project.shares] });
+      await persistProject().catch(() => undefined);
+      await copyLink(link);
+      showToast("Link copied — send it to anyone.", "info");
+    } catch (err) {
+      if ((err as { name?: string }).name !== "AbortError") {
+        showToast(describeShareError(err), "error");
+      }
+    } finally {
+      setShareBusy(false);
+      setBusy(false);
+      setProgress(null);
+      setSharePhase(null);
+    }
+  }
+
   async function saveSrt() {
     try {
       const srt = captionsToSrt(project.captions, project.segments);
       const blob = new Blob([srt], { type: "text/plain" });
-      const base = project.name.replace(/[^\w\-]+/g, "_") || "screeni";
+      const base = project.name.replace(/[^\w\-]+/g, "_") || SUITE_NAME;
       const saved = await exportBlobToPath(blob, `${base}.srt`, "srt");
       if (saved === null && !isTauri()) await blobToFileDownload(blob, `${base}.srt`);
       if (saved !== null || !isTauri()) showToast("Subtitles saved.", "info");
@@ -124,8 +277,8 @@ export function ExportModal({
     }
   }
 
-  function tryActivate() {
-    if (activateLicense(licenseInput)) {
+  async function tryActivate() {
+    if (await activateLicense(licenseInput)) {
       setPro(true);
       setShowLicense(false);
       showToast("License active. Thanks for the support!", "info");
@@ -134,10 +287,23 @@ export function ExportModal({
     }
   }
 
+  async function openPricing() {
+    try {
+      if (isTauri()) {
+        const { openUrl } = await import("@tauri-apps/plugin-opener");
+        await openUrl(PRICING_URL);
+      } else {
+        window.open(PRICING_URL, "_blank", "noopener");
+      }
+    } catch {
+      showToast("Couldn't open the pricing page.", "error");
+    }
+  }
+
   return (
     <div className="absolute inset-0 z-50 grid place-items-center bg-[#17151f]/35 p-6">
-      <div className="w-full max-w-md rounded-[18px] border border-line bg-card p-6 shadow-[0_30px_80px_rgba(23,21,31,0.18)]">
-        <h2 className="text-lg font-semibold tracking-[-0.03em]">Export</h2>
+      <div className="scroll-thin max-h-[92vh] w-full max-w-md overflow-y-auto rounded-[18px] border border-line bg-card p-6 shadow-[0_30px_80px_rgba(23,21,31,0.18)]">
+        <h2 className="text-lg font-semibold tracking-[-0.03em]">Export & share</h2>
         <p className="mt-1 text-sm text-muted">
           {canMp4
             ? "Saves an MP4 ready for YouTube, LinkedIn, Slack, or Drive."
@@ -184,6 +350,66 @@ export function ExportModal({
           </button>
         ) : null}
 
+        <div className="mt-4 rounded-[12px] border border-line bg-paper px-3 py-2.5">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold">Share link</p>
+              <p className="text-xs text-muted">
+                Renders the video, uploads it to shipshape.app and copies a link anyone can open.
+              </p>
+            </div>
+            <button
+              className="btn btn-secondary !h-8 shrink-0 !px-3 !py-0 text-xs"
+              disabled={busy}
+              onClick={() => void share()}
+            >
+              {shareBusy ? "Sharing…" : "Create link"}
+            </button>
+          </div>
+          {sharePhase ? (
+            <div className="mt-3">
+              <div className="h-1.5 overflow-hidden rounded-full bg-line">
+                <div
+                  className={`h-full bg-teal transition-[width] ${sharePhase === "uploading" ? "" : "animate-pulse"}`}
+                  style={{ width: `${sharePhase === "uploading" ? Math.round(shareFraction * 100) : 100}%` }}
+                />
+              </div>
+              <p className="mt-1.5 text-xs text-muted">
+                {SHARE_LABEL[sharePhase]}
+                {sharePhase === "uploading" ? ` ${Math.round(shareFraction * 100)}%` : ""}
+              </p>
+            </div>
+          ) : null}
+          {project.shares.length ? (
+            <ul className="mt-3 space-y-1.5">
+              {project.shares.map((link) => (
+                <li key={link.id} className="flex items-center gap-2 rounded-[10px] border border-line bg-card px-2.5 py-1.5">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-mono text-[11px] text-ink">{link.url.replace(/^https?:\/\//, "")}</p>
+                    <p className="text-[10px] text-muted">
+                      {shortDate(link.createdAt)}
+                      {link.expiresAt ? (isShareExpired(link) ? " · expired" : ` · until ${shortDate(link.expiresAt)}`) : ""}
+                    </p>
+                  </div>
+                  <button className="btn btn-secondary !h-7 !px-2 !py-0 text-[11px]" onClick={() => void copyLink(link)}>
+                    {copiedId === link.id ? "Copied" : "Copy"}
+                  </button>
+                  <button className="btn btn-ghost !h-7 !px-2 !py-0 text-[11px]" onClick={() => void openLink(link)}>
+                    Open
+                  </button>
+                  <button
+                    className="btn btn-ghost !h-7 !w-7 !p-0 text-[11px] text-muted"
+                    title="Remove this link for everyone"
+                    onClick={() => void removeLink(link)}
+                  >
+                    ✕
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+
         {!pro ? (
           <div className="mt-4 rounded-[12px] border border-line bg-paper px-3 py-2.5 text-xs text-muted">
             {showLicense ? (
@@ -193,19 +419,29 @@ export function ExportModal({
                   placeholder="SCRN-XXXXX-XXXXX-XXXXX"
                   value={licenseInput}
                   onChange={(e) => setLicenseInput(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && tryActivate()}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") void tryActivate();
+                  }}
                 />
-                <button className="btn btn-secondary h-8 px-3 text-xs" onClick={tryActivate}>
+                <button className="btn btn-secondary h-8 px-3 text-xs" onClick={() => void tryActivate()}>
                   Activate
                 </button>
               </div>
             ) : (
-              <span>
-                The free version adds a small "made with shipshape" badge.{" "}
-                <button className="font-semibold text-teal-2 underline" onClick={() => setShowLicense(true)}>
-                  I have a license key
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span>
+                  The free version adds a small "made with shipshape" badge.{" "}
+                  <button className="font-semibold text-teal-2 underline" onClick={() => setShowLicense(true)}>
+                    I have a license key
+                  </button>
+                </span>
+                <button
+                  className="btn btn-primary !h-7 !px-3 !py-0 !text-xs"
+                  onClick={() => void openPricing()}
+                >
+                  Get Pro
                 </button>
-              </span>
+              </div>
             )}
           </div>
         ) : null}
@@ -231,6 +467,7 @@ export function ExportModal({
               abort.current?.abort();
               setOpen(false);
               setProgress(null);
+              setSharePhase(null);
             }}
           >
             {busy ? "Stop" : "Cancel"}

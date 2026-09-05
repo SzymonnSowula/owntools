@@ -6,6 +6,7 @@ export interface PageIntel {
   tagline: string;
   accent: string | null;
   imageDataUrl: string | null;
+  logoDataUrl: string | null;
   features: string[];
 }
 
@@ -49,6 +50,19 @@ async function fetchDataUrl(url: string): Promise<string | null> {
   }
 }
 
+function link(doc: Document, selectors: string[], base: string): string | null {
+  for (const sel of selectors) {
+    const href = doc.querySelector(sel)?.getAttribute("href")?.trim();
+    if (!href) continue;
+    try {
+      return new URL(href, base).toString();
+    } catch {
+      /* skip malformed hrefs */
+    }
+  }
+  return null;
+}
+
 function meta(doc: Document, selectors: string[]): string | null {
   for (const sel of selectors) {
     const el = doc.querySelector(sel);
@@ -63,7 +77,10 @@ function cleanText(s: string): string {
 }
 
 /** Extracts launch-video material from a page's HTML. Exported for testing. */
-export function analyzeHtml(html: string, url: string): Omit<PageIntel, "imageDataUrl"> & { imageUrl: string | null } {
+export function analyzeHtml(
+  html: string,
+  url: string,
+): Omit<PageIntel, "imageDataUrl" | "logoDataUrl"> & { imageUrl: string | null; logoUrl: string | null } {
   const doc = new DOMParser().parseFromString(html, "text/html");
 
   const siteName = meta(doc, ['meta[property="og:site_name"]']);
@@ -111,20 +128,30 @@ export function analyzeHtml(html: string, url: string): Omit<PageIntel, "imageDa
   doc.querySelectorAll("h2, h3").forEach((el) => push(el.textContent));
   if (features.length < 3) doc.querySelectorAll("main li, section li").forEach((el) => push(el.textContent));
 
-  return { url, name, tagline, accent, imageUrl, features };
+  const logoUrl = link(
+    doc,
+    ['link[rel="apple-touch-icon"]', 'link[rel="icon"]', 'link[rel="shortcut icon"]'],
+    url,
+  );
+
+  return { url, name, tagline, accent, imageUrl, logoUrl, features };
 }
 
 export async function analyzeUrl(rawUrl: string): Promise<PageIntel> {
   const url = /^https?:\/\//i.test(rawUrl) ? rawUrl : `https://${rawUrl}`;
   const html = await fetchText(url);
   const base = analyzeHtml(html, url);
-  const imageDataUrl = base.imageUrl ? await fetchDataUrl(base.imageUrl) : null;
+  const [imageDataUrl, logoDataUrl] = await Promise.all([
+    base.imageUrl ? fetchDataUrl(base.imageUrl) : Promise.resolve(null),
+    base.logoUrl ? fetchDataUrl(base.logoUrl) : Promise.resolve(null),
+  ]);
   return {
     url: base.url,
     name: base.name,
     tagline: base.tagline,
     accent: base.accent,
     imageDataUrl,
+    logoDataUrl,
     features: base.features,
   };
 }

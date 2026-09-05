@@ -140,6 +140,7 @@ export function seedState(): AppData {
       autostart: false,
       speechLang: "pl-PL",
       usageTracking: true,
+      closeToTray: true,
       scrollGuardEnabled: false,
       scrollGuardSites: ["x.com", "twitter.com", "tiktok.com", "instagram.com"],
       scrollGuardTaskId: null,
@@ -192,8 +193,23 @@ export function seedState(): AppData {
     ],
     journal: [],
     sounds: defaultSounds(),
+    record: { id: null, playing: false, volume: 0.5 },
     piano: { volume: 0.4, ambient: false, tempo: 36 },
     notebook: { pages: [], activePageId: null },
+  };
+}
+
+/** Clean dataset for a freshly created workspace — no demo content, and the
+ * current preferences carry over so the vibe doesn't reset. */
+export function blankState(settings?: AppData["settings"]): AppData {
+  const base = seedState();
+  return {
+    ...base,
+    settings: settings ? { ...settings } : base.settings,
+    tasks: [],
+    notes: [],
+    habits: [],
+    planner: [],
   };
 }
 

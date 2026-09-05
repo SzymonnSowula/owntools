@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web-and-packages:
+    name: typecheck + tests + next build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # No version here on purpose: it reads `packageManager` from package.json.
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm typecheck
+
+      - run: pnpm test
+
+      - run: pnpm --filter web build
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
+
+  rust:
+    name: cargo check (windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
+
+      # tauri-build looks for the frontend output folder; an empty one is enough
+      # for a type check, and it saves running the whole web build here.
+      - run: New-Item -ItemType Directory -Force apps/desktop/dist | Out-Null
+
+      - run: cargo check
+        working-directory: apps/desktop/src-tauri

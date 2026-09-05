@@ -28,4 +28,14 @@ recordings
 # Env & logs
 .env
 .env.*
+!web/.env.example
 *.log
+
+# TypeScript / Vite build artefacts (tsc emits these next to the sources)
+*.tsbuildinfo
+apps/desktop/vite.config.js
+apps/desktop/vite.config.d.ts
+
+# Local secrets (updater private key lives in ~/.tauri, never here)
+*.key
+web/.env.local

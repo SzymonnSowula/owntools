@@ -1,12 +1,14 @@
-import type { ReactNode } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { PreviewCanvas } from "./PreviewCanvas";
 import { Timeline } from "./Timeline";
 import { Inspector } from "./Inspector";
 import { ExportModal } from "./ExportModal";
-import { formatTime } from "../lib/time";
+import { CommandPalette, type PaletteCommand } from "./CommandPalette";
+import { Toolbar } from "./Toolbar";
+import { saveProjectAsset } from "../lib/projectIo";
+import { useOverlayImages } from "../lib/useOverlayImages";
 import { ensureFiniteDuration } from "../lib/videoEl";
-import { sourceToTimeline, timelineDuration, timelineToSource, segmentAtTimeline } from "../lib/segments";
+import { playbackStep, sourceToTimeline, timelineDuration, timelineToSource } from "../lib/segments";
 import { cutIntervalsFromSegments, detectSilence } from "../lib/silence";
 import { useAppStore } from "../store/appStore";
 
@@ -15,16 +17,15 @@ export function Editor() {
   const media = useAppStore((s) => s.media);
   const playing = useAppStore((s) => s.playing);
   const setPlaying = useAppStore((s) => s.setPlaying);
-  const setView = useAppStore((s) => s.setView);
   const splitAtPlayhead = useAppStore((s) => s.splitAtPlayhead);
   const deleteSelection = useAppStore((s) => s.deleteSelection);
   const addZoom = useAppStore((s) => s.addZoom);
   const addCaption = useAppStore((s) => s.addCaption);
   const addText = useAppStore((s) => s.addText);
+  const addOverlay = useAppStore((s) => s.addOverlay);
+  const persistProject = useAppStore((s) => s.persistProject);
   const undo = useAppStore((s) => s.undo);
   const redo = useAppStore((s) => s.redo);
-  const historyIndex = useAppStore((s) => s.historyIndex);
-  const history = useAppStore((s) => s.history);
   const updateProject = useAppStore((s) => s.updateProject);
   const showToast = useAppStore((s) => s.showToast);
   const [autoCutBusy, setAutoCutBusy] = useState(false);
@@ -35,6 +36,8 @@ export function Editor() {
   const [webcamEl, setWebcamEl] = useState<HTMLVideoElement | null>(null);
   const [bgEl, setBgEl] = useState<HTMLImageElement | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const imageRef = useRef<HTMLInputElement>(null);
+  const overlayImages = useOverlayImages(media?.overlayUrls);
 
   useEffect(() => {
     setScreenEl(screenRef.current);
@@ -95,20 +98,29 @@ export function Editor() {
     const tick = () => {
       const screen = screenRef.current;
       if (!screen) return;
-      const source = screen.currentTime;
-      const seg = segmentAtTimeline(
-        useAppStore.getState().timelineTime,
+      // A jump across a cut is a seek, and a seek takes time: screen recordings
+      // are encoded with very sparse keyframes, so landing on a frame can mean
+      // decoding seconds of video. Assigning currentTime again while that is in
+      // flight abandons it and starts over — do that every frame, as this loop
+      // used to, and the seek never finishes. That is what froze playback at a
+      // cut. Wait it out instead; the last drawn frame stays on screen.
+      if (screen.seeking) {
+        raf = requestAnimationFrame(tick);
+        return;
+      }
+      const step = playbackStep(
         project.segments,
+        useAppStore.getState().timelineTime,
+        screen.currentTime,
       );
-      if (seg && source >= seg.end - 0.03) {
-        const idx = project.segments.findIndex((s) => s.id === seg.id);
-        const next = project.segments[idx + 1];
-        if (next) {
-          screen.currentTime = next.start;
-          if (webcamRef.current) webcamRef.current.currentTime = Math.max(0, next.start - project.webcamOffset);
-        } else {
-          useAppStore.setState({ playing: false, timelineTime: timelineDuration(project.segments) });
-          return;
+      if (step.action === "stop") {
+        useAppStore.setState({ playing: false, timelineTime: timelineDuration(project.segments) });
+        return;
+      }
+      if (step.action === "seek" && step.to !== undefined) {
+        screen.currentTime = step.to;
+        if (webcamRef.current) {
+          webcamRef.current.currentTime = Math.max(0, step.to - project.webcamOffset);
         }
       }
       useAppStore.setState({ timelineTime: sourceToTimeline(screen.currentTime, project.segments) });
@@ -120,22 +132,60 @@ export function Editor() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      const state = useAppStore.getState();
       const tag = (e.target as HTMLElement)?.tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      const typing = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
+      const key = e.key.toLowerCase();
+
+      // Ctrl+K reaches the palette even from a field — it is how you get out of one.
+      if ((e.metaKey || e.ctrlKey) && key === "k") {
+        e.preventDefault();
+        state.setPaletteOpen(!state.paletteOpen);
+        return;
+      }
+      if (state.paletteOpen) return;
+      if (e.key === "Escape") {
+        if (state.tool !== "select") {
+          e.preventDefault();
+          state.setTool("select");
+        }
+        return;
+      }
+      if (typing) return;
+
       if (e.code === "Space") {
         e.preventDefault();
-        setPlaying(!useAppStore.getState().playing);
-      } else if (e.key.toLowerCase() === "s" && !e.metaKey && !e.ctrlKey) {
+        setPlaying(!state.playing);
+      } else if (key === "s" && !e.metaKey && !e.ctrlKey) {
         e.preventDefault();
         splitAtPlayhead();
+      } else if (key === "c" && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault();
+        state.setTool(state.tool === "cut" ? "select" : "cut");
+      } else if (key === "z" && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault();
+        addZoom(e.shiftKey ? "out" : "in");
+      } else if (key === "t" && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault();
+        addText();
+      } else if (key === "k" && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault();
+        addCaption();
+      } else if (key === "i" && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault();
+        imageRef.current?.click();
       } else if (e.key === "Delete" || e.key === "Backspace") {
         deleteSelection();
-      } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z") {
+      } else if ((e.metaKey || e.ctrlKey) && key === "z") {
         e.preventDefault();
         if (e.shiftKey) redo();
         else undo();
+      } else if (e.key === "Home" || e.key === "End") {
+        if (!state.project) return;
+        e.preventDefault();
+        state.setPlaying(false);
+        state.setTimelineTime(e.key === "Home" ? 0 : timelineDuration(state.project.segments));
       } else if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
-        const state = useAppStore.getState();
         if (!state.project) return;
         e.preventDefault();
         const dur = timelineDuration(state.project.segments);
@@ -146,7 +196,7 @@ export function Editor() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [setPlaying, splitAtPlayhead, deleteSelection, undo, redo]);
+  }, [setPlaying, splitAtPlayhead, deleteSelection, undo, redo, addZoom, addText, addCaption]);
 
   if (!project || !media) {
     return (
@@ -191,53 +241,99 @@ export function Editor() {
     }
   }
 
+  /** One list behind Ctrl+K; the toolbar is the shortlist of the same actions. */
+  const commands = useMemo<PaletteCommand[]>(() => {
+    const store = useAppStore.getState;
+    return [
+      { id: "play", group: "Playback", label: playing ? "Pause" : "Play", keys: "Space", run: () => setPlaying(!store().playing) },
+      { id: "start", group: "Playback", label: "Go to the start", keys: "Home", run: () => store().setTimelineTime(0) },
+      {
+        id: "end",
+        group: "Playback",
+        label: "Go to the end",
+        keys: "End",
+        run: () => {
+          const p = store().project;
+          if (p) store().setTimelineTime(timelineDuration(p.segments));
+        },
+      },
+      { id: "split", group: "Cut", label: "Split at the playhead", keys: "S", run: () => store().splitAtPlayhead() },
+      {
+        id: "cut-tool",
+        group: "Cut",
+        label: "Cut tool — click the timeline to cut",
+        keys: "C",
+        run: () => store().setTool(store().tool === "cut" ? "select" : "cut"),
+      },
+      { id: "autocut", group: "Cut", label: "Auto-cut the silent pauses", hint: "listens to the audio", disabled: autoCutBusy, run: () => void autoCut() },
+      { id: "delete", group: "Cut", label: "Delete the selection", keys: "Del", disabled: !store().selection, run: () => store().deleteSelection() },
+      { id: "zoom-in", group: "Add", label: "Zoom in at the playhead", keys: "Z", run: () => store().addZoom("in") },
+      { id: "zoom-out", group: "Add", label: "Zoom back out", keys: "Shift+Z", run: () => store().addZoom("out") },
+      { id: "regen-zoom", group: "Add", label: "Regenerate zooms from the cursor", run: () => store().regenerateZooms() },
+      { id: "caption", group: "Add", label: "Add a caption", keys: "K", run: () => store().addCaption() },
+      { id: "text", group: "Add", label: "Add a text overlay", keys: "T", run: () => store().addText() },
+      { id: "image", group: "Add", label: "Add an image or logo", keys: "I", run: () => imageRef.current?.click() },
+      { id: "undo", group: "Project", label: "Undo", keys: "Ctrl+Z", run: () => store().undo() },
+      { id: "redo", group: "Project", label: "Redo", keys: "Ctrl+Shift+Z", run: () => store().redo() },
+      { id: "import", group: "Project", label: "Open another video file", run: () => fileRef.current?.click() },
+      { id: "export", group: "Project", label: "Export & share", hint: "save an MP4 or copy a link", run: () => store().setExportOpen(true) },
+      ...(["16:9", "9:16", "1:1"] as const).map((aspect) => ({
+        id: `aspect-${aspect}`,
+        group: "Project",
+        label: `Aspect ratio ${aspect}`,
+        run: () => store().updateProject({ aspect }, true),
+      })),
+      { id: "home", group: "Project", label: "Back to the recordings list", run: () => void store().setView("home") },
+    ];
+    // `store()` is read at run time, so the list only depends on what it shows.
+  }, [playing, autoCutBusy]);
+
+  async function addImage(file: File) {
+    if (!project) return;
+    const url = URL.createObjectURL(file);
+    try {
+      const saved = await saveProjectAsset(project.id, file, file.name, "img");
+      addOverlay(saved?.name ?? file.name, url);
+      if (saved) await persistProject();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Couldn't add the image.", "error");
+    }
+  }
+
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-paper">
-      <div className="flex flex-wrap items-center gap-2 border-b border-line/80 px-4 py-2">
-        <button className="btn btn-ghost h-8 px-2 text-xs" onClick={() => void setView("home")}>
-          Home
-        </button>
-        <input
-          className="field h-8 min-w-0 max-w-xs flex-1 basis-40"
-          value={project.name}
-          onChange={(e) => updateProject({ name: e.target.value })}
-        />
-        <div className="ml-2 flex flex-wrap gap-1.5">
-          <Tool onClick={() => setPlaying(!playing)}>{playing ? "Pause" : "Play"}</Tool>
-          <Tool onClick={splitAtPlayhead}>Split</Tool>
-          <Tool disabled={autoCutBusy} onClick={() => void autoCut()}>
-            {autoCutBusy ? "Analyzing…" : "Auto-cut"}
-          </Tool>
-          <Tool onClick={() => addZoom("in")}>Zoom in</Tool>
-          <Tool onClick={() => addZoom("out")}>Zoom out</Tool>
-          <Tool onClick={addCaption}>Caption</Tool>
-          <Tool onClick={addText}>Text</Tool>
-          <Tool onClick={deleteSelection}>Delete</Tool>
-          <Tool disabled={historyIndex <= 0} onClick={undo}>
-            Undo
-          </Tool>
-          <Tool disabled={historyIndex >= history.length - 1} onClick={redo}>
-            Redo
-          </Tool>
-          <Tool onClick={() => fileRef.current?.click()}>Import</Tool>
-        </div>
-        <TimeReadout />
-        <input
-          ref={fileRef}
-          type="file"
-          accept="video/*"
-          className="hidden"
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (!file) return;
-            const url = URL.createObjectURL(file);
-            useAppStore.setState((s) => ({
-              media: s.media ? { ...s.media, screenUrl: url } : { screenUrl: url },
-            }));
-            e.currentTarget.value = "";
-          }}
-        />
-      </div>
+      <Toolbar
+        autoCutBusy={autoCutBusy}
+        onAutoCut={() => void autoCut()}
+        onImport={() => fileRef.current?.click()}
+        onAddImage={() => imageRef.current?.click()}
+      />
+      <input
+        ref={imageRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) void addImage(file);
+          e.currentTarget.value = "";
+        }}
+      />
+      <input
+        ref={fileRef}
+        type="file"
+        accept="video/*"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (!file) return;
+          const url = URL.createObjectURL(file);
+          useAppStore.setState((s) => ({
+            media: s.media ? { ...s.media, screenUrl: url } : { screenUrl: url },
+          }));
+          e.currentTarget.value = "";
+        }}
+      />
 
       <div className="flex min-h-0 flex-1">
         <div className="flex min-w-0 min-h-0 flex-1 flex-col">
@@ -246,6 +342,7 @@ export function Editor() {
             screen={screenEl}
             webcam={webcamEl}
             background={bgEl}
+            overlayImages={overlayImages}
           />
           <TransportBar />
           <Timeline project={project} />
@@ -273,20 +370,15 @@ export function Editor() {
       ) : (
         <video ref={webcamRef} className="pointer-events-none fixed left-0 top-0 -z-10 h-px w-px opacity-0" muted playsInline />
       )}
-      <ExportModal project={project} screen={screenEl} webcam={webcamEl} background={bgEl} />
+      <ExportModal
+        project={project}
+        screen={screenEl}
+        webcam={webcamEl}
+        background={bgEl}
+        overlayImages={overlayImages}
+      />
+      <CommandPalette commands={commands} />
     </div>
-  );
-}
-
-/** Isolated so 60 fps time updates re-render only this tiny node. */
-function TimeReadout() {
-  const time = useAppStore((s) => s.timelineTime);
-  const project = useAppStore((s) => s.project);
-  const duration = project ? timelineDuration(project.segments) : 0;
-  return (
-    <span className="ml-auto font-mono text-xs tabular-nums text-muted">
-      {formatTime(time, true)} / {formatTime(duration)}
-    </span>
   );
 }
 
@@ -315,21 +407,5 @@ function TransportBar() {
         }}
       />
     </div>
-  );
-}
-
-function Tool({
-  children,
-  onClick,
-  disabled,
-}: {
-  children: ReactNode;
-  onClick: () => void;
-  disabled?: boolean;
-}) {
-  return (
-    <button className="btn btn-secondary h-8 px-2.5 text-xs" onClick={onClick} disabled={disabled}>
-      {children}
-    </button>
   );
 }

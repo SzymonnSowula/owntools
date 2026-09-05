@@ -1,11 +1,20 @@
 import { create } from "zustand";
-import { applyMix, setAmbientParams, startMixer, stopMixer } from "../lib/audio/engine";
+import {
+  applyMix,
+  playRecord as dropNeedle,
+  setAmbientParams,
+  setRecordVolume as setNeedleVolume,
+  startMixer,
+  stopMixer,
+  stopRecord as liftNeedle,
+} from "../lib/audio/engine";
 import { addDays, todayIso } from "../lib/dates";
 import { notify } from "../lib/notify";
 import { uid } from "../lib/ids";
 import type {
   AppData,
   CaptureMode,
+  DictationCommand,
   Habit,
   HeatmapDay,
   NbBlock,
@@ -22,10 +31,20 @@ import type {
   UsageNow,
   View,
 } from "../types";
-import { loadPersisted, savePersisted } from "./persist";
-import { seedState } from "./seed";
+import { applyTheme } from "../lib/themes";
+import {
+  DEFAULT_WORKSPACE_ID,
+  deletePersisted,
+  loadPersisted,
+  loadWorkspacesMeta,
+  migrate,
+  savePersisted,
+  saveWorkspacesMeta,
+  type WorkspaceMeta,
+  type WorkspaceRitual,
+} from "./persist";
+import { blankState, seedState } from "./seed";
 import { createBlock, createPage, emptyNotebook } from "../lib/notebook";
-import type { DictationCommand } from "../lib/speech";
 
 export interface UiState {
   ready: boolean;
@@ -33,6 +52,8 @@ export interface UiState {
   quickOpen: boolean;
   quickMode: CaptureMode;
   usageNow: UsageNow | null;
+  workspaces: WorkspaceMeta[];
+  workspaceId: string;
 }
 
 export interface AppState extends AppData, UiState {
@@ -43,6 +64,20 @@ export interface AppState extends AppData, UiState {
   closeQuickCapture: () => void;
   updateSettings: (patch: Partial<Settings>) => void;
   setTheme: (theme: Settings["theme"]) => void;
+  switchWorkspace: (id: string) => Promise<void>;
+  /** Snapshot of the current workspace dataset (for exports). */
+  exportWorkspaceData: () => AppData;
+  /**
+   * Replace the current workspace with a validated JSON backup (see
+   * `validateBackup`). Migrates, installs it like a workspace switch would,
+   * and writes it to disk before resolving. Rejects if the backup is malformed.
+   */
+  importWorkspaceData: (raw: Record<string, unknown>) => Promise<void>;
+  createWorkspace: (name: string, emoji?: string) => Promise<void>;
+  renameWorkspace: (id: string, name: string, emoji?: string) => void;
+  /** Replace a workspace's session ritual (apps/links/timer it launches). */
+  setWorkspaceRitual: (id: string, ritual: WorkspaceRitual) => void;
+  deleteWorkspace: (id: string) => Promise<void>;
   addTask: (title: string, listId?: string, extra?: Partial<Task>) => void;
   updateTask: (id: string, patch: Partial<Task>) => void;
   toggleTask: (id: string) => void;
@@ -85,6 +120,10 @@ export interface AppState extends AppData, UiState {
   setMasterVolume: (v: number) => void;
   setLayerVolume: (id: keyof SoundMix["layers"], v: number) => void;
   setPiano: (patch: Partial<PianoSettings>) => void;
+  /** Drops the needle on a record; passing the one already spinning lifts it. */
+  playRecord: (id: string) => void;
+  stopRecord: () => void;
+  setRecordVolume: (v: number) => void;
   createNotebookPage: (title?: string, parentId?: string | null, blocks?: NbBlock[]) => string;
   addNotebookPageObject: (page: NotebookPage) => void;
   updateNotebookPage: (id: string, patch: Partial<NotebookPage>) => void;
@@ -133,6 +172,7 @@ const DATA_KEYS: (keyof AppData)[] = [
   "planner",
   "journal",
   "sounds",
+  "record",
   "piano",
   "notebook",
 ];
@@ -147,14 +187,80 @@ function pickData(state: AppData): AppData {
 
 let saveTimer: number | null = null;
 let loopTimer: number | null = null;
+let switchingWorkspace = false;
 
 function scheduleSave(get: () => AppState) {
   if (saveTimer != null) window.clearTimeout(saveTimer);
   saveTimer = window.setTimeout(() => {
     const s = get();
     if (!s.ready) return;
-    void savePersisted(pickData(s));
+    void savePersisted(pickData(s), s.workspaceId);
   }, 280);
+}
+
+/** Write the current workspace out immediately (before switching away). */
+async function flushSave(get: () => AppState) {
+  if (saveTimer != null) {
+    window.clearTimeout(saveTimer);
+    saveTimer = null;
+  }
+  const s = get();
+  if (!s.ready) return;
+  await savePersisted(pickData(s), s.workspaceId);
+}
+
+/** State patch that installs a workspace dataset (or a fresh one). */
+function datasetPatch(loaded: AppData | null, fallback: AppData): Partial<AppState> {
+  const base = seedState();
+  if (!loaded) {
+    return { ...fallback, shortcutsOpen: false, quickOpen: false };
+  }
+  return {
+    ...base,
+    ...loaded,
+    settings: { ...base.settings, ...loaded.settings },
+    usage: loaded.usage ?? {},
+    notebook: loaded.notebook ?? emptyNotebook(),
+    shortcutsOpen: false,
+    quickOpen: false,
+    timer: { ...loaded.timer, running: false, endAt: null, startedAt: null },
+    // Neither the mixer nor the turntable survives a dataset swap — the crate
+    // remembers which record was on, but nothing resumes without a gesture.
+    sounds: { ...(loaded.sounds ?? base.sounds), playing: false },
+    record: { ...(loaded.record ?? base.record), playing: false },
+  };
+}
+
+/** Native side-effects that depend on the loaded settings (no-ops in browser). */
+function syncNativeUsage(enabled: boolean) {
+  void (async () => {
+    try {
+      const { isTauri } = await import("../lib/env");
+      if (!isTauri()) return;
+      const { invoke } = await import("@tauri-apps/api/core");
+      await invoke("usage_set_enabled", { enabled });
+    } catch {
+      /* browser preview */
+    }
+  })();
+}
+
+/**
+ * Window behaviour is decided in Rust (the close event never reaches JS when
+ * the window hides to the tray), so the preference is mirrored there on
+ * hydrate, on workspace switch/restore, and whenever it changes.
+ */
+function syncNativeWindowPrefs(settings: Settings) {
+  void (async () => {
+    try {
+      const { isTauri } = await import("../lib/env");
+      if (!isTauri()) return;
+      const { invoke } = await import("@tauri-apps/api/core");
+      await invoke("set_close_to_tray", { enabled: settings.closeToTray !== false });
+    } catch {
+      /* browser preview */
+    }
+  })();
 }
 
 function bumpDay(
@@ -196,32 +302,29 @@ export const useAppStore = create<AppState>((set, get) => ({
   shortcutsOpen: false,
   quickOpen: false,
   quickMode: "task",
+  workspaces: [],
+  workspaceId: DEFAULT_WORKSPACE_ID,
   usageNow: null,
 
   hydrate: async () => {
-    const loaded = await loadPersisted();
-    if (loaded) {
-      const base = seedState();
-      set({
-        ...base,
-        ...loaded,
-        settings: { ...base.settings, ...loaded.settings },
-        usage: loaded.usage ?? {},
-        notebook: loaded.notebook ?? emptyNotebook(),
-        ready: true,
-        shortcutsOpen: false,
-        quickOpen: false,
-        timer: { ...loaded.timer, running: false, endAt: null, startedAt: null },
-      });
-    } else {
-      set({ ready: true });
-      scheduleSave(get);
-    }
+    const meta = await loadWorkspacesMeta();
+    const active = meta.list.some((w) => w.id === meta.active)
+      ? meta.active
+      : meta.list[0].id;
+    const loaded = await loadPersisted(active);
+    set({
+      ...datasetPatch(loaded, pickData(get())),
+      workspaces: meta.list,
+      workspaceId: active,
+      ready: true,
+    });
+    if (!loaded) scheduleSave(get);
     if (loopTimer == null) {
       loopTimer = window.setInterval(() => get().tickTimer(), 250);
     }
-    document.documentElement.dataset.theme = get().settings.theme;
+    applyTheme(get().settings.theme);
     nativeScrollGuard(get);
+    syncNativeWindowPrefs(get().settings);
     if (get().piano.ambient) {
       setAmbientParams(get().piano.tempo, get().piano.volume, true);
     }
@@ -238,7 +341,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   updateSettings: (patch) => {
     const settings = { ...get().settings, ...patch };
     set({ settings });
-    if (patch.theme) document.documentElement.dataset.theme = patch.theme;
+    if (patch.theme) applyTheme(patch.theme);
+    if (patch.closeToTray !== undefined) syncNativeWindowPrefs(settings);
     if (patch.pomodoroFocus && get().timer.preset === "custom" && !get().timer.running) {
       const ms = patch.pomodoroFocus * 60 * 1000;
       set({
@@ -248,6 +352,104 @@ export const useAppStore = create<AppState>((set, get) => ({
     scheduleSave(get);
   },
   setTheme: (theme) => get().updateSettings({ theme }),
+
+  switchWorkspace: async (id) => {
+    const s = get();
+    if (switchingWorkspace || id === s.workspaceId || !s.workspaces.some((w) => w.id === id)) return;
+    switchingWorkspace = true;
+    try {
+      stopMixer();
+      liftNeedle();
+      setAmbientParams(s.piano.tempo, s.piano.volume, false);
+      await flushSave(get);
+      const loaded = await loadPersisted(id);
+      set({
+        ...datasetPatch(loaded, blankState(s.settings)),
+        workspaceId: id,
+      });
+      const next = get();
+      applyTheme(next.settings.theme);
+      nativeScrollGuard(get);
+      syncNativeUsage(next.settings.usageTracking);
+      syncNativeWindowPrefs(next.settings);
+      if (next.piano.ambient) {
+        setAmbientParams(next.piano.tempo, next.piano.volume, true);
+      }
+      if (!loaded) scheduleSave(get);
+      void saveWorkspacesMeta({ version: 1, active: id, list: next.workspaces });
+    } finally {
+      switchingWorkspace = false;
+    }
+  },
+
+  exportWorkspaceData: () => pickData(get()),
+
+  importWorkspaceData: async (raw) => {
+    if (switchingWorkspace) throw new Error("A workspace switch is still in progress.");
+    // Migrate before touching anything so a malformed file leaves the current
+    // dataset (and the record on the platter) exactly as it was.
+    const loaded = migrate(raw);
+    switchingWorkspace = true;
+    try {
+      const s = get();
+      stopMixer();
+      liftNeedle();
+      setAmbientParams(s.piano.tempo, s.piano.volume, false);
+      set(datasetPatch(loaded, blankState(s.settings)));
+      const next = get();
+      applyTheme(next.settings.theme);
+      nativeScrollGuard(get);
+      syncNativeUsage(next.settings.usageTracking);
+      syncNativeWindowPrefs(next.settings);
+      if (next.piano.ambient) {
+        setAmbientParams(next.piano.tempo, next.piano.volume, true);
+      }
+      await flushSave(get);
+    } finally {
+      switchingWorkspace = false;
+    }
+  },
+
+  createWorkspace: async (name, emoji = "📁") => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    const s = get();
+    const ws: WorkspaceMeta = {
+      id: uid(),
+      name: trimmed,
+      emoji,
+      createdAt: new Date().toISOString(),
+    };
+    const workspaces = [...s.workspaces, ws];
+    set({ workspaces });
+    await savePersisted(blankState(s.settings), ws.id);
+    await get().switchWorkspace(ws.id);
+  },
+
+  setWorkspaceRitual: (id, ritual) => {
+    const workspaces = get().workspaces.map((w) => (w.id === id ? { ...w, ritual } : w));
+    set({ workspaces });
+    void saveWorkspacesMeta({ version: 1, active: get().workspaceId, list: workspaces });
+  },
+
+  renameWorkspace: (id, name, emoji) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    const workspaces = get().workspaces.map((w) =>
+      w.id === id ? { ...w, name: trimmed, emoji: emoji ?? w.emoji } : w,
+    );
+    set({ workspaces });
+    void saveWorkspacesMeta({ version: 1, active: get().workspaceId, list: workspaces });
+  },
+
+  deleteWorkspace: async (id) => {
+    const s = get();
+    if (id === s.workspaceId || s.workspaces.length <= 1) return;
+    const workspaces = s.workspaces.filter((w) => w.id !== id);
+    set({ workspaces });
+    await deletePersisted(id);
+    void saveWorkspacesMeta({ version: 1, active: s.workspaceId, list: workspaces });
+  },
 
   addTask: (title, listId = "inbox", extra) => {
     const task: Task = {
@@ -475,18 +677,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     const settings = { ...get().settings, usageTracking: on };
     set({ settings, usageNow: get().usageNow ? { ...get().usageNow!, tracking: on } : get().usageNow });
     scheduleSave(get);
-    if (typeof window !== "undefined") {
-      void (async () => {
-        try {
-          const { isTauri } = await import("../lib/env");
-          if (!isTauri()) return;
-          const { invoke } = await import("@tauri-apps/api/core");
-          await invoke("usage_set_enabled", { enabled: on });
-        } catch {
-          /* browser preview */
-        }
-      })();
-    }
+    syncNativeUsage(on);
   },
   setScrollGuard: (patch) => {
     const settings = {
@@ -722,6 +913,33 @@ export const useAppStore = create<AppState>((set, get) => ({
     const piano = { ...get().piano, ...patch };
     set({ piano });
     setAmbientParams(piano.tempo, piano.volume, piano.ambient);
+    scheduleSave(get);
+  },
+
+  playRecord: (id) => {
+    const current = get().record;
+    if (current.playing && current.id === id) {
+      get().stopRecord();
+      return;
+    }
+    set({ record: { ...current, id, playing: true } });
+    // A record and the piano's ambient mode fight for the same ears.
+    const piano = get().piano;
+    if (piano.ambient) {
+      set({ piano: { ...piano, ambient: false } });
+      setAmbientParams(piano.tempo, piano.volume, false);
+    }
+    void dropNeedle(id, current.volume);
+    scheduleSave(get);
+  },
+  stopRecord: () => {
+    set({ record: { ...get().record, playing: false } });
+    liftNeedle();
+    scheduleSave(get);
+  },
+  setRecordVolume: (volume) => {
+    set({ record: { ...get().record, volume } });
+    setNeedleVolume(volume);
     scheduleSave(get);
   },
 

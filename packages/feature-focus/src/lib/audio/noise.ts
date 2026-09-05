@@ -1,7 +1,7 @@
 import type { NoiseId, SoundMix } from "../../types";
 import { getAudioContext, unlockAudio } from "./context";
 
-type Layer = {
+export type Layer = {
   source: AudioBufferSourceNode;
   gain: GainNode;
   extras: AudioNode[];
@@ -206,6 +206,34 @@ export function applyMix(mix: SoundMix): void {
 
 export function isMixerRunning(): boolean {
   return running;
+}
+
+/**
+ * One noise layer routed wherever the caller wants — the record player uses
+ * this to put a bed inside the vinyl chain instead of the mixer's bus.
+ */
+export function createNoiseLayer(id: NoiseId, dest: AudioNode, level: number): Layer {
+  const ctx = getAudioContext();
+  const layer = buildLayer(ctx, id, dest);
+  layer.gain.gain.setTargetAtTime(level, ctx.currentTime, 1.2);
+  return layer;
+}
+
+/** Fades a standalone layer out and releases its nodes. */
+export function stopNoiseLayer(layer: Layer, when: number): void {
+  try {
+    layer.gain.gain.setTargetAtTime(0, when, 0.4);
+    layer.source.stop(when + 1.6);
+  } catch {
+    /* already stopped */
+  }
+  layer.lfos.forEach((o) => {
+    try {
+      o.stop(when + 1.6);
+    } catch {
+      /* already stopped */
+    }
+  });
 }
 
 function ctxOrNull(): AudioContext | null {

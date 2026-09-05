@@ -1,6 +1,6 @@
 {
   "name": "web",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "scripts": {
     "dev": "next dev --webpack -p 3006",
@@ -9,10 +9,16 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@remotion/player": "^4.0.519",
+    "@remotion/web-renderer": "^4.0.519",
+    "@shipshape/launch-engine": "workspace:*",
+    "aws4fetch": "^1.0.20",
+    "lucide-react": "^1.38.0",
     "mediabunny": "^1.55.4",
     "next": "16.3.2",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "remotion": "^4.0.519"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

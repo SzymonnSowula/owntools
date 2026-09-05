@@ -12,7 +12,7 @@ export function SoundsView() {
       <header className="page-head">
         <div>
           <p className="kicker">Background</p>
-          <h1 className="page-title">Sounds</h1>
+          <h1 className="page-title">Mixer</h1>
         </div>
         <div className="page-actions">
           <button className="btn primary" onClick={() => setPlaying(!sounds.playing)}>
@@ -50,7 +50,8 @@ export function SoundsView() {
         ))}
       </section>
       <p className="muted" style={{ marginTop: 16, maxWidth: "52ch" }}>
-        The noise is generated in real time — no samples, no network. The mixer runs alongside the timer, even in the background.
+        Raw layers, mixed by hand — generated in real time, no samples, no network. For something
+        you just put on and leave, the Records tab has ready-made pressings.
       </p>
     </div>
   );

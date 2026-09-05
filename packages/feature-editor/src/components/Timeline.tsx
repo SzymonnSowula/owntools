@@ -9,7 +9,17 @@ const TRACKS = [
   { key: "zoom", label: "Zoom", color: "#5e5ce6" },
   { key: "captions", label: "Captions", color: "#32ade6" },
   { key: "text", label: "Text", color: "#3a3a3c" },
+  { key: "images", label: "Images", color: "#ff9f0a" },
 ] as const;
+
+const TRANSITION_NAME: Record<string, string> = {
+  crossfade: "Crossfade",
+  "dip-black": "Dip to black",
+  "dip-white": "Dip to white",
+  "slide-left": "Push left",
+  "slide-up": "Push up",
+  zoom: "Zoom through",
+};
 
 export function Timeline({ project }: { project: Project }) {
   const setTime = useAppStore((s) => s.setTimelineTime);
@@ -17,7 +27,12 @@ export function Timeline({ project }: { project: Project }) {
   const selection = useAppStore((s) => s.selection);
   const setSelection = useAppStore((s) => s.setSelection);
   const updateProject = useAppStore((s) => s.updateProject);
+  const tool = useAppStore((s) => s.tool);
+  const splitAt = useAppStore((s) => s.splitAt);
+  const showToast = useAppStore((s) => s.showToast);
   const [pps, setPps] = useState(92);
+  /** Where the blade sits while the cut tool is on, in pixels from the track origin. */
+  const [bladeX, setBladeX] = useState<number | null>(null);
   const scroller = useRef<HTMLDivElement>(null);
   const inner = useRef<HTMLDivElement>(null);
   const pendingScroll = useRef<number | null>(null);
@@ -66,12 +81,26 @@ export function Timeline({ project }: { project: Project }) {
     return out;
   }, [duration, pps]);
 
-  function scrubTo(clientX: number) {
+  /** Timeline seconds under a screen x, clamped to the take. */
+  function timeAt(clientX: number): number | null {
     const rect = inner.current?.getBoundingClientRect();
-    if (!rect) return;
-    const t = Math.min(duration, Math.max(0, (clientX - rect.left) / pps));
+    if (!rect) return null;
+    return Math.min(duration, Math.max(0, (clientX - rect.left) / pps));
+  }
+
+  function scrubTo(clientX: number) {
+    const t = timeAt(clientX);
+    if (t === null) return;
     setPlaying(false);
     setTime(t);
+  }
+
+  /** The cut tool: click a track, get a cut there. Stays on for the next one. */
+  function cutAt(clientX: number) {
+    const t = timeAt(clientX);
+    if (t === null) return;
+    setPlaying(false);
+    if (!splitAt(t)) showToast("Too close to an existing cut.", "info");
   }
 
   /** Scrub immediately, then keep scrubbing while the pointer is down. */
@@ -136,9 +165,17 @@ export function Timeline({ project }: { project: Project }) {
   }
 
   return (
-    <div className="border-t border-line bg-card">
-      <div className="flex items-center justify-between px-4 py-2 text-xs text-muted">
-        <span>Timeline · Space play · S split · Del delete · Ctrl+Z undo</span>
+    <div className="flex max-h-[46vh] shrink-0 flex-col border-t border-line bg-card">
+      <div className="flex shrink-0 items-center justify-between px-4 py-2 text-xs text-muted">
+        {tool === "cut" ? (
+          <span className="font-semibold text-teal-2">
+            Cut tool — click a track to cut there · Esc to stop
+          </span>
+        ) : (
+          <span>
+            Space play · S split · C cut tool · Z zoom · Del delete · Ctrl+K all actions
+          </span>
+        )}
         <label className="flex items-center gap-2">
           Zoom
           <input
@@ -153,9 +190,23 @@ export function Timeline({ project }: { project: Project }) {
       </div>
       <div
         ref={scroller}
-        className="scroll-thin relative overflow-x-auto px-4 pb-3"
+        className="scroll-thin relative min-h-0 flex-1 overflow-auto px-4 pb-3"
+        style={tool === "cut" ? { cursor: "crosshair" } : undefined}
+        onPointerMove={(e) => {
+          if (tool !== "cut") return;
+          const rect = inner.current?.getBoundingClientRect();
+          setBladeX(rect ? e.clientX - rect.left : null);
+        }}
+        onPointerLeave={() => setBladeX(null)}
         onPointerDown={(e) => {
           const target = e.target as HTMLElement;
+          // With the cut tool on, a click is a cut wherever it lands — clips
+          // included, since that is exactly where you want to cut.
+          if (tool === "cut" && !target.closest('[data-track="ruler"]')) {
+            e.preventDefault();
+            cutAt(e.clientX);
+            return;
+          }
           if (target.closest("[data-clip]")) return;
           if (target.closest('[data-track="ruler"]')) {
             beginScrub(e);
@@ -179,18 +230,28 @@ export function Timeline({ project }: { project: Project }) {
 
           {TRACKS.map((track) => (
             <div key={track.key} className="mb-1.5 flex items-stretch gap-2">
-              <div className="sticky left-0 z-10 w-16 shrink-0 pt-2 text-[11px] font-medium text-muted">
+              {/* `[position:sticky]` rather than `sticky`: the focus module's legacy CSS styles a `.sticky` note. */}
+              <div className="left-0 z-10 w-16 shrink-0 pt-2 text-[11px] font-medium text-muted [position:sticky]">
                 {track.label}
               </div>
-              <div className="relative h-9 flex-1 rounded-[10px] bg-paper">
+              <div className="relative h-8 flex-1 rounded-[10px] bg-paper">
                 {track.key === "video" &&
-                  project.segments.map((seg) => {
+                  project.segments.map((seg, index) => {
                     const left = sourceToTimeline(seg.start, project.segments) * pps;
                     const w = Math.max(8, (seg.end - seg.start) * pps);
                     const selected = selection?.type === "segment" && selection.id === seg.id;
+                    const transition = index > 0 && seg.transition && seg.transition.kind !== "none" ? seg.transition : null;
                     return (
                       <Clip
                         key={seg.id}
+                        badge={
+                          transition
+                            ? {
+                                title: `${TRANSITION_NAME[transition.kind] ?? transition.kind} · ${transition.duration.toFixed(2)} s`,
+                                width: Math.max(6, Math.min(w, transition.duration * pps)),
+                              }
+                            : null
+                        }
                         left={left}
                         width={w}
                         color="#0a84ff"
@@ -253,6 +314,22 @@ export function Timeline({ project }: { project: Project }) {
                       startDrag={startDrag}
                     />
                   ))}
+                {track.key === "images" &&
+                  project.overlays.map((o) => (
+                    <Clip
+                      key={o.id}
+                      left={sourceToTimeline(o.start, project.segments) * pps}
+                      width={Math.max(8, (o.end - o.start) * pps)}
+                      color="#ff9f0a"
+                      selected={selection?.type === "overlay" && selection.id === o.id}
+                      label={o.src.replace(/^asset_[a-z0-9]+_/i, "")}
+                      onSelect={() => setSelection({ type: "overlay", id: o.id })}
+                      onDrag={(dt) => moveClip("overlay", o.id, dt, project, updateProject)}
+                      onTrimStart={(dt) => trimClip("overlay", o.id, "start", dt, project, updateProject)}
+                      onTrimEnd={(dt) => trimClip("overlay", o.id, "end", dt, project, updateProject)}
+                      startDrag={startDrag}
+                    />
+                  ))}
                 {track.key === "text" &&
                   project.texts.map((t) => (
                     <Clip
@@ -272,6 +349,16 @@ export function Timeline({ project }: { project: Project }) {
               </div>
             </div>
           ))}
+
+          {tool === "cut" && bladeX !== null ? (
+            <div
+              className="pointer-events-none absolute bottom-0 top-6 z-30 w-px bg-teal"
+              style={{ left: bladeX }}
+              aria-hidden
+            >
+              <span className="absolute -top-1 left-1/2 h-2 w-2 -translate-x-1/2 rotate-45 rounded-[1px] bg-teal" />
+            </div>
+          ) : null}
 
           <Playhead pps={pps} onScrubStart={beginScrub} />
         </div>
@@ -311,6 +398,7 @@ function Clip({
   color,
   selected,
   label,
+  badge,
   onSelect,
   onDrag,
   onTrimStart,
@@ -322,6 +410,8 @@ function Clip({
   color: string;
   selected: boolean;
   label: string;
+  /** A transition marker along the clip's leading edge. */
+  badge?: { title: string; width: number } | null;
   onSelect: () => void;
   onDrag: (dt: number) => void;
   onTrimStart: (dt: number) => void;
@@ -333,10 +423,14 @@ function Clip({
   ) => void;
 }) {
   const last = useRef(0);
+  // With the cut tool on, a clip must not swallow the press: the click is meant
+  // for the track underneath, which turns it into a cut.
+  const tool = useAppStore((s) => s.tool);
+  const cutting = tool === "cut";
   return (
     <div
       data-clip
-      className={`absolute top-1 h-7 overflow-hidden rounded-[8px] text-[10px] font-medium text-white shadow-sm transition-opacity ${
+      className={`absolute top-1 h-6 overflow-hidden rounded-[7px] text-[10px] font-medium text-white shadow-sm transition-opacity ${
         selected ? "z-10 opacity-100" : "opacity-[0.88]"
       }`}
       style={{
@@ -346,6 +440,7 @@ function Clip({
         boxShadow: selected ? "0 0 0 2px #fff, 0 0 0 4px #0a84ff" : undefined,
       }}
       onPointerDown={(e) => {
+        if (cutting) return;
         onSelect();
         last.current = 0;
         startDrag(e, (dt) => {
@@ -358,6 +453,7 @@ function Clip({
       <button
         className={`absolute left-0 top-0 h-full cursor-ew-resize ${selected ? "w-2 bg-white/60" : "w-1.5 bg-white/25"}`}
         onPointerDown={(e) => {
+          if (cutting) return;
           last.current = 0;
           startDrag(e, (dt) => {
             const delta = dt - last.current;
@@ -366,10 +462,22 @@ function Clip({
           });
         }}
       />
-      <span className="pointer-events-none block truncate px-3 pt-1.5">{label}</span>
+      {badge ? (
+        <span
+          className="pointer-events-none absolute left-0 top-0 h-full"
+          title={badge.title}
+          style={{
+            width: badge.width,
+            background:
+              "repeating-linear-gradient(135deg, rgba(255,255,255,0.55) 0 3px, rgba(255,255,255,0.12) 3px 7px)",
+          }}
+        />
+      ) : null}
+      <span className="pointer-events-none block truncate px-3 pt-1">{label}</span>
       <button
         className={`absolute right-0 top-0 h-full cursor-ew-resize ${selected ? "w-2 bg-white/60" : "w-1.5 bg-white/25"}`}
         onPointerDown={(e) => {
+          if (cutting) return;
           last.current = 0;
           startDrag(e, (dt) => {
             const delta = dt - last.current;
@@ -390,7 +498,7 @@ function moveClip(
   updateProject: (patch: Partial<Project> | ((p: Project) => Project), history?: boolean) => void,
 ) {
   if (kind === "segment") return;
-  const key = kind === "zoom" ? "zooms" : kind === "caption" ? "captions" : "texts";
+  const key = clipKey(kind);
   updateProject({
     [key]: project[key].map((item) =>
       item.id === id
@@ -413,7 +521,7 @@ function trimClip(
   updateProject: (patch: Partial<Project> | ((p: Project) => Project), history?: boolean) => void,
 ) {
   if (kind === "segment") return;
-  const key = kind === "zoom" ? "zooms" : kind === "caption" ? "captions" : "texts";
+  const key = clipKey(kind);
   updateProject({
     [key]: project[key].map((item) => {
       if (item.id !== id) return item;
@@ -423,4 +531,11 @@ function trimClip(
       return { ...item, end: Math.max(item.start + 0.1, Math.min(project.duration, item.end + dt)) };
     }),
   } as Partial<Project>);
+}
+
+function clipKey(kind: Selection["type"]): "zooms" | "captions" | "texts" | "overlays" {
+  if (kind === "zoom") return "zooms";
+  if (kind === "caption") return "captions";
+  if (kind === "overlay") return "overlays";
+  return "texts";
 }

@@ -1,10 +1,15 @@
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Mutex, OnceLock};
+use std::sync::Mutex;
 
 static ARMED: AtomicBool = AtomicBool::new(false);
 static LOCKED: AtomicBool = AtomicBool::new(false);
 static SITES: Mutex<Vec<String>> = Mutex::new(Vec::new());
-static STARTED: OnceLock<()> = OnceLock::new();
+/// Set while a hook thread exists (spawned or still winding down).
+static RUNNING: AtomicBool = AtomicBool::new(false);
+/// A stop requested before the hook thread had published its id.
+static STOP_PENDING: AtomicBool = AtomicBool::new(false);
+/// Win32 thread id of the hook loop, once it is up.
+static HOOK_THREAD: Mutex<Option<u32>> = Mutex::new(None);
 
 #[tauri::command]
 pub fn scroll_guard_sync(armed: bool, sites: Vec<String>) {
@@ -12,9 +17,19 @@ pub fn scroll_guard_sync(armed: bool, sites: Vec<String>) {
     if let Ok(mut guard) = SITES.lock() {
         *guard = expand_all(&sites);
     }
-    if !armed {
+    if armed {
+        // The low-level input hooks exist only while the guard is armed: they
+        // go in on arm and come out on disarm, never at startup for a feature
+        // that is off.
+        start();
+    } else {
         LOCKED.store(false, Ordering::Relaxed);
+        stop();
     }
+}
+
+pub fn is_armed() -> bool {
+    ARMED.load(Ordering::Relaxed)
 }
 
 #[tauri::command]
@@ -27,14 +42,48 @@ pub fn is_locked() -> bool {
 }
 
 pub fn start() {
-    if STARTED.set(()).is_err() {
+    if RUNNING.swap(true, Ordering::AcqRel) {
+        return;
+    }
+    STOP_PENDING.store(false, Ordering::Release);
+    #[cfg(windows)]
+    if let Err(e) = std::thread::Builder::new()
+        .name("focus-scroll-guard".into())
+        .spawn(hook_loop)
+    {
+        RUNNING.store(false, Ordering::Release);
+        log::error!("could not start the scroll guard hook thread: {e}");
+        return;
+    }
+    log::info!("scroll guard input hooks installed");
+}
+
+/// Tears the hooks down: asks the hook thread to leave its message loop, which
+/// unhooks on the way out. No-op when nothing is running.
+pub fn stop() {
+    if !RUNNING.load(Ordering::Acquire) {
         return;
     }
     #[cfg(windows)]
-    std::thread::Builder::new()
-        .name("focus-scroll-guard".into())
-        .spawn(hook_loop)
-        .expect("nie udało się uruchomić blokady scrolla");
+    {
+        let tid = HOOK_THREAD.lock().ok().and_then(|g| *g);
+        match tid {
+            Some(tid) => post_quit(tid),
+            // The thread is starting up and has not published its id yet.
+            None => STOP_PENDING.store(true, Ordering::Release),
+        }
+    }
+    #[cfg(not(windows))]
+    RUNNING.store(false, Ordering::Release);
+}
+
+#[cfg(windows)]
+fn post_quit(tid: u32) {
+    use windows::Win32::Foundation::{LPARAM, WPARAM};
+    use windows::Win32::UI::WindowsAndMessaging::{PostThreadMessageW, WM_QUIT};
+    if let Err(e) = unsafe { PostThreadMessageW(tid, WM_QUIT, WPARAM(0), LPARAM(0)) } {
+        log::warn!("could not ask the scroll guard thread to stop: {e}");
+    }
 }
 
 pub fn note_host(host: Option<&str>) {
@@ -113,19 +162,48 @@ fn is_blocked(host: &str) -> bool {
 
 #[cfg(windows)]
 fn hook_loop() {
+    use windows::Win32::System::Threading::GetCurrentThreadId;
     use windows::Win32::UI::WindowsAndMessaging::{
-        DispatchMessageW, GetMessageW, SetWindowsHookExW, TranslateMessage, MSG, WH_KEYBOARD_LL,
-        WH_MOUSE_LL,
+        DispatchMessageW, GetMessageW, SetWindowsHookExW, TranslateMessage, UnhookWindowsHookEx,
+        MSG, WH_KEYBOARD_LL, WH_MOUSE_LL,
     };
 
     unsafe {
-        let _mouse = SetWindowsHookExW(WH_MOUSE_LL, Some(mouse_proc), None, 0);
-        let _kbd = SetWindowsHookExW(WH_KEYBOARD_LL, Some(keyboard_proc), None, 0);
-        let mut msg = MSG::default();
-        while GetMessageW(&mut msg, None, 0, 0).as_bool() {
-            let _ = TranslateMessage(&msg);
-            DispatchMessageW(&msg);
+        let mouse = SetWindowsHookExW(WH_MOUSE_LL, Some(mouse_proc), None, 0);
+        let kbd = SetWindowsHookExW(WH_KEYBOARD_LL, Some(keyboard_proc), None, 0);
+        if let Err(e) = &mouse {
+            log::error!("scroll guard: mouse hook failed: {e}");
         }
+        if let Err(e) = &kbd {
+            log::error!("scroll guard: keyboard hook failed: {e}");
+        }
+
+        let tid = GetCurrentThreadId();
+        if let Ok(mut slot) = HOOK_THREAD.lock() {
+            *slot = Some(tid);
+        }
+        // A disarm that raced the spawn is honoured right away.
+        let stop_now = STOP_PENDING.swap(false, Ordering::AcqRel);
+
+        if !stop_now {
+            let mut msg = MSG::default();
+            while GetMessageW(&mut msg, None, 0, 0).as_bool() {
+                let _ = TranslateMessage(&msg);
+                DispatchMessageW(&msg);
+            }
+        }
+
+        if let Ok(h) = mouse {
+            let _ = UnhookWindowsHookEx(h);
+        }
+        if let Ok(h) = kbd {
+            let _ = UnhookWindowsHookEx(h);
+        }
+        if let Ok(mut slot) = HOOK_THREAD.lock() {
+            *slot = None;
+        }
+        RUNNING.store(false, Ordering::Release);
+        log::info!("scroll guard input hooks removed");
     }
 }
 
@@ -173,7 +251,6 @@ unsafe extern "system" fn keyboard_proc(
 fn is_scroll_key(vk: u32) -> bool {
     matches!(
         vk,
-        0x20 | // space
         0x21 | // page up
         0x22 | // page down
         0x23 | // end

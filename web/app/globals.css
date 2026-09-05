@@ -1,19 +1,79 @@
 @import "tailwindcss";
 
+/* ------------------------------------------------------------------ *
+ * shipshape design system — "open desk"                              *
+ * day theme (default): bright desk, blue sky, paper mac-windows.     *
+ * night theme: premium dusk (superwhisper-grade), same skeleton.     *
+ * One accent family: Apple blue #0a84ff · indigo #5e5ce6 ·          *
+ * cyan #32ade6. Switch = data-theme="dark" on <html>.               *
+ * ------------------------------------------------------------------ */
+
 @theme {
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-outfit), var(--font-inter), ui-sans-serif, sans-serif;
+  --font-mono: "SF Mono", Consolas, "Cascadia Code", Menlo, monospace;
+
+  /* day (default) tokens — same names as v1, every page inherits */
   --color-ink: #1d1d1f;
-  --color-muted: #7c7c7c;
-  --color-paper: #fafafa;
+  --color-muted: #6e6e73;
+  --color-paper: #f5f5f7;
   --color-card: #ffffff;
-  --color-line: #e6e6e6;
+  --color-line: rgba(29, 29, 31, 0.12);
   --color-accent: #0a84ff;
-  --color-teal: #0a84ff;
+  --color-accent-deep: #0071e3;
+  --color-indigo: #5e5ce6;
+  --color-cyan: #32ade6;
+  --color-alert: #ff453a;
+  /* legacy aliases */
+  --color-teal: #32ade6;
   --color-violet: #5e5ce6;
+}
+
+/* non-utility surface vars, themed */
+:root {
+  --dot-color: rgba(29, 29, 31, 0.13);
+  --win-grad-a: #ffffff;
+  --win-grad-b: #fbfbfd;
+  --win-bar: #f5f5f7;
+  --win-shadow: 0 18px 44px rgba(17, 17, 17, 0.12);
+  --glow-a: #ffffff;
+  --glow-b: #fafafc;
+  --glow-mix: 12%;
+  --nav-bg: rgba(245, 245, 247, 0.72);
+  --dim-color: rgba(29, 29, 31, 0.45);
+  --stroke-word: rgba(29, 29, 31, 0.14);
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --color-ink: #f5f5f7;
+  --color-muted: #9a9aa1;
+  --color-paper: #060608;
+  --color-card: #101014;
+  --color-line: rgba(255, 255, 255, 0.09);
+
+  --dot-color: rgba(255, 255, 255, 0.1);
+  --win-grad-a: #16161b;
+  --win-grad-b: #101014;
+  --win-bar: rgba(255, 255, 255, 0.045);
+  --win-shadow: 0 24px 60px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  --glow-a: #101017;
+  --glow-b: #0a0a0e;
+  --glow-mix: 22%;
+  --nav-bg: rgba(6, 6, 8, 0.66);
+  --dim-color: rgba(245, 245, 247, 0.4);
+  --stroke-word: rgba(245, 245, 247, 0.16);
+  color-scheme: dark;
 }
 
 html {
   scroll-behavior: smooth;
+  background: var(--color-paper);
+}
+
+/* anchored sections land below the fixed pill nav */
+[id] {
+  scroll-margin-top: 90px;
 }
 
 body {
@@ -22,26 +82,115 @@ body {
   background: var(--color-paper);
   font-family: var(--font-sans);
   letter-spacing: -0.01em;
+  transition: background 0.35s ease, color 0.35s ease;
 }
 
 ::selection {
-  background: color-mix(in srgb, var(--color-accent) 25%, white);
+  background: color-mix(in srgb, var(--color-accent) 40%, transparent);
+  color: var(--color-ink);
 }
 
+/* ------------------------------- surfaces ------------------------------- */
+
+/* dotted desktop background — the desk */
 .dotted {
-  background-image: radial-gradient(rgba(17, 17, 17, 0.13) 1px, transparent 1px);
+  background-image: radial-gradient(var(--dot-color) 1px, transparent 1px);
   background-size: 22px 22px;
 }
+
+/* hero sky — day: XP-bliss blue; night: superwhisper dusk.
+   Drop web/public/wallpapers/hero.jpg / hero-dark.jpg to use real photos. */
+.hero-sky {
+  color: #ffffff;
+  background-color: #5ca4e4;
+  background-image:
+    url("/wallpapers/hero.jpg"),
+    radial-gradient(46% 32% at 12% 20%, rgba(255, 255, 255, 0.9), transparent 70%),
+    radial-gradient(40% 30% at 82% 12%, rgba(255, 255, 255, 0.75), transparent 70%),
+    radial-gradient(60% 40% at 50% 96%, rgba(214, 236, 210, 0.85), transparent 72%),
+    linear-gradient(to bottom, #3f8fd9 0%, #5ea7e5 55%, #8ec4ee 86%, #b8dcd8 100%);
+  background-size: cover, auto, auto, auto, auto;
+  background-position: center;
+}
+
+:root[data-theme="dark"] .hero-sky {
+  background-color: #060610;
+  background-image:
+    url("/wallpapers/hero-dark.jpg"),
+    radial-gradient(120% 70% at 20% 108%, rgba(224, 122, 95, 0.34), transparent 60%),
+    radial-gradient(130% 80% at 80% 112%, rgba(94, 92, 230, 0.3), transparent 60%),
+    linear-gradient(to bottom, #05050c 0%, #0a1630 34%, #16345e 68%, #4a5a8a 88%, #8d7d95 100%);
+  background-size: cover, auto, auto, auto;
+  background-position: center;
+}
+
+/* ascii code raining over the sky (procedural, /wallpapers/ascii-grid.svg) */
+.ascii-sky {
+  position: relative;
+  isolation: isolate;
+}
+
+.ascii-sky::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-image: url("/wallpapers/ascii-grid.svg");
+  background-size: 640px 520px;
+  opacity: 0.22;
+  -webkit-mask-image: linear-gradient(to bottom, black 0%, black 45%, transparent 85%);
+  mask-image: linear-gradient(to bottom, black 0%, black 45%, transparent 85%);
+  pointer-events: none;
+}
+
+:root[data-theme="dark"] .ascii-sky::before {
+  opacity: 0.16;
+}
+
+/* NOTE: children that must paint above the ::before overlay need their own
+   position (relative/absolute) — hero content and decorations already have it.
+   Do NOT force `position` on all children here: an un-layered rule would beat
+   Tailwind's layered `.absolute` and break card positioning. */
+
+/* meadow break (pricing) — the field wallpaper, framed on its bottom part
+   (the grass). Reuses /wallpapers/hero.jpg; gradients render if it's missing.
+   Day: bright as-is; night: same field under a dark wash + light text. */
+.sky-day {
+  color: #1d1d1f;
+  background-color: #7db8e8;
+  background-image:
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0) 40%),
+    url("/wallpapers/hero.jpg"),
+    radial-gradient(48% 34% at 14% 22%, rgba(255, 255, 255, 0.95), transparent 70%),
+    radial-gradient(40% 30% at 78% 14%, rgba(255, 255, 255, 0.8), transparent 70%),
+    linear-gradient(to bottom, #4d9be0 0%, #7db8e8 45%, #8fbf8f 100%);
+  background-size: cover, cover, auto, auto, auto;
+  background-position: center bottom;
+}
+
+:root[data-theme="dark"] .sky-day {
+  color: #f5f5f7;
+  background-color: #0a1420;
+  background-image:
+    linear-gradient(to bottom, rgba(6, 10, 20, 0.62), rgba(6, 10, 20, 0.74)),
+    url("/wallpapers/hero.jpg"),
+    linear-gradient(to bottom, #0a1630 0%, #10263f 55%, #12281e 100%);
+  background-size: cover, cover, auto;
+  background-position: center bottom;
+}
+
+/* ------------------------------- windows ------------------------------- */
 
 .wincard {
   display: flex;
   flex-direction: column;
-  background: #ffffff;
+  background: linear-gradient(to bottom, var(--win-grad-a), var(--win-grad-b));
   border: 1px solid var(--color-line);
   border-radius: 14px;
-  box-shadow: 0 18px 44px rgba(17, 17, 17, 0.1);
+  box-shadow: var(--win-shadow);
   overflow: hidden;
   text-align: left;
+  color: var(--color-ink);
 }
 
 .wincard-bar {
@@ -50,20 +199,33 @@ body {
   gap: 6px;
   padding: 9px 12px;
   border-bottom: 1px solid var(--color-line);
-  background: #f5f5f5;
+  background: var(--win-bar);
 }
 
-.wincard-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 999px;
+.wincard-title {
+  margin-left: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-muted);
 }
 
-.wincard-dot.r { background: #ff5f57; }
-.wincard-dot.y { background: #febc2e; }
-.wincard-dot.g { background: #28c840; }
+/* forced-light window — used on media (hero, sky pricing), same in both themes */
+.wincard--light {
+  background: #ffffff;
+  border-color: rgba(29, 29, 31, 0.14);
+  box-shadow: 0 20px 50px rgba(20, 40, 80, 0.25);
+  color: #1d1d1f;
+}
 
-/* Traffic lights drawn as three tinted mini icons (WinDots component). */
+.wincard--light .wincard-bar {
+  background: #f5f5f7;
+  border-color: rgba(29, 29, 31, 0.1);
+}
+
+.wincard--light .wincard-title {
+  color: #6e6e73;
+}
+
 .windots {
   display: flex;
   align-items: center;
@@ -80,37 +242,327 @@ body {
   display: block;
 }
 
-.wincard-title {
-  margin-left: 6px;
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--color-muted);
-}
+/* ------------------------------ tinted cards ---------------------------- */
 
-.marquee {
-  display: flex;
+/* superwhisper-style feature card: pass --tint (any brand hue) */
+.glow-card {
+  --tint: var(--color-accent);
+  position: relative;
+  border-radius: 18px;
+  border: 1px solid color-mix(in srgb, var(--tint) 26%, var(--color-line));
+  background:
+    radial-gradient(120% 90% at 18% 0%, color-mix(in srgb, var(--tint) var(--glow-mix), transparent), transparent 62%),
+    linear-gradient(to bottom, var(--glow-a), var(--glow-b));
   overflow: hidden;
-  user-select: none;
+  transition: transform 0.35s ease, border-color 0.35s ease, box-shadow 0.35s ease;
 }
 
-.marquee-track {
-  display: flex;
-  flex-shrink: 0;
+.glow-card:hover {
+  transform: translateY(-4px);
+  border-color: color-mix(in srgb, var(--tint) 48%, var(--color-line));
+  box-shadow: 0 18px 40px color-mix(in srgb, var(--tint) 16%, transparent);
+}
+
+.glow-icon {
+  display: inline-flex;
   align-items: center;
-  gap: 44px;
-  padding-right: 44px;
-  animation: marquee 28s linear infinite;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  color: var(--tint);
+  background: color-mix(in srgb, var(--tint) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--tint) 28%, transparent);
+}
+
+:root[data-theme="dark"] .glow-icon {
+  color: color-mix(in srgb, var(--tint) 78%, white);
+}
+
+/* ------------------------------- type bits ------------------------------ */
+
+.kicker {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: lowercase;
+  color: var(--color-accent);
+}
+
+.display {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.045em;
+  text-transform: lowercase;
+}
+
+/* giant dimmed typography — "works anywhere you can type" */
+.dim {
+  color: var(--dim-color);
+}
+
+.outline-word {
+  color: transparent;
+  -webkit-text-stroke: 1.5px var(--stroke-word);
+}
+
+/* -------------------------------- buttons ------------------------------- */
+
+.btn {
+  display: inline-flex;
+  height: 48px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 24px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 600;
   white-space: nowrap;
+  transition: transform 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
 }
 
-@keyframes marquee {
-  from { transform: translateX(0); }
-  to { transform: translateX(-100%); }
+.btn:active {
+  transform: scale(0.97);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .marquee-track { animation: none; }
+/* inverts with the theme: ink pill on day, white pill at night */
+.btn-primary {
+  background: var(--color-ink);
+  color: var(--color-paper);
+  box-shadow: 0 10px 30px color-mix(in srgb, var(--color-ink) 22%, transparent);
 }
+
+.btn-primary:hover {
+  filter: brightness(1.15);
+}
+
+/* always-white pill for use on media backgrounds (hero, sky) */
+.btn-light {
+  background: #ffffff;
+  color: #0b0b0d;
+  box-shadow: 0 10px 30px rgba(10, 30, 60, 0.28);
+}
+
+.btn-light:hover {
+  background: #f2f6ff;
+}
+
+.btn-accent {
+  background: var(--color-accent);
+  color: #fff;
+  box-shadow: 0 10px 30px rgba(10, 132, 255, 0.35);
+}
+
+.btn-accent:hover {
+  background: var(--color-accent-deep);
+}
+
+.btn-ghost {
+  background: rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  backdrop-filter: blur(10px);
+}
+
+.btn-ghost:hover {
+  background: rgba(255, 255, 255, 0.24);
+}
+
+/* -------------------------------- terminal ------------------------------ */
+
+/* terminals are dark in both themes — that's just what terminals are */
+.terminal {
+  font-family: var(--font-mono);
+  background: #0b0b0d;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+  color: #b9c2cf;
+  text-align: left;
+}
+
+.terminal-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.terminal-body {
+  padding: 18px 20px;
+  font-size: 12.5px;
+  line-height: 1.75;
+}
+
+.terminal .prompt {
+  color: var(--color-cyan);
+}
+
+.terminal .cmd {
+  color: #f5f5f7;
+}
+
+.terminal .ok {
+  color: #30d158;
+}
+
+/* -------------------------------- bento --------------------------------- */
+
+.bento {
+  display: flex;
+  flex-direction: column;
+  border-radius: 18px;
+  border: 1px solid var(--color-line);
+  background: var(--color-card);
+  overflow: hidden;
+}
+
+/* nature visual for bento tiles: meadow-sky gradient (photo drop-in via
+   /wallpapers/hero.jpg) with the ASCII grid raining over it */
+.nature {
+  position: relative;
+  background-color: #5ca4e4;
+  background-image:
+    url("/wallpapers/hero.jpg"),
+    linear-gradient(to bottom, #4694dc 0%, #7db8e8 52%, #9ccb9c 100%);
+  background-size: cover, auto;
+  background-position: center;
+}
+
+:root[data-theme="dark"] .nature {
+  background-color: #0a1630;
+  background-image:
+    url("/wallpapers/hero-dark.jpg"),
+    linear-gradient(to bottom, #0a1630 0%, #16345e 60%, #1c3a2e 100%);
+  background-size: cover, auto;
+  background-position: center;
+}
+
+.nature::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: url("/wallpapers/ascii-grid.svg");
+  background-size: 520px 420px;
+  opacity: 0.28;
+  -webkit-mask-image: linear-gradient(to bottom, black 30%, transparent 95%);
+  mask-image: linear-gradient(to bottom, black 30%, transparent 95%);
+  pointer-events: none;
+}
+
+/* content placed on .nature must be position:relative to paint above ::after */
+
+/* ------------------------------- toolkit -------------------------------- */
+
+.toolkit-row {
+  scrollbar-width: none;
+}
+
+.toolkit-row::-webkit-scrollbar {
+  display: none;
+}
+
+/* first capability card leads the row, like a live/active state */
+.toolkit-lead {
+  border-color: color-mix(in srgb, var(--tint) 55%, var(--color-line));
+  box-shadow: 0 14px 36px color-mix(in srgb, var(--tint) 18%, transparent);
+}
+
+/* fog at the right viewport edge that the cards emerge from */
+.toolkit-fog {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: 110px;
+  z-index: 10;
+  pointer-events: none;
+  background: linear-gradient(to left, var(--color-paper) 12%, color-mix(in srgb, var(--color-paper) 55%, transparent) 55%, transparent);
+}
+
+@media (min-width: 768px) {
+  .toolkit-fog {
+    width: 190px;
+  }
+}
+
+/* ------------------------------ demo player ----------------------------- */
+
+/* expanded demo-take.mp4 grows out of the hero tile via a FLIP transition
+   driven from DemoZoom.tsx (measured transforms, no keyframes needed). */
+.demo-screen {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: #0b1526;
+}
+
+/* the site inside the frame — screeni-style cinematic auto-zoom */
+.demo-siteshot {
+  position: absolute;
+  inset: 0;
+  animation: demo-kenburns 14s ease-in-out infinite;
+}
+
+@keyframes demo-kenburns {
+  0%, 16% { transform: scale(1) translate(0, 0); }
+  28%, 40% { transform: scale(1.5) translate(-8%, 10%); }   /* zoom: the buttons */
+  52%, 64% { transform: scale(1.35) translate(14%, 12%); }  /* pan: focus window */
+  78%, 100% { transform: scale(1) translate(0, 0); }
+}
+
+/* launch-style intro card that opens (and re-opens) the loop */
+.demo-intro {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background-color: #f5f5f7;
+  animation: demo-intro 14s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes demo-intro {
+  0%, 10% { opacity: 1; }
+  17%, 93% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+/* the cursor screeni is chasing inside the shot */
+.demo-cursor {
+  position: absolute;
+  left: 60%;
+  top: 12%;
+  z-index: 5;
+  animation: demo-cursor 14s ease-in-out infinite;
+}
+
+.demo-cursor span {
+  display: block;
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.95);
+  border: 2px solid rgba(10, 132, 255, 0.9);
+  box-shadow: 0 0 0 6px rgba(10, 132, 255, 0.25), 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+@keyframes demo-cursor {
+  0%, 14% { left: 60%; top: 12%; opacity: 0; }
+  20% { opacity: 1; }
+  28%, 40% { left: 46%; top: 67%; }   /* over the buttons */
+  52%, 64% { left: 13%; top: 23%; }   /* over focus window */
+  76% { opacity: 1; }
+  84%, 100% { left: 70%; top: 40%; opacity: 0; }
+}
+
+/* -------------------------------- motion -------------------------------- */
 
 @keyframes floaty {
   0%, 100% { transform: translateY(0) rotate(var(--tilt, 0deg)); }
@@ -121,6 +573,148 @@ body {
   animation: floaty 7s ease-in-out infinite;
 }
 
+.reveal {
+  opacity: 0;
+  transform: translateY(22px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+  transition-delay: var(--reveal-delay, 0s);
+}
+
+.reveal.is-in {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@keyframes pulse-rec {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+.rec-dot {
+  animation: pulse-rec 1.6s ease-in-out infinite;
+}
+
+
 @media (prefers-reduced-motion: reduce) {
-  .floaty { animation: none; }
+  .floaty,
+  .rec-dot,
+  .demo-siteshot,
+  .demo-cursor {
+    animation: none;
+  }
+  .demo-intro {
+    animation: none;
+    opacity: 0;
+  }
+  .reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
+/* ------------------------------ documents ------------------------------- */
+
+/* legal pages & changelog (LegalPage.tsx): one readable column on the desk.
+   Un-layered on purpose — these element rules beat Tailwind's layers, so use
+   divs/spans with utilities for anything that needs its own margins. */
+.doc {
+  font-size: 15.5px;
+  line-height: 1.75;
+  color: var(--color-ink);
+}
+
+.doc h2 {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  text-transform: lowercase;
+  margin: 2.4em 0 0.6em;
+}
+
+.doc h2:first-child,
+.doc section > h2 {
+  margin-top: 0.5em;
+}
+
+.doc section + section {
+  margin-top: 3em;
+}
+
+.doc p,
+.doc ul,
+.doc ol {
+  margin: 0 0 1em;
+}
+
+.doc ul,
+.doc ol {
+  padding-left: 1.3em;
+}
+
+.doc ul {
+  list-style: disc;
+}
+
+.doc ol {
+  list-style: decimal;
+}
+
+.doc li {
+  margin: 0.4em 0;
+}
+
+.doc li::marker {
+  color: var(--color-accent);
+}
+
+.doc a {
+  color: var(--color-accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.doc a:hover {
+  color: var(--color-accent-deep);
+}
+
+.doc strong {
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+.doc code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  padding: 0.1em 0.4em;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--color-ink) 7%, transparent);
+}
+
+/* -------------------------- marker underline ---------------------------- */
+
+/* a hand-drawn accent stroke under a key phrase; sits behind the text so it
+   reads in day and night alike */
+.marker {
+  position: relative;
+  display: inline-block;
+  white-space: nowrap;
+  z-index: 0;
+}
+
+.marker::after {
+  content: "";
+  position: absolute;
+  left: -0.06em;
+  right: -0.06em;
+  bottom: 0.02em;
+  height: 0.28em;
+  z-index: -1;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 24' preserveAspectRatio='none'%3E%3Cpath d='M3 15 C 40 9, 90 8, 197 12 M6 19 C 60 14, 120 13, 194 17' fill='none' stroke='%230a84ff' stroke-width='7' stroke-linecap='round' opacity='0.85'/%3E%3C/svg%3E") no-repeat;
+  background-size: 100% 100%;
+}
+
+:root[data-theme="dark"] .marker::after {
+  opacity: 0.95;
 }

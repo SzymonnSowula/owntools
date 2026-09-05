@@ -35,6 +35,14 @@
   --pill: 999px;
   --font: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
   --shadow: none;
+  --shadow-win: 0 18px 44px rgba(17, 17, 17, 0.1);
+  --shadow-win-hover: 0 26px 56px rgba(17, 17, 17, 0.16);
+  --shadow-card: 0 14px 32px rgba(17, 17, 17, 0.07);
+  /* Hub scenery: a blurred landscape (sky glow + hills), tinted per theme. */
+  --scene-sky-a: #cfe4ff;
+  --scene-sky-b: #eaf3ff;
+  --scene-hill-a: #cfe8d9;
+  --scene-hill-b: #b9d8c4;
   color-scheme: light;
 }
 
@@ -65,7 +73,128 @@
   --note-blush: #2c2624;
   --note-lilac: #26232c;
   --note-sand: #2a2722;
+  --shadow-win: 0 18px 44px rgba(0, 0, 0, 0.5);
+  --shadow-win-hover: 0 26px 56px rgba(0, 0, 0, 0.6);
+  --shadow-card: 0 14px 32px rgba(0, 0, 0, 0.45);
+  --scene-sky-a: #1d2a4d;
+  --scene-sky-b: #241f4a;
+  --scene-hill-a: #12303c;
+  --scene-hill-b: #182a2f;
   color-scheme: dark;
+}
+
+/* Nature — sage paper, forest-green accent. */
+:root[data-theme="nature"] {
+  --bg: #f2f5ee;
+  --bg-elevated: #fbfcf8;
+  --bg-sidebar: #f5f8f1;
+  --text: #1f2b21;
+  --text-muted: #5f6f61;
+  --text-faint: #90a092;
+  --border: #dfe7da;
+  --border-subtle: #e7eee2;
+  --fill: #eaf0e4;
+  --fill-strong: #dfe8d8;
+  --accent: #1f2b21;
+  --green: #3a7d44;
+  --danger: #47513f;
+  --overlay: rgba(31, 43, 33, 0.3);
+  --grid-line: rgba(31, 43, 33, 0.045);
+  --heat-0: #e6ede1;
+  --heat-1: #9be9a8;
+  --heat-2: #40c463;
+  --heat-3: #30a14e;
+  --heat-4: #216e39;
+  --note-paper: #f1efe4;
+  --note-mist: #e4edea;
+  --note-sage: #dfeadd;
+  --note-blush: #efeade;
+  --note-lilac: #e8ebe0;
+  --note-sand: #ede9db;
+  --shadow-win: 0 18px 44px rgba(31, 43, 33, 0.1);
+  --shadow-win-hover: 0 26px 56px rgba(31, 43, 33, 0.16);
+  --shadow-card: 0 14px 32px rgba(31, 43, 33, 0.07);
+  --scene-sky-a: #d7ecc4;
+  --scene-sky-b: #f4f0d0;
+  --scene-hill-a: #9fc6a5;
+  --scene-hill-b: #7fb18a;
+  color-scheme: light;
+}
+
+/* Ocean — deep navy, cyan accent. */
+:root[data-theme="ocean"] {
+  --bg: #0a141d;
+  --bg-elevated: #101d29;
+  --bg-sidebar: #0d1823;
+  --text: #e9f2f8;
+  --text-muted: #9db0bf;
+  --text-faint: #647889;
+  --border: #1e3140;
+  --border-subtle: #182a38;
+  --fill: #142230;
+  --fill-strong: #1a2c3c;
+  --accent: #e9f2f8;
+  --green: #34d399;
+  --danger: #cfd8de;
+  --overlay: rgba(0, 0, 0, 0.55);
+  --grid-line: rgba(233, 242, 248, 0.04);
+  --heat-0: #10202c;
+  --heat-1: #0c4a6e;
+  --heat-2: #0369a1;
+  --heat-3: #0ea5e9;
+  --heat-4: #7dd3fc;
+  --note-paper: #1c2733;
+  --note-mist: #16283a;
+  --note-sage: #16302f;
+  --note-blush: #232735;
+  --note-lilac: #1f2438;
+  --note-sand: #23293a;
+  --shadow-win: 0 18px 44px rgba(0, 0, 0, 0.5);
+  --shadow-win-hover: 0 26px 56px rgba(0, 0, 0, 0.6);
+  --shadow-card: 0 14px 32px rgba(0, 0, 0, 0.45);
+  --scene-sky-a: #123a54;
+  --scene-sky-b: #0e2c42;
+  --scene-hill-a: #0d4a63;
+  --scene-hill-b: #14607d;
+  color-scheme: dark;
+}
+
+/* Sunset — warm cream, amber accent. */
+:root[data-theme="sunset"] {
+  --bg: #faf3ec;
+  --bg-elevated: #fffcf8;
+  --bg-sidebar: #fbf5ee;
+  --text: #2e2118;
+  --text-muted: #77655a;
+  --text-faint: #a8968b;
+  --border: #ecdfd2;
+  --border-subtle: #f1e7dc;
+  --fill: #f3e9de;
+  --fill-strong: #ecdfd0;
+  --accent: #2e2118;
+  --green: #30a14e;
+  --danger: #4a3a30;
+  --overlay: rgba(46, 33, 24, 0.3);
+  --grid-line: rgba(46, 33, 24, 0.05);
+  --heat-0: #f0e6da;
+  --heat-1: #fed7aa;
+  --heat-2: #fdba74;
+  --heat-3: #f97316;
+  --heat-4: #c2410c;
+  --note-paper: #f4efe4;
+  --note-mist: #eceee6;
+  --note-sage: #e9eedd;
+  --note-blush: #f6e8de;
+  --note-lilac: #efe8ea;
+  --note-sand: #f2ead9;
+  --shadow-win: 0 18px 44px rgba(46, 33, 24, 0.1);
+  --shadow-win-hover: 0 26px 56px rgba(46, 33, 24, 0.16);
+  --shadow-card: 0 14px 32px rgba(46, 33, 24, 0.07);
+  --scene-sky-a: #ffd9ae;
+  --scene-sky-b: #ffe9cf;
+  --scene-hill-a: #f0b98d;
+  --scene-hill-b: #d99a72;
+  color-scheme: light;
 }
 
 .mod-focus, .mod-focus *, .mod-focus *::before, .mod-focus *::after { box-sizing: border-box; }
@@ -84,7 +213,7 @@
 .mod-focus button, .mod-focus input, .mod-focus textarea, .mod-focus select { font-family: inherit; color: inherit; }
 .mod-focus button { cursor: pointer; }
 .mod-focus input, .mod-focus textarea { user-select: text; }
-.mod-focus ::selection { background: var(--heat-1); color: #111; }
+.mod-focus ::selection { background: var(--heat-1); color: var(--text); }
 
 .mod-focus :focus { outline: none; }
 .mod-focus :focus-visible {
@@ -896,5 +1025,256 @@
 @media (prefers-reduced-motion: reduce) {
   .mod-focus, .mod-focus *, .mod-focus *::before, .mod-focus *::after { transition: none !important; }
 }
+
+
+/* ---------------------------- records / turntable ------------------------- */
+
+.mod-focus .turntable {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: 28px;
+  align-items: center;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+}
+/* Wide enough to hold the arm assembly beside the platter, not on top of it. */
+.mod-focus .deck { position: relative; width: 300px; height: 252px; }
+.mod-focus .platter {
+  position: absolute;
+  top: 8px;
+  left: 0;
+  width: 236px;
+  height: 236px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: #17171a;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.22), inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+}
+/* Grooves plus one soft highlight, so the disc reads as pressed vinyl. */
+.mod-focus .platter-disc {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background:
+    repeating-radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.055) 0 1px, rgba(0, 0, 0, 0) 1px 4px),
+    radial-gradient(circle at 32% 26%, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0) 48%);
+  /* 33⅓ rpm — one turn every 1.8 s */
+  animation: platter-spin 1.8s linear infinite;
+}
+.mod-focus .platter-label {
+  width: 38%;
+  height: 38%;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--fill);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4);
+}
+.mod-focus .spindle {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #d8d8dc;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.45);
+}
+@keyframes platter-spin { to { transform: rotate(360deg); } }
+
+.mod-focus .tonearm { position: absolute; top: 14px; right: 6px; width: 22px; height: 22px; }
+.mod-focus .tonearm-pivot {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: linear-gradient(160deg, #e6e6ea, #a8a8b0);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.28), inset 0 0 0 1px rgba(0, 0, 0, 0.14);
+}
+/* Parked at 100° the stylus clears the rim; at 148° it sits in the groove. */
+.mod-focus .tonearm-rod {
+  position: absolute;
+  top: 10px;
+  left: 11px;
+  width: 118px;
+  height: 5px;
+  border-radius: 3px;
+  transform-origin: 0 50%;
+  transform: rotate(100deg);
+  background: linear-gradient(90deg, #dcdce2, #9a9aa2);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+  transition: transform 0.9s cubic-bezier(0.4, 0, 0.2, 1);
+}
+/* headshell */
+.mod-focus .tonearm-rod::after {
+  content: "";
+  position: absolute;
+  right: -3px;
+  top: -4px;
+  width: 17px;
+  height: 13px;
+  border-radius: 2px;
+  background: linear-gradient(160deg, #f0f0f4, #86868e);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+  transform: rotate(-22deg);
+}
+.mod-focus .turntable.is-playing .tonearm-rod { transform: rotate(148deg); }
+
+.mod-focus .deck-title { font-size: 30px; letter-spacing: -0.04em; margin: 6px 0 4px; }
+.mod-focus .deck-blurb { max-width: 44ch; }
+.mod-focus .deck-controls { display: flex; align-items: center; gap: 16px; margin-top: 18px; flex-wrap: wrap; }
+.mod-focus .deck-volume { display: flex; align-items: center; gap: 10px; }
+.mod-focus .deck-volume input { width: 160px; }
+
+.mod-focus .crate {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  gap: 18px;
+  margin-top: 22px;
+}
+.mod-focus .sleeve {
+  position: relative;
+  display: block;
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+/* The disc slides out from behind the jacket the way it does in a crate. */
+.mod-focus .sleeve-vinyl {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background:
+    repeating-radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.07) 0 1px, #141417 1px 4px);
+  transform: translateX(5%);
+  transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.mod-focus .sleeve:hover .sleeve-vinyl,
+.mod-focus .sleeve.is-current .sleeve-vinyl { transform: translateX(26%); }
+.mod-focus .sleeve-jacket {
+  position: relative;
+  display: block;
+  border-radius: 4px;
+  overflow: hidden;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.16);
+  transition: transform 0.25s ease;
+}
+.mod-focus .sleeve:hover .sleeve-jacket { transform: translateY(-3px); }
+.mod-focus .sleeve.is-playing .sleeve-jacket {
+  box-shadow: 0 0 0 2px var(--text), 0 12px 26px rgba(0, 0, 0, 0.2);
+}
+.mod-focus .sleeve-svg { display: block; width: 100%; aspect-ratio: 1; }
+.mod-focus .sleeve-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 9px;
+  font-size: 12px;
+}
+.mod-focus .sleeve-title { font-weight: 600; }
+
+@media (max-width: 900px) {
+  .mod-focus .turntable { grid-template-columns: 1fr; justify-items: center; text-align: center; }
+  .mod-focus .deck-controls { justify-content: center; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mod-focus .platter-disc { animation: none; }
+  .mod-focus .sleeve-vinyl { transform: translateX(18%); }
+}
+
+/* --- scroll guard: search + blocked list ------------------------------- */
+.mod-focus .guard-search { position: relative; }
+
+.mod-focus .guard-search .input { width: 100%; }
+
+.mod-focus .guard-results {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  max-height: 232px;
+  overflow-y: auto;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-elevated);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.14);
+}
+
+.mod-focus .guard-result {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 9px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.mod-focus .guard-result:hover { background: var(--fill); }
+.mod-focus .guard-result-name { font-weight: 600; }
+.mod-focus .guard-result-host { font-size: 11.5px; color: var(--text-muted); }
+.mod-focus .guard-result-group {
+  margin-left: auto;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  opacity: 0.7;
+}
+
+.mod-focus .guard-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.mod-focus .guard-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 5px 6px 5px 11px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-elevated);
+  font-size: 12.5px;
+}
+
+.mod-focus .guard-chip-name { font-weight: 600; }
+.mod-focus .guard-chip-host { font-size: 11px; color: var(--text-muted); }
+
+.mod-focus .guard-chip-x {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  align-self: center;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.mod-focus .guard-chip-x:hover { background: var(--fill-strong); color: var(--text); }
 
 }

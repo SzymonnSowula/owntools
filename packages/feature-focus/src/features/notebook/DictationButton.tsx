@@ -1,110 +1,123 @@
 import { useEffect, useRef, useState } from "react";
-import type { SpeechLang } from "../../types";
 import {
-  classifyUtterance,
-  createRecognizer,
-  errorMessage,
-  speechSupported,
-  type DictationCommand,
-  type SpeechStatus,
-} from "../../lib/speech";
+  createDictationRecorder,
+  dictate,
+  dictationStatus,
+  openDictationMic,
+} from "@feature-dictation/engine";
+import { isTauri } from "../../lib/env";
+import type { DictationCommand, SpeechLang } from "../../types";
 
 interface Props {
+  /**
+   * Kept for callers; whisper picks its language from the dictate tool's own
+   * settings (auto / en / pl), so this no longer steers recognition.
+   */
   lang: SpeechLang;
   onFinal: (text: string, command: DictationCommand | null) => void;
   onInterim?: (text: string) => void;
 }
 
-export function DictationButton({ lang, onFinal, onInterim }: Props) {
-  const [status, setStatus] = useState<SpeechStatus>(speechSupported() ? "idle" : "unsupported");
+type Phase = "idle" | "recording" | "transcribing";
+
+/**
+ * Press to record, press again to transcribe — the same on-device Whisper path
+ * as the dictation pill and voice notes, so speech never leaves this computer.
+ * (The old Web Speech API version didn't work in WebView2 at all.)
+ */
+export function DictationButton({ onFinal, onInterim }: Props) {
+  const [phase, setPhase] = useState<Phase>("idle");
   const [error, setError] = useState("");
-  const recRef = useRef<SpeechRecognition | null>(null);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const cancelledRef = useRef(false);
   const onFinalRef = useRef(onFinal);
   const onInterimRef = useRef(onInterim);
   onFinalRef.current = onFinal;
   onInterimRef.current = onInterim;
 
-  useEffect(() => () => recRef.current?.abort(), []);
+  // A take in progress dies with the page; a transcription in flight still
+  // lands in the store (onFinal is a store action), so we let it finish.
+  useEffect(
+    () => () => {
+      cancelledRef.current = true;
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+      if (recorderRef.current?.state === "recording") recorderRef.current.stop();
+    },
+    [],
+  );
 
-  const stop = () => {
-    recRef.current?.stop();
-    recRef.current = null;
-    setStatus(speechSupported() ? "idle" : "unsupported");
-  };
-
-  const start = () => {
+  const start = async () => {
     setError("");
-    if (!speechSupported()) {
-      setStatus("unsupported");
-      setError(errorMessage("unsupported"));
+    if (!isTauri()) {
+      setError("Dictation works in the desktop app.");
       return;
     }
-    const rec = createRecognizer(lang);
-    if (!rec) {
-      setStatus("unsupported");
-      setError(errorMessage("unsupported"));
-      return;
-    }
-    rec.onresult = (ev) => {
-      let interim = "";
-      for (let i = ev.resultIndex; i < ev.results.length; i++) {
-        const chunk = ev.results[i][0]?.transcript ?? "";
-        if (ev.results[i].isFinal) {
-          const { text, command } = classifyUtterance(chunk);
-          if (command === "stop") {
-            onFinalRef.current("", "stop");
-            stop();
-            return;
-          }
-          onFinalRef.current(text, command);
-          onInterimRef.current?.("");
-        } else {
-          interim += chunk;
-        }
-      }
-      if (interim) onInterimRef.current?.(interim);
-    };
-    rec.onerror = (ev) => {
-      setStatus("error");
-      setError(errorMessage(ev.error));
-      recRef.current = null;
-    };
-    rec.onend = () => {
-      if (recRef.current === rec) {
-        try {
-          rec.start();
-        } catch {
-          recRef.current = null;
-          setStatus(speechSupported() ? "idle" : "unsupported");
-        }
-      }
-    };
+    let status = null;
     try {
-      rec.start();
-      recRef.current = rec;
-      setStatus("listening");
+      status = await dictationStatus();
     } catch {
-      setStatus("error");
-      setError(errorMessage("audio-capture"));
+      status = null;
+    }
+    if (!status || !status.engine || !status.model) {
+      setError("Set up dictation in the dictate tool first.");
+      return;
+    }
+    try {
+      const mic = await openDictationMic();
+      streamRef.current = mic;
+      const rec = createDictationRecorder(mic);
+      recorderRef.current = rec;
+      const chunks: BlobPart[] = [];
+      rec.ondataavailable = (e) => {
+        if (e.data.size) chunks.push(e.data);
+      };
+      rec.onstop = () => {
+        mic.getTracks().forEach((t) => t.stop());
+        streamRef.current = null;
+        recorderRef.current = null;
+        if (cancelledRef.current) return;
+        void finish(new Blob(chunks, { type: rec.mimeType || "audio/webm" }));
+      };
+      rec.start(200);
+      setPhase("recording");
+    } catch {
+      setError("Microphone unavailable — check the permission and try again.");
     }
   };
+
+  const finish = async (blob: Blob) => {
+    setPhase("transcribing");
+    onInterimRef.current?.("Transcribing…");
+    try {
+      const text = await dictate(blob);
+      if (text) onFinalRef.current(text, null);
+      else setError("Nothing was heard — try again a little closer to the mic.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Transcription failed.");
+    } finally {
+      onInterimRef.current?.("");
+      setPhase("idle");
+    }
+  };
+
+  const live = phase === "recording";
 
   return (
     <div className="dictate-wrap">
       <button
         type="button"
-        className={`pill dictate${status === "listening" ? " live" : ""}`}
-        onClick={() => (status === "listening" ? stop() : start())}
-        aria-pressed={status === "listening"}
+        className={`pill dictate${live ? " live" : ""}`}
+        disabled={phase === "transcribing"}
+        onClick={() => {
+          if (live) recorderRef.current?.stop();
+          else if (phase === "idle") void start();
+        }}
+        aria-pressed={live}
       >
-        <span className={`pulse${status === "listening" ? " on" : ""}`} />
-        {status === "listening" ? "Listening…" : "Dictate"}
+        <span className={`pulse${live ? " on" : ""}`} />
+        {live ? "Listening…" : phase === "transcribing" ? "Transcribing…" : "Dictate"}
       </button>
-      {status === "unsupported" && (
-        <span className="faint" style={{ fontSize: 11 }}>
-          No Web Speech
-        </span>
-      )}
       {error && <p className="dictate-error">{error}</p>}
     </div>
   );

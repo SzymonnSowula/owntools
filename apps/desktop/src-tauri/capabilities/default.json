@@ -1,13 +1,27 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Capability for the main and recorder windows",
-  "windows": ["main", "recorder", "dictation"],
+  "description": "Capability for the main, recorder and dictation windows",
+  "windows": [
+    "main",
+    "recorder",
+    "dictation"
+  ],
   "permissions": [
     "core:default",
     {
       "identifier": "http:default",
-      "allow": [{ "url": "https://**" }, { "url": "http://**" }]
+      "allow": [
+        {
+          "url": "https://**"
+        },
+        {
+          "url": "http://localhost:*/**"
+        },
+        {
+          "url": "http://127.0.0.1:*/**"
+        }
+      ]
     },
     "global-shortcut:allow-is-registered",
     "core:window:default",
@@ -28,6 +42,7 @@
     "core:window:allow-is-minimized",
     "core:window:allow-set-skip-taskbar",
     "core:window:allow-set-always-on-top",
+    "core:window:allow-set-fullscreen",
     "core:event:default",
     "core:webview:default",
     "opener:default",
@@ -42,26 +57,19 @@
     "fs:allow-appdata-read-recursive",
     "fs:allow-appdata-write",
     "fs:allow-appdata-write-recursive",
-    "fs:allow-download-meta-recursive",
-    "fs:allow-download-read-recursive",
-    "fs:allow-download-write-recursive",
-    "fs:allow-document-meta-recursive",
-    "fs:allow-document-read-recursive",
-    "fs:allow-document-write-recursive",
-    "fs:allow-video-meta-recursive",
-    "fs:allow-video-read-recursive",
-    "fs:allow-video-write-recursive",
-    "fs:allow-desktop-meta-recursive",
-    "fs:allow-desktop-read-recursive",
-    "fs:allow-desktop-write-recursive",
     "fs:allow-mkdir",
     "fs:allow-exists",
     "fs:allow-read-dir",
     "fs:allow-read-file",
     "fs:allow-write-file",
+    "fs:allow-open",
+    "fs:allow-write",
     "fs:allow-copy-file",
     "fs:allow-remove",
     "fs:allow-rename",
-    "fs:allow-stat"
+    "fs:allow-stat",
+    "log:default",
+    "process:default",
+    "updater:default"
   ]
 }

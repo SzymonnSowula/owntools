@@ -10,9 +10,15 @@ import "@fontsource/outfit/latin-800.css";
 import "@feature-focus/legacy.css";
 import "./suite.css";
 import App from "./App";
+import { ErrorBoundary } from "@ui/ErrorBoundary";
+import { installGlobalErrorHandlers, logError } from "@core/errors";
+
+installGlobalErrorHandlers("main");
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
-    <App />
+    <ErrorBoundary scope="main" onError={(err) => logError("main", "render crash", err)}>
+      <App />
+    </ErrorBoundary>
   </React.StrictMode>,
 );

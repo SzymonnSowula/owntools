@@ -1,9 +1,16 @@
 import type { ReactElement } from "react";
 import { WinDots, ToolIcons } from "@ui/WinDots";
+import { BrandMark } from "@ui/BrandMark";
 import { SUITE_NAME } from "@core/branding";
 import { openRecorderOverlay } from "@core/recorderWindow";
+import { formatMs, todayIso } from "@feature-focus/lib/dates";
 import { useAppStore as useFocusStore } from "@feature-focus/store/useAppStore";
+import { ritualOf } from "@feature-focus/store/persist";
 import { useShellStore, type Tool } from "./shellStore";
+import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
+import { activeSteps, ritualIsEmpty } from "./ritual";
+import { QUICK_TOOLS } from "@feature-tools/catalogue";
+import type { QuickToolKey } from "@feature-tools/keys";
 
 interface ToolCard {
   tool: Tool;
@@ -21,7 +28,7 @@ const CARDS: ToolCard[] = [
     tool: "focus",
     window: "focus.app",
     name: "focus",
-    desc: "Deep-work desktop: timer, tasks, notebook, habits and a time heatmap.",
+    desc: "A quiet desk: timer, tasks, notebook, habits and a time heatmap.",
     color: "#0a84ff",
     tilt: -1.1,
     dots: ToolIcons.focus,
@@ -51,7 +58,7 @@ const CARDS: ToolCard[] = [
     tool: "launch",
     window: "launch.app",
     name: "launch",
-    desc: "Paste a URL, get a product launch video. Templates rendered on-device.",
+    desc: "Paste a URL, get a short video out of it. Rendered on-device.",
     color: "#0a84ff",
     tilt: -0.9,
     dots: ToolIcons.launch,
@@ -66,7 +73,7 @@ const CARDS: ToolCard[] = [
     tool: "dictate",
     window: "dictate.app",
     name: "dictate",
-    desc: "Hold a hotkey, speak, release — on-device Whisper types for you anywhere.",
+    desc: "Press Ctrl+Shift+Space, speak, press again — on-device Whisper types for you anywhere.",
     color: "#0a84ff",
     tilt: 0.8,
     dots: ToolIcons.dictate,
@@ -77,123 +84,152 @@ const CARDS: ToolCard[] = [
       </svg>
     ),
   },
+  {
+    tool: "board",
+    window: "board.app",
+    name: "board",
+    desc: "An endless whiteboard: paste screenshots, sketch, think in boxes and arrows.",
+    color: "#0a84ff",
+    tilt: -0.7,
+    dots: ToolIcons.board,
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
+        <rect x="2.5" y="3" width="8" height="6" rx="1.5" />
+        <circle cx="14.5" cy="14" r="3" />
+        <path d="M6.5 9v3a2 2 0 002 2h3" />
+      </svg>
+    ),
+  },
+  {
+    tool: "social",
+    window: "social.app",
+    name: "social",
+    desc: "Schedule posts to 30+ networks from a calendar. Agents can drive it over a local API.",
+    color: "#0a84ff",
+    tilt: 0.9,
+    dots: ToolIcons.social,
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
+        <rect x="2.5" y="4" width="15" height="13" rx="2.5" />
+        <path d="M2.5 8.5h15M6.5 2.5v3M13.5 2.5v3" />
+        <circle cx="12.5" cy="13" r="1.6" fill="currentColor" stroke="none" />
+      </svg>
+    ),
+  },
 ];
 
-/* Tiny 12x12 glyphs for the quick-tool traffic lights, same style as ToolIcons. */
-const QUICK_ICONS = {
-  /* text lines */
-  transcribe: (
-    <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" xmlns="http://www.w3.org/2000/svg">
-      <path d="M2 3h8M2 6h8M2 9h5" />
-    </svg>
-  ),
-  /* globe */
-  translate: (
-    <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="6" cy="6" r="4.6" />
-      <path d="M1.4 6h9.2M6 1.4c-2.6 2.8-2.6 6.4 0 9.2 2.6-2.8 2.6-6.4 0-9.2z" />
-    </svg>
-  ),
-  /* music note */
-  extract: (
-    <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" xmlns="http://www.w3.org/2000/svg">
-      <path d="M4.6 9.4V2.8l5-1v6.6" />
-      <circle cx="3.2" cy="9.4" r="1.4" />
-      <circle cx="8.2" cy="8.4" r="1.4" />
-    </svg>
-  ),
-} as const;
-
-interface QuickTool {
-  key: string;
-  window: string;
-  name: string;
-  desc: string;
-  dots: ReactElement;
-  icon: ReactElement;
-  tilt: number;
+function greetingFor(hour: number): string {
+  if (hour < 5) return "good night";
+  if (hour < 12) return "good morning";
+  if (hour < 18) return "good afternoon";
+  return "good evening";
 }
-
-const QUICK_TOOLS: QuickTool[] = [
-  {
-    key: "transcribe",
-    window: "transcribe.tool",
-    name: "Transcribe a file",
-    desc: "Audio or video → text & .srt",
-    dots: QUICK_ICONS.transcribe,
-    tilt: -0.5,
-    icon: (
-      <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
-        <path d="M3.5 5h13M3.5 10h13M3.5 15h8" />
-      </svg>
-    ),
-  },
-  {
-    key: "translate",
-    window: "translate.tool",
-    name: "Translate to English",
-    desc: "Any speech → English text",
-    dots: QUICK_ICONS.translate,
-    tilt: 0.5,
-    icon: (
-      <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
-        <circle cx="10" cy="10" r="7.5" />
-        <path d="M2.5 10h15M10 2.5c-4.2 4.5-4.2 10.5 0 15 4.2-4.5 4.2-10.5 0-15z" />
-      </svg>
-    ),
-  },
-  {
-    key: "extract",
-    window: "extract.tool",
-    name: "Video → audio",
-    desc: "Keep the track, leave the video",
-    dots: QUICK_ICONS.extract,
-    tilt: -0.5,
-    icon: (
-      <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
-        <path d="M7.5 15.5V4.8l8.5-1.6v10.6" />
-        <circle cx="5.3" cy="15.5" r="2.2" />
-        <circle cx="13.8" cy="13.8" r="2.2" />
-      </svg>
-    ),
-  },
-  {
-    key: "voicenote",
-    window: "voicenote.tool",
-    name: "Voice note",
-    desc: "Speak, get a note in Focus",
-    dots: ToolIcons.dictate,
-    tilt: 0.5,
-    icon: (
-      <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
-        <rect x="7.2" y="2.8" width="5.6" height="9" rx="2.8" />
-        <path d="M4.5 9.5a5.5 5.5 0 0011 0M10 15v2.5" />
-      </svg>
-    ),
-  },
-];
 
 export function Hub() {
   const setTool = useShellStore((s) => s.setTool);
   const setFocusOverview = useShellStore((s) => s.setFocusOverview);
   const setHubTool = useShellStore((s) => s.setHubTool);
+  const tasks = useFocusStore((s) => s.tasks);
+  const heatmap = useFocusStore((s) => s.heatmap);
+  const timer = useFocusStore((s) => s.timer);
+  const workspaces = useFocusStore((s) => s.workspaces);
+  const workspaceId = useFocusStore((s) => s.workspaceId);
+  const openSession = useShellStore((s) => s.openSession);
+  const openSetup = useShellStore((s) => s.openSetup);
 
-  function runQuickTool(key: string) {
+  const today = todayIso();
+  const openToday = tasks.filter((t) => !t.done && (t.due === today || t.listId === "today")).length;
+  const focusedMin = heatmap[today]?.minutes ?? 0;
+  const midSession =
+    timer.preset !== "stopwatch" && timer.remainingMs > 0 && timer.remainingMs < timer.durationMs;
+
+  const activeWs = workspaces.find((w) => w.id === workspaceId);
+  const ritual = ritualOf(activeWs);
+  const stepCount = activeSteps(ritual).length;
+  const hasRitual = !ritualIsEmpty(ritual);
+
+  const now = new Date();
+  const greeting = greetingFor(now.getHours());
+  const dateLabel = now.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+
+  function goFocus(view: "today" | "tasks" | "stats") {
+    setTool("focus");
+    setFocusOverview(false);
+    useFocusStore.getState().setView(view);
+  }
+
+  function runQuickTool(key: QuickToolKey) {
     if (key === "voicenote") {
       setTool("focus");
       setFocusOverview(false);
       useFocusStore.getState().setView("notes");
       return;
     }
-    setHubTool(key as "transcribe" | "translate" | "extract");
+    setHubTool(key);
   }
 
   return (
-    <div className="hub desktop-bg">
-      <div className="hub-word">{SUITE_NAME}</div>
-      <div className="hub-tagline">your local-first studio. everything stays on your device.</div>
+    <div className="hub-wrap">
+      <div className="hub-scenery" aria-hidden>
+        <span className="scene-sky-a" />
+        <span className="scene-sky-b" />
+        <span className="scene-hill-a" />
+        <span className="scene-hill-b" />
+      </div>
 
-      <div className="hub-grid">
+      <div className="hub">
+        <div className="hub-top">
+          <WorkspaceSwitcher />
+        </div>
+
+        <div className="hub-brand">
+          <BrandMark size={34} filled />
+          <div className="hub-word">{SUITE_NAME}</div>
+        </div>
+        <div className="hub-greeting">
+          {greeting} · {dateLabel}
+        </div>
+
+        <div className="hub-today">
+          {hasRitual ? (
+            <button
+              className={`hub-chip${midSession ? "" : " primary"}`}
+              onClick={() => openSession(workspaceId)}
+            >
+              <svg width="10" height="10" viewBox="0 0 12 12" aria-hidden>
+                <path d="M3 2l7 4-7 4V2z" fill="currentColor" />
+              </svg>
+              start {(activeWs?.name ?? "this").toLowerCase()} session
+              {stepCount ? ` · ${stepCount} app${stepCount === 1 ? "" : "s"}` : ""}
+            </button>
+          ) : (
+            <button className="hub-chip" onClick={() => openSetup(workspaceId)}>
+              set up this workspace
+            </button>
+          )}
+          {midSession ? (
+            <button
+              className="hub-chip primary"
+              onClick={() => {
+                if (!timer.running) useFocusStore.getState().toggleTimer();
+                goFocus("today");
+              }}
+            >
+              <svg width="10" height="10" viewBox="0 0 12 12" aria-hidden>
+                <path d="M3 2l7 4-7 4V2z" fill="currentColor" />
+              </svg>
+              {timer.running ? "session running" : "resume session"} · {formatMs(timer.remainingMs)}
+            </button>
+          ) : null}
+          <button className="hub-chip" onClick={() => goFocus("tasks")}>
+            {openToday === 0 ? "nothing due today" : `${openToday} task${openToday === 1 ? "" : "s"} for today`}
+          </button>
+          <button className="hub-chip" onClick={() => goFocus("stats")}>
+            {focusedMin} min focused today
+          </button>
+        </div>
+
+        <div className="hub-grid">
         {CARDS.map((card) => (
           <button
             key={card.tool}
@@ -248,7 +284,8 @@ export function Hub() {
         record screen now
       </button>
 
-      <div className="hub-foot">no accounts · no cloud · your files, your machine</div>
+        <div className="hub-foot">no accounts · no cloud · your files, your machine</div>
+      </div>
     </div>
   );
 }

@@ -23,7 +23,11 @@ export async function transcribeCaptions(
     if (!r.ok) throw new Error("Couldn't load the recording's audio.");
     return r.blob();
   });
-  const raw = await transcribeBlob(blob, lang === "pl-PL" ? "pl" : "en", true);
+  const raw = await transcribeBlob(blob, lang === "pl-PL" ? "pl" : "en", true, false, {
+    // A recording carries its own context; the dictation pill's rolling tail
+    // would only bias it.
+    ignoreSessionContext: true,
+  });
   return parseWhisperJson(raw).map((seg) => ({
     id: uid("cap"),
     start: seg.start,

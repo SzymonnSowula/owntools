@@ -1,4 +1,5 @@
-import { lazy, Suspense, useEffect } from "react";
+import { DialogHost } from "@ui/Dialog";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { isTauri } from "@core/env";
 import { unlockAudio } from "@feature-focus/lib/audio/engine";
 import { VIEWS } from "@feature-focus/types";
@@ -9,14 +10,25 @@ import { Hub } from "./shell/Hub";
 import { FocusTool } from "./shell/FocusTool";
 import { FocusTimerOverlay } from "./shell/FocusTimerOverlay";
 import { SuiteTitleBar } from "./shell/SuiteTitleBar";
-import { useShellStore } from "./shell/shellStore";
+import { Onboarding, isOnboarded } from "./shell/Onboarding";
+import { SessionSheet } from "./shell/SessionSheet";
+import { WorkspaceSetup } from "./shell/WorkspaceSetup";
+import { useShellStore, type Tool } from "./shell/shellStore";
 import { runLegacyImport } from "./shell/importLegacy";
+import { UpdateBanner } from "./shell/UpdateBanner";
 import { SUITE_NAME } from "@core/branding";
+import { logError } from "@core/errors";
+import { listenForDictation } from "@feature-dictation/insert";
+import { initLicense } from "@licensing/license";
+
+const TOOLS: readonly Tool[] = ["hub", "focus", "create", "launch", "dictate", "board", "social"];
 
 const CreateModule = lazy(() => import("./shell/CreateModule"));
 const HubToolModals = lazy(() => import("./shell/HubToolModals"));
 const LaunchModule = lazy(() => import("@feature-launch/LaunchView"));
 const DictateModule = lazy(() => import("@feature-dictation/DictateView"));
+const BoardModule = lazy(() => import("@feature-board/BoardView"));
+const SocialModule = lazy(() => import("@feature-social/SocialView"));
 
 function LazyPane({ children }: { children: React.ReactNode }) {
   return (
@@ -40,18 +52,41 @@ export default function App() {
   const toggleTimer = useAppStore((s) => s.toggleTimer);
   const tool = useShellStore((s) => s.tool);
   const hubTool = useShellStore((s) => s.hubTool);
+  const [showOnboarding, setShowOnboarding] = useState(() => !isOnboarded());
 
   useEffect(() => {
     void (async () => {
+      // The license cache has to be warm before any module renders isPro().
+      await initLicense().catch((err) => logError("main", "license init", err));
       await runLegacyImport();
       await hydrate();
     })();
   }, [hydrate]);
 
+  // The social scheduler publishes from the tray whether or not its tool is
+  // open: the runtime (30 s runner, catch-up, agent events) starts with the app.
+  useEffect(() => {
+    void import("@feature-social/runtime").then((m) => m.startSocialRuntime()).catch((err) => logError("main", "social runtime", err));
+  }, []);
+
   useEffect(() => {
     const unlock = () => void unlockAudio();
     window.addEventListener("pointerdown", unlock, { once: true });
     return () => window.removeEventListener("pointerdown", unlock);
+  }, []);
+
+  // The main window runs with Tauri's native drag-drop handler off
+  // (tauri.conf.json `dragDropEnabled: false`) so HTML5 drops reach the board
+  // and the transcribe drop zone. Without a handler, a file dropped anywhere
+  // else would navigate the webview to it — swallow those here.
+  useEffect(() => {
+    const block = (e: DragEvent) => e.preventDefault();
+    window.addEventListener("dragover", block);
+    window.addEventListener("drop", block);
+    return () => {
+      window.removeEventListener("dragover", block);
+      window.removeEventListener("drop", block);
+    };
   }, []);
 
   useEffect(() => {
@@ -69,6 +104,12 @@ export default function App() {
           useShellStore.getState().setTool("focus");
           useShellStore.getState().setFocusOverview(false);
           useAppStore.getState().openQuickCapture("note");
+        }),
+      );
+      unsubs.push(
+        await listen("tray-start-session", () => {
+          const { workspaceId } = useAppStore.getState();
+          useShellStore.getState().openSession(workspaceId);
         }),
       );
       unsubs.push(
@@ -95,12 +136,28 @@ export default function App() {
           void import("@core/recorderWindow").then((m) => m.showMainWindow());
         }),
       );
-      const enabled = useAppStore.getState().settings.usageTracking;
-      try {
-        const { invoke } = await import("@tauri-apps/api/core");
-        await invoke("usage_set_enabled", { enabled });
-      } catch {
-        /* */
+      // The dictation pill sends users here when whisper is not installed yet.
+      unsubs.push(
+        await listen<{ tool?: string }>("open-tool", (event) => {
+          const tool = event.payload?.tool;
+          if (tool && (TOOLS as readonly string[]).includes(tool)) {
+            useShellStore.getState().setTool(tool as Tool);
+          }
+        }),
+      );
+      // ...and hands the transcript over when this window is the one in front
+      // (focused field, the board, or the clipboard — see feature-dictation/insert.ts).
+      unsubs.push(await listenForDictation());
+      // Time tracking stays off natively until the user has seen the consent
+      // step: the onboarding pushes the choice itself when it finishes.
+      if (isOnboarded()) {
+        const enabled = useAppStore.getState().settings.usageTracking;
+        try {
+          const { invoke } = await import("@tauri-apps/api/core");
+          await invoke("usage_set_enabled", { enabled });
+        } catch (err) {
+          logError("main", "usage_set_enabled", err);
+        }
       }
     })();
     return () => unsubs.forEach((u) => u());
@@ -186,6 +243,18 @@ export default function App() {
         <LazyPane>
           <LaunchModule />
         </LazyPane>
+      ) : tool === "board" ? (
+        <main className="create-main mod-board">
+          <Suspense fallback={<div className="board-loading">Loading board…</div>}>
+            <BoardModule />
+          </Suspense>
+        </main>
+      ) : tool === "social" ? (
+        <main className="create-main">
+          <Suspense fallback={<div className="grid flex-1 place-items-center text-sm">Loading social…</div>}>
+            <SocialModule />
+          </Suspense>
+        </main>
       ) : (
         <LazyPane>
           <DictateModule />
@@ -198,9 +267,14 @@ export default function App() {
           </Suspense>
         </div>
       ) : null}
+      <SessionSheet />
+      <WorkspaceSetup />
       <ShortcutsOverlay />
       <QuickCapture />
       <FocusTimerOverlay />
+      <UpdateBanner />
+      <DialogHost />
+      {ready && showOnboarding ? <Onboarding onDone={() => setShowOnboarding(false)} /> : null}
     </div>
   );
 }

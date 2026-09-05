@@ -3,13 +3,15 @@ import { isTauri } from "@core/env";
 import { formatMs } from "@feature-focus/lib/dates";
 import { useAppStore } from "@feature-focus/store/useAppStore";
 
-async function setOsFullscreen(on: boolean): Promise<void> {
-  if (!isTauri()) return;
+type TauriWindow = { isFullscreen(): Promise<boolean>; setFullscreen(on: boolean): Promise<void> };
+
+async function currentWindow(): Promise<TauriWindow | null> {
+  if (!isTauri()) return null;
   try {
     const { getCurrentWindow } = await import("@tauri-apps/api/window");
-    await getCurrentWindow().setFullscreen(on);
+    return getCurrentWindow();
   } catch {
-    /* window may not support it — the in-app takeover still works */
+    return null;
   }
 }
 
@@ -23,7 +25,9 @@ export function FocusTimerOverlay() {
   const fullscreenPref = useAppStore((s) => s.settings.timerFullscreen);
   const toggleTimer = useAppStore((s) => s.toggleTimer);
   const resetTimer = useAppStore((s) => s.resetTimer);
-  const [dismissed, setDismissed] = useState(false);
+  // Starts dismissed: a session restored from disk must never cover the hub
+  // on launch. Only a start happening in THIS app session shows the takeover.
+  const [dismissed, setDismissed] = useState(true);
   const wasRunning = useRef(false);
 
   // A fresh start un-dismisses the takeover.
@@ -35,9 +39,31 @@ export function FocusTimerOverlay() {
   const active =
     fullscreenPref && !dismissed && (timer.running || (timer.preset !== "stopwatch" && timer.remainingMs < timer.durationMs && timer.remainingMs > 0) || (timer.preset === "stopwatch" && timer.remainingMs > 0));
 
+  // The takeover is only a real takeover when the OS window goes full screen
+  // too — otherwise it just fills the app window. Needs
+  // `core:window:allow-set-fullscreen` in src-tauri/capabilities/default.json.
   useEffect(() => {
     if (!active) return;
-    void setOsFullscreen(true);
+    let cancelled = false;
+    let leaveFullscreen: (() => Promise<void>) | null = null;
+
+    void (async () => {
+      const win = await currentWindow();
+      if (!win || cancelled) return;
+      try {
+        // Already full screen (user pressed F11) — leave the window as we found it.
+        if (await win.isFullscreen()) return;
+        await win.setFullscreen(true);
+        if (cancelled) {
+          await win.setFullscreen(false);
+          return;
+        }
+        leaveFullscreen = () => win.setFullscreen(false);
+      } catch (err) {
+        console.warn("[focus] could not enter OS full screen", err);
+      }
+    })();
+
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         e.preventDefault();
@@ -47,8 +73,9 @@ export function FocusTimerOverlay() {
     };
     window.addEventListener("keydown", onKey, true);
     return () => {
+      cancelled = true;
       window.removeEventListener("keydown", onKey, true);
-      void setOsFullscreen(false);
+      void leaveFullscreen?.().catch(() => {});
     };
   }, [active]);
 

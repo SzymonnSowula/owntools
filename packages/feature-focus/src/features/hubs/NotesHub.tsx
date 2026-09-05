@@ -1,5 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { transcribeBlob, getDictationLang, dictationStatus } from "@feature-dictation/engine";
+import {
+  createDictationRecorder,
+  dictate,
+  dictationStatus,
+  openDictationMic,
+} from "@feature-dictation/engine";
 import { useAppStore } from "../../store/useAppStore";
 import { createBlock } from "../../lib/notebook";
 import { NotebookView } from "../notebook/NotebookView";
@@ -60,9 +65,9 @@ function VoiceNoteButton({ onSaved }: { onSaved: () => void }) {
       return;
     }
     try {
-      const mic = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mic = await openDictationMic();
       streamRef.current = mic;
-      const rec = new MediaRecorder(mic);
+      const rec = createDictationRecorder(mic);
       recorderRef.current = rec;
       const chunks: BlobPart[] = [];
       rec.ondataavailable = (e) => {
@@ -86,7 +91,7 @@ function VoiceNoteButton({ onSaved }: { onSaved: () => void }) {
   const finish = async (blob: Blob) => {
     setPhase("transcribing");
     try {
-      const text = (await transcribeBlob(blob, getDictationLang())).trim();
+      const text = await dictate(blob);
       if (!text) {
         setIsError(false);
         setMessage("Nothing was heard — try again a little closer to the mic.");

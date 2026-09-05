@@ -8,7 +8,9 @@ use tauri::{AppHandle, Emitter};
 const SAMPLE_MS: u64 = 2000;
 const DEFAULT_IDLE_MS: u64 = 60_000;
 
-static ENABLED: AtomicBool = AtomicBool::new(true);
+/// Off until the frontend pushes the persisted setting (first run: after the
+/// onboarding consent step). Nothing is read from other windows before that.
+static ENABLED: AtomicBool = AtomicBool::new(false);
 static STARTED: OnceLock<()> = OnceLock::new();
 
 #[derive(Clone, Serialize)]
@@ -39,10 +41,12 @@ pub fn start(app: AppHandle) {
     if STARTED.set(()).is_err() {
         return;
     }
-    thread::Builder::new()
+    if let Err(e) = thread::Builder::new()
         .name("focus-usage".into())
         .spawn(move || run_loop(app))
-        .expect("nie udało się uruchomić trackera użycia");
+    {
+        log::error!("could not start the usage sampler thread: {e}");
+    }
 }
 
 fn run_loop(app: AppHandle) {
@@ -53,12 +57,27 @@ fn run_loop(app: AppHandle) {
         thread::sleep(Duration::from_millis(SAMPLE_MS));
         let idle_ms = idle_milliseconds();
         let idle = idle_ms >= DEFAULT_IDLE_MS;
-        let sample = foreground_sample(last_hwnd, last_site.as_deref());
+        let tracking = ENABLED.load(Ordering::Relaxed);
+        let guarding = crate::scroll_guard::is_armed();
+        // Only look at the foreground window when something needs it: time
+        // tracking, or the scroll guard deciding whether this is a blocked site.
+        // With both off this loop touches nothing but the idle timer.
+        let mut sample = if tracking || guarding {
+            foreground_sample(last_hwnd, last_site.as_deref())
+        } else {
+            empty_sample()
+        };
         last_hwnd = sample.hwnd;
         last_site = sample.site.clone();
         crate::scroll_guard::note_host(sample.site.as_deref());
+        if !tracking {
+            // The guard only needs the host; keep window titles out of the
+            // frontend when the user has tracking off.
+            sample.title.clear();
+            sample.app_id.clear();
+            sample.app_name.clear();
+        }
 
-        let tracking = ENABLED.load(Ordering::Relaxed);
         let session_start = tracking && !idle && was_idle;
         if tracking {
             was_idle = idle;
@@ -99,7 +118,7 @@ fn empty_sample() -> Sample {
     Sample {
         hwnd: 0,
         app_id: String::new(),
-        app_name: "Pulpit".into(),
+        app_name: "Desktop".into(),
         title: String::new(),
         site: None,
     }
@@ -277,7 +296,7 @@ fn friendly_name(exe: &str, path: &str) -> String {
         "spotify.exe" => "Spotify".into(),
         "notion.exe" => "Notion".into(),
         "figma.exe" => "Figma".into(),
-        "explorer.exe" => "Eksplorator".into(),
+        "explorer.exe" => "File Explorer".into(),
         "winword.exe" => "Word".into(),
         "excel.exe" => "Excel".into(),
         "powerpnt.exe" => "PowerPoint".into(),
@@ -285,9 +304,9 @@ fn friendly_name(exe: &str, path: &str) -> String {
         "teams.exe" | "ms-teams.exe" => "Teams".into(),
         "windowsterminal.exe" | "wt.exe" => "Terminal".into(),
         "powershell.exe" | "pwsh.exe" => "PowerShell".into(),
-        "cmd.exe" => "Wiersz poleceń".into(),
-        "notepad.exe" => "Notatnik".into(),
-        "focus.exe" => "focus".into(),
+        "cmd.exe" => "Command Prompt".into(),
+        "notepad.exe" => "Notepad".into(),
+        "focus.exe" | "shipshape.exe" => "shipshape".into(),
         _ => exe
             .trim_end_matches(".exe")
             .trim_end_matches(".EXE")

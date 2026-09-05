@@ -14,9 +14,10 @@ import {
   getFirstEncodableVideoCodec,
 } from "mediabunny";
 import type { AudioCodec, VideoCodec } from "mediabunny";
-import type { MediaUrls, Project, Segment } from "../types";
+import type { AudioSettings, MediaUrls, Project, Segment } from "../types";
 import { canvasSize, drawFrame } from "./compositor";
 import { timelineDuration, timelineToSource } from "./segments";
+import { TransitionTracker } from "./transitions";
 import { ensureFiniteDuration, seekVideo } from "./videoEl";
 
 export type ExportContainer = "mp4" | "webm";
@@ -27,6 +28,36 @@ export interface ExportOptions {
   watermark?: boolean;
   signal?: AbortSignal;
   onProgress?: (progress: number, phase: ExportPhase) => void;
+  /** Decoded image overlays keyed by `ImageOverlay.src`. */
+  overlayImages?: Record<string, HTMLImageElement>;
+}
+
+/**
+ * Volume, mute and fades on the rendered timeline audio, in place. Returns
+ * null when the track should be left out altogether.
+ */
+export function applyAudioSettings(
+  buffer: AudioBuffer | null,
+  audio: AudioSettings,
+  duration: number,
+): AudioBuffer | null {
+  if (!buffer || audio.muted || audio.volume <= 0) return null;
+  const gain = Math.min(2, Math.max(0, audio.volume));
+  const rate = buffer.sampleRate;
+  const total = buffer.length;
+  const fadeIn = Math.max(0, Math.min(audio.fadeIn, duration)) * rate;
+  const fadeOut = Math.max(0, Math.min(audio.fadeOut, duration)) * rate;
+  const fadeOutStart = total - fadeOut;
+  for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
+    const data = buffer.getChannelData(ch);
+    for (let i = 0; i < total; i++) {
+      let g = gain;
+      if (fadeIn > 0 && i < fadeIn) g *= i / fadeIn;
+      if (fadeOut > 0 && i > fadeOutStart) g *= Math.max(0, (total - i) / fadeOut);
+      data[i] = Math.max(-1, Math.min(1, data[i] * g));
+    }
+  }
+  return buffer;
 }
 
 export interface ExportResult {
@@ -223,6 +254,7 @@ async function exportWithWebCodecs(
       if ((err as { name?: string }).name === "AbortError") throw err;
       audioBuffer = null;
     }
+    audioBuffer = applyAudioSettings(audioBuffer, project.audio, duration);
     if (audioBuffer) {
       audioSource = new AudioBufferSource({ codec: choice.audio, bitrate: 192_000 });
       output.addAudioTrack(audioSource);
@@ -252,6 +284,7 @@ async function exportWithWebCodecs(
         )
       : null;
 
+    const transitions = new TransitionTracker();
     let i = 0;
     for await (const sample of screenFrames) {
       throwIfAborted(signal);
@@ -273,15 +306,21 @@ async function exportWithWebCodecs(
         }
       }
 
+      const timeline = Math.min(duration - epsilon, i / fps);
       drawFrame({
         ctx,
         width,
         height,
         sourceTime: sourceTimes[i],
-        project,
+        timelineTime: timeline,
+        timelineDuration: duration,
+        project: { ...project, segments },
         screenVideo: screenCanvas,
         webcamVideo: webcamReady ? webcamCanvas : null,
         backgroundImage: background,
+        overlayImages: options.overlayImages,
+        transition: transitions.begin(segments, timeline),
+        onFrameReady: (frame) => transitions.end(frame, segments, timeline, 1 / fps + 1e-3),
         watermark: options.watermark,
       });
 
@@ -367,6 +406,7 @@ async function exportWithMediaRecorder(
   });
 
   recorder.start(200);
+  const transitions = new TransitionTracker();
   try {
     for (let i = 0; i < totalFrames; i++) {
       throwIfAborted(options.signal);
@@ -379,10 +419,15 @@ async function exportWithMediaRecorder(
         width,
         height,
         sourceTime: source,
+        timelineTime: timeline,
+        timelineDuration: duration,
         project,
         screenVideo: screen,
         webcamVideo: webcam,
         backgroundImage: background,
+        overlayImages: options.overlayImages,
+        transition: transitions.begin(project.segments, timeline),
+        onFrameReady: (frame) => transitions.end(frame, project.segments, timeline, 1 / fps + 1e-3),
         watermark: options.watermark,
       });
       videoTrack.requestFrame?.();

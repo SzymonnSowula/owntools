@@ -1,0 +1,27 @@
+{
+  "name": "@shipshape/launch-engine",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "description": "URL/brief → launch video: style packs, takes, formats. Shared by the desktop app and the website.",
+  "main": "./src/engine/index.ts",
+  "types": "./src/engine/index.ts",
+  "exports": {
+    ".": "./src/engine/index.ts",
+    "./*": "./src/engine/*"
+  },
+  "peerDependencies": {
+    "@remotion/player": "^4.0.519",
+    "@remotion/web-renderer": "^4.0.519",
+    "react": "^19",
+    "react-dom": "^19",
+    "remotion": "^4.0.519"
+  },
+  "peerDependenciesMeta": {
+    "@remotion/player": { "optional": true },
+    "@remotion/web-renderer": { "optional": true },
+    "react": { "optional": true },
+    "react-dom": { "optional": true },
+    "remotion": { "optional": true }
+  }
+}

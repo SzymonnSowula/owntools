@@ -12,7 +12,7 @@ import {
 import { useAppStore } from "../../store/useAppStore";
 import { BlockEditor } from "./BlockEditor";
 import { DictationButton } from "./DictationButton";
-import type { DictationCommand } from "../../lib/speech";
+import type { DictationCommand } from "../../types";
 
 const COVERS = ["", "mist", "sage", "sand", "blush"];
 const ICONS = ["📄", "✏️", "🎯", "🧠", "☀️", "📌", "🗂️", "💡", "🗒️", "🔁"];

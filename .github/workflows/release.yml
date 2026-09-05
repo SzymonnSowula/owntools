@@ -1,0 +1,96 @@
+name: Release
+
+# Pushing a `v*` tag (or running this by hand) builds the Windows NSIS installer,
+# signs the updater artifact with the Tauri key, and uploads installer + `.sig`
+# + `latest.json` to a DRAFT GitHub release named after the version in
+# apps/desktop/src-tauri/tauri.conf.json. Runbook: docs/release.md.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  windows:
+    name: windows installer (nsis)
+    runs-on: windows-latest
+    env:
+      # `if: secrets.X` is not allowed, so the secret's presence goes through an env var.
+      HAS_CERT: ${{ secrets.WINDOWS_CERTIFICATE != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
+
+      - run: pnpm install --frozen-lockfile
+
+      # Optional Windows code signing: WINDOWS_CERTIFICATE is a base64-encoded PFX.
+      # Without it the installer is built unsigned (SmartScreen will warn).
+      - name: Import code-signing certificate
+        if: env.HAS_CERT == 'true'
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          $pfx = Join-Path $env:RUNNER_TEMP "codesign.pfx"
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE))
+          $params = @{ FilePath = $pfx; CertStoreLocation = "Cert:\CurrentUser\My" }
+          if ($env:WINDOWS_CERTIFICATE_PASSWORD) {
+            $params.Password = ConvertTo-SecureString -String $env:WINDOWS_CERTIFICATE_PASSWORD -AsPlainText -Force
+          }
+          $cert = Import-PfxCertificate @params
+          Remove-Item $pfx -Force
+          "WINDOWS_CERT_THUMBPRINT=$($cert.Thumbprint)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "Imported $($cert.Subject) (thumbprint $($cert.Thumbprint))"
+
+      - name: Build installer + draft release (signed)
+        if: env.HAS_CERT == 'true'
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          projectPath: apps/desktop
+          tauriScript: pnpm tauri
+          tagName: v__VERSION__
+          releaseName: "shipshape v__VERSION__"
+          releaseDraft: true
+          prerelease: false
+          includeUpdaterJson: true
+          args: --config '{"bundle":{"windows":{"certificateThumbprint":"${{ env.WINDOWS_CERT_THUMBPRINT }}","digestAlgorithm":"sha256","timestampUrl":"http://timestamp.digicert.com"}}}'
+
+      - name: Build installer + draft release (unsigned)
+        if: env.HAS_CERT != 'true'
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          projectPath: apps/desktop
+          tauriScript: pnpm tauri
+          tagName: v__VERSION__
+          releaseName: "shipshape v__VERSION__"
+          releaseDraft: true
+          prerelease: false
+          includeUpdaterJson: true

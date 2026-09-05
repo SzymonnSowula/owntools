@@ -5,6 +5,8 @@ import { TranscribeModal } from "./TranscribeModal";
 import { formatTime } from "../lib/time";
 import { uid } from "../lib/id";
 import { ensureFiniteDuration } from "../lib/videoEl";
+import { revealProjectInFolder, revealProjectsFolder } from "../lib/projectIo";
+import { isTauri } from "../lib/tauri";
 import { emptyProject, useAppStore } from "../store/appStore";
 
 export function Home() {
@@ -16,6 +18,7 @@ export function Home() {
   const transcribeOpen = useAppStore((s) => s.transcribeOpen);
   const setTranscribeOpen = useAppStore((s) => s.setTranscribeOpen);
   const fileRef = useRef<HTMLInputElement>(null);
+  const tauri = isTauri();
 
   useEffect(() => {
     void hydrateRecent();
@@ -42,6 +45,14 @@ export function Home() {
     await openProject(project, { screenUrl: url });
   }
 
+  async function reveal(action: () => Promise<void>) {
+    try {
+      await action();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Couldn't open the folder.", "error");
+    }
+  }
+
   return (
     <div className="desktop-bg flex min-h-0 flex-1 flex-col overflow-y-auto px-10 pb-10 pt-6">
       <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col">
@@ -64,7 +75,7 @@ export function Home() {
               Record
             </button>
             <button className="btn btn-secondary px-5 py-3" onClick={() => fileRef.current?.click()}>
-              Open editor
+              Open a video file
             </button>
             <button className="btn btn-secondary px-5 py-3" onClick={() => setTranscribeOpen(true)}>
               Transcribe a file
@@ -90,7 +101,20 @@ export function Home() {
         <section className="mt-14">
           <div className="mb-4 flex items-end justify-between">
             <h2 className="text-sm font-semibold tracking-[-0.01em]">Recent projects</h2>
-            <span className="text-xs text-muted">stored on this computer</span>
+            <span className="text-xs text-muted">
+              stored on this computer
+              {tauri ? (
+                <>
+                  {" · "}
+                  <button
+                    className="underline decoration-line underline-offset-2 hover:text-ink"
+                    onClick={() => void reveal(() => revealProjectsFolder(recent[0]?.id))}
+                  >
+                    open recordings folder
+                  </button>
+                </>
+              ) : null}
+            </span>
           </div>
           {recent.length === 0 ? (
             <div className="rounded-[16px] border border-dashed border-line bg-card/70 px-6 py-12 text-center shadow-sm">
@@ -102,35 +126,50 @@ export function Home() {
           ) : (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {recent.map((item, i) => (
-                <button
-                  key={item.id}
-                  className="wincard"
-                  style={{ transform: `rotate(${i % 2 === 0 ? -0.6 : 0.6}deg)` }}
-                  onClick={() => void openRecent(item.id)}
-                >
-                  <div className="wincard-bar">
-                    <WinDots icon={ToolIcons.video} />
-                    <span className="wincard-title truncate">
-                      {item.name.toLowerCase().replace(/\s+/g, "-")}.mp4
-                    </span>
-                  </div>
-                  <div className="wincard-body">
-                    <div className="flex h-20 items-end rounded-[10px] bg-gradient-to-br from-violet/30 via-teal/25 to-coral/25 p-3">
-                      <span className="text-[11px] font-medium text-ink/70">
-                        {formatTime(item.duration)}
+                // The reveal control is a sibling, not a child, of the card button: a
+                // <button> inside a <button> is invalid HTML and React warns about it.
+                <div key={item.id} className="relative">
+                  <button
+                    className="wincard w-full"
+                    style={{ transform: `rotate(${i % 2 === 0 ? -0.6 : 0.6}deg)` }}
+                    onClick={() => void openRecent(item.id)}
+                  >
+                    <div className={`wincard-bar ${tauri ? "!pr-28" : ""}`}>
+                      <WinDots icon={ToolIcons.video} />
+                      <span className="wincard-title truncate">
+                        {item.name.toLowerCase().replace(/\s+/g, "-")}.mp4
                       </span>
                     </div>
-                    <p className="mt-3 truncate text-sm font-semibold">{item.name}</p>
-                    <p className="mt-1 text-xs text-muted">
-                      {new Date(item.createdAt).toLocaleString(undefined, {
-                        day: "numeric",
-                        month: "short",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </p>
-                  </div>
-                </button>
+                    <div className="wincard-body">
+                      <div className="flex h-20 items-end rounded-[10px] bg-gradient-to-br from-violet/30 via-teal/25 to-coral/25 p-3">
+                        <span className="text-[11px] font-medium text-ink/70">
+                          {formatTime(item.duration)}
+                        </span>
+                      </div>
+                      <p className="mt-3 truncate text-sm font-semibold">{item.name}</p>
+                      <p className="mt-1 text-xs text-muted">
+                        {new Date(item.createdAt).toLocaleString(undefined, {
+                          day: "numeric",
+                          month: "short",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </p>
+                    </div>
+                  </button>
+                  {tauri ? (
+                    <button
+                      className="btn btn-ghost absolute right-2 top-1.5 !h-6 !gap-1 !px-2 !py-0 !text-[11px] !font-medium"
+                      title="Show this project's folder"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void reveal(() => revealProjectInFolder(item));
+                      }}
+                    >
+                      Show in folder
+                    </button>
+                  ) : null}
+                </div>
               ))}
             </div>
           )}

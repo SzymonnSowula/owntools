@@ -13,11 +13,13 @@ export type View =
   | "settings";
 
 export type Priority = 0 | 1 | 2 | 3;
-export type Theme = "light" | "dark";
+export type Theme = "light" | "dark" | "nature" | "ocean" | "sunset";
 export type TimerMode = "focus" | "break";
 export type TimerPreset = "25" | "50" | "custom" | "stopwatch";
 export type CaptureMode = "task" | "note" | "habit" | "page" | "append";
 export type SpeechLang = "pl-PL" | "en-US";
+/** Structural voice commands the notebook understands alongside dictated text. */
+export type DictationCommand = "paragraph" | "heading" | "list" | "todo" | "stop";
 export type BlockType =
   | "paragraph"
   | "heading1"
@@ -152,6 +154,17 @@ export interface SoundMix {
   layers: Record<NoiseId, number>;
 }
 
+/**
+ * The turntable. `id` is the record on the platter — it survives a restart so
+ * the crate remembers what you last put on — while `playing` never does: audio
+ * needs a gesture, and nothing should start making noise on its own.
+ */
+export interface RecordPlayer {
+  id: string | null;
+  playing: boolean;
+  volume: number;
+}
+
 export interface PianoSettings {
   volume: number;
   ambient: boolean;
@@ -169,6 +182,8 @@ export interface Settings {
   autostart: boolean;
   speechLang: SpeechLang;
   usageTracking: boolean;
+  /** Closing the main window hides it in the tray (true) or quits (false). */
+  closeToTray: boolean;
   scrollGuardEnabled: boolean;
   scrollGuardSites: string[];
   scrollGuardTaskId: string | null;
@@ -222,6 +237,7 @@ export interface AppData {
   planner: PlannerBlock[];
   journal: JournalEntry[];
   sounds: SoundMix;
+  record: RecordPlayer;
   piano: PianoSettings;
   notebook: NotebookState;
 }
@@ -251,6 +267,6 @@ export const VIEWS: { id: View; label: string; hint: string }[] = [
   { id: "notes", label: "Notes", hint: "Pages, board & journal" },
   { id: "habits", label: "Habits", hint: "Daily rituals" },
   { id: "stats", label: "Stats", hint: "Numbers & heatmap" },
-  { id: "sounds", label: "Sounds", hint: "Ambient & piano" },
+  { id: "sounds", label: "Sounds", hint: "Records, mixer & piano" },
   { id: "settings", label: "Settings", hint: "Preferences" },
 ];

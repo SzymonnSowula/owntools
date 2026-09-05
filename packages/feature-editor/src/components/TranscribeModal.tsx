@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   dictationStatus,
   parseWhisperJson,
@@ -7,6 +7,12 @@ import {
   type WhisperSegment,
 } from "@feature-dictation/engine";
 import { segmentsToSrt } from "../lib/srt";
+import {
+  GROUPINGS,
+  groupTranscript,
+  transcriptToText,
+  type TranscriptGrouping,
+} from "../lib/transcriptFormat";
 import { exportBlobToPath } from "../lib/projectIo";
 import { blobToFileDownload } from "../lib/exportVideo";
 import { isTauri } from "../lib/tauri";
@@ -18,6 +24,11 @@ const LANGS: { value: DictationLang; label: string }[] = [
   { value: "pl", label: "Polski" },
 ];
 
+function fileSize(bytes: number): string {
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export interface TranscribeModalProps {
   open: boolean;
   onClose: () => void;
@@ -27,9 +38,13 @@ export interface TranscribeModalProps {
 
 export function TranscribeModal({ open, onClose, initialTranslate }: TranscribeModalProps) {
   const showToast = useAppStore((s) => s.showToast);
+  const inputRef = useRef<HTMLInputElement | null>(null);
   const [file, setFile] = useState<File | null>(null);
+  const [dragging, setDragging] = useState(false);
   const [lang, setLang] = useState<DictationLang>("auto");
   const [translate, setTranslate] = useState(false);
+  const [grouping, setGrouping] = useState<TranscriptGrouping>("sentences");
+  const [timestamps, setTimestamps] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [segments, setSegments] = useState<WhisperSegment[] | null>(null);
@@ -38,9 +53,20 @@ export function TranscribeModal({ open, onClose, initialTranslate }: TranscribeM
     if (open) setTranslate(Boolean(initialTranslate));
   }, [open, initialTranslate]);
 
+  /** Whisper's raw cues regrouped the way the user picked — drives preview AND both exports. */
+  const blocks = useMemo(
+    () => (segments ? groupTranscript(segments, grouping) : []),
+    [segments, grouping],
+  );
+  const text = useMemo(() => transcriptToText(blocks, timestamps), [blocks, timestamps]);
+
   if (!open) return null;
 
-  const text = segments ? segments.map((s) => s.text).join("\n") : "";
+  function pick(next: File | null) {
+    setFile(next);
+    setSegments(null);
+    setError(null);
+  }
 
   async function run() {
     if (!file || busy) return;
@@ -53,7 +79,9 @@ export function TranscribeModal({ open, onClose, initialTranslate }: TranscribeM
         setError("Set up the local speech engine in the dictate tool first.");
         return;
       }
-      const raw = await transcribeBlob(file, lang, true, translate);
+      const raw = await transcribeBlob(file, lang, true, translate, {
+        ignoreSessionContext: true,
+      });
       const parsed = parseWhisperJson(raw);
       if (!parsed.length) {
         setError("No speech was found in this file.");
@@ -68,9 +96,9 @@ export function TranscribeModal({ open, onClose, initialTranslate }: TranscribeM
   }
 
   async function saveAs(ext: "txt" | "srt") {
-    if (!segments || !file) return;
+    if (!blocks.length || !file) return;
     try {
-      const content = ext === "srt" ? segmentsToSrt(segments) : text;
+      const content = ext === "srt" ? segmentsToSrt(blocks) : text;
       const blob = new Blob([content], { type: "text/plain" });
       const base = file.name.replace(/\.[^.]+$/, "").replace(/[^\w\-]+/g, "_") || "transcript";
       const saved = await exportBlobToPath(blob, `${base}.${ext}`, ext);
@@ -93,16 +121,61 @@ export function TranscribeModal({ open, onClose, initialTranslate }: TranscribeM
 
         <div className="mt-4 flex flex-col gap-3">
           <input
-            className="field h-9 py-1 text-xs"
+            ref={inputRef}
+            className="sr-only"
             type="file"
             accept="audio/*,video/*"
             disabled={busy}
-            onChange={(e) => {
-              setFile(e.target.files?.[0] ?? null);
-              setSegments(null);
-              setError(null);
-            }}
+            onChange={(e) => pick(e.target.files?.[0] ?? null)}
           />
+          <div
+            className={`flex items-center gap-3 rounded-[14px] border border-dashed px-3 py-3 transition ${
+              dragging ? "border-accent bg-accent/10" : "border-line bg-paper"
+            }`}
+            onDragOver={(e) => {
+              e.preventDefault();
+              if (!busy) setDragging(true);
+            }}
+            onDragLeave={() => setDragging(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDragging(false);
+              if (busy) return;
+              const dropped = e.dataTransfer.files?.[0];
+              if (dropped) pick(dropped);
+            }}
+          >
+            <button
+              type="button"
+              className="btn btn-secondary shrink-0 px-3 py-1.5 text-xs"
+              disabled={busy}
+              onClick={() => inputRef.current?.click()}
+            >
+              {file ? "Change file" : "Choose file"}
+            </button>
+            <div className="min-w-0 flex-1 text-xs">
+              {file ? (
+                <>
+                  <p className="truncate font-medium text-ink">{file.name}</p>
+                  <p className="text-muted">{fileSize(file.size)}</p>
+                </>
+              ) : (
+                <p className="text-muted">…or drop an audio / video file here</p>
+              )}
+            </div>
+            {file && !busy ? (
+              <button
+                type="button"
+                className="btn btn-ghost shrink-0 px-2 py-1 text-xs"
+                onClick={() => {
+                  if (inputRef.current) inputRef.current.value = "";
+                  pick(null);
+                }}
+              >
+                Clear
+              </button>
+            ) : null}
+          </div>
 
           <div className="flex items-center gap-3">
             <select
@@ -128,9 +201,37 @@ export function TranscribeModal({ open, onClose, initialTranslate }: TranscribeM
             </label>
           </div>
 
+          <div className="flex items-center gap-3">
+            <select
+              className="field h-9 flex-1"
+              value={grouping}
+              onChange={(e) => setGrouping(e.target.value as TranscriptGrouping)}
+            >
+              {GROUPINGS.map((g) => (
+                <option key={g.value} value={g.value}>
+                  {g.label}
+                </option>
+              ))}
+            </select>
+            <label className="flex items-center gap-2 text-sm text-muted">
+              <input
+                type="checkbox"
+                checked={timestamps}
+                onChange={(e) => setTimestamps(e.target.checked)}
+              />
+              Add timestamps
+            </label>
+          </div>
+          <p className="text-xs text-muted">
+            {GROUPINGS.find((g) => g.value === grouping)?.hint}{" "}
+            {timestamps
+              ? "Each block is stamped [hh:mm:ss] in the .txt; the .srt keeps exact cue times."
+              : "Tick the box to stamp the .txt too — the .srt is always timed."}
+          </p>
+
           {error ? <p className="text-sm font-medium text-coral">{error}</p> : null}
 
-          {segments ? (
+          {blocks.length ? (
             <div className="max-h-48 overflow-y-auto whitespace-pre-wrap rounded-[12px] border border-line bg-paper px-3 py-2 text-sm leading-relaxed">
               {text}
             </div>
@@ -141,7 +242,7 @@ export function TranscribeModal({ open, onClose, initialTranslate }: TranscribeM
           <button className="btn btn-secondary flex-1" disabled={busy} onClick={onClose}>
             Close
           </button>
-          {segments ? (
+          {blocks.length ? (
             <>
               <button className="btn btn-secondary flex-1" onClick={() => void saveAs("txt")}>
                 Save .txt

@@ -1,6 +1,7 @@
-import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import type { Metadata, Viewport } from "next";
+import { Inter, Outfit } from "next/font/google";
 import "./globals.css";
+import { plausibleDomain, siteUrl } from "@/lib/site";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -8,46 +9,74 @@ const inter = Inter({
   weight: ["400", "500", "600", "700", "800"],
 });
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://shipshape.app";
+const outfit = Outfit({
+  variable: "--font-outfit",
+  subsets: ["latin", "latin-ext"],
+  weight: ["500", "600", "700", "800"],
+});
+
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f5f5f7" },
+    { media: "(prefers-color-scheme: dark)", color: "#060608" },
+  ],
+};
+
+/* Applies the saved theme before first paint (day is the default). */
+const themeInit = `try{if(localStorage.getItem("shipshape-theme")==="dark")document.documentElement.dataset.theme="dark"}catch(e){}`;
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: "shipshape — the local-first studio for people who ship",
+    default: "shipshape — dictate, transcribe and record on your own device",
     template: "%s · shipshape",
   },
   description:
-    "Focus timer, screen recordings that follow your cursor, product launch videos from a URL, and on-device dictation — one desktop app, everything stays on your machine.",
+    "Dictate into any app, transcribe audio and video, record your screen, take notes, sketch on a whiteboard, schedule your social posts, translate, and turn a link into a video. One desktop app that runs on your own machine and keeps working offline.",
   keywords: [
+    "dictation app",
+    "voice typing",
+    "speech to text",
+    "offline transcription",
     "screen recorder",
-    "focus app",
-    "product launch video",
-    "on-device dictation",
+    "subtitle generator",
+    "note taking app",
+    "whiteboard app",
+    "social media scheduler",
+    "schedule posts with AI agents",
+    "focus timer",
     "local-first",
-    "screen studio alternative",
     "whisper dictation",
+    "screen studio alternative",
   ],
   openGraph: {
     type: "website",
     url: siteUrl,
     siteName: "shipshape",
-    title: "shipshape — the local-first studio for people who ship",
+    title: "shipshape — dictate, transcribe and record on your own device",
     description:
-      "focus · record · launch · dictate — one desktop app, no accounts, no cloud.",
+      "Dictate anywhere, transcribe anything, record your screen, take notes, sketch on a whiteboard, schedule posts, translate. One app, no account, nothing uploaded.",
     locale: "en_US",
   },
   twitter: {
     card: "summary_large_image",
-    title: "shipshape — the local-first studio for people who ship",
+    title: "shipshape — dictate, transcribe and record on your own device",
     description:
-      "focus · record · launch · dictate — one desktop app, no accounts, no cloud.",
+      "Dictate anywhere, transcribe anything, record your screen, take notes, sketch on a whiteboard, schedule posts, translate. One app, no account, nothing uploaded.",
   },
   alternates: { canonical: siteUrl },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${inter.variable} ${inter.className} antialiased`}>
+    <html lang="en" className={`${inter.variable} ${outfit.variable} ${inter.className} antialiased`} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeInit }} />
+        {/* cookieless, privacy-friendly analytics — only when a domain is configured */}
+        {plausibleDomain ? (
+          <script defer data-domain={plausibleDomain} src="https://plausible.io/js/script.js" />
+        ) : null}
+      </head>
       <body>{children}</body>
     </html>
   );

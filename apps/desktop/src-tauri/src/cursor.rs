@@ -115,14 +115,21 @@ mod platform {
             }
             let point = CGEventGetLocation(event);
             CFRelease(event);
-            let display = CGMainDisplayID();
-            let bounds = CGDisplayBounds(display);
-            // Quartz origin is bottom-left; Screeni uses top-left like video frames.
-            let y = bounds.origin.y + bounds.size.height - point.y;
+            // CGEventGetLocation already reports global *display* coordinates,
+            // which have a top-left origin — the same convention as a video
+            // frame. Flipping it, as this used to, mirrored every recording
+            // about the middle of the screen. The frontend rebases against the
+            // captured rectangle (see cursorMap.ts), so what belongs here is
+            // the raw position and nothing else.
+            //
+            // TODO(macOS port): these are points, while `capture.rs` reports
+            // monitors in physical pixels via Tauri. On a Retina display the
+            // two differ by the backing scale factor and the pointer would sit
+            // at half its true offset — reconcile before shipping macOS.
             let down = CGEventSourceButtonState(HID_SYSTEM_STATE, LEFT_BUTTON);
             Ok(CursorState {
                 x: point.x,
-                y,
+                y: point.y,
                 down,
             })
         }

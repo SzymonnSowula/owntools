@@ -17,7 +17,7 @@ const BRAND_GLYPH = (
 );
 
 export const ToolIcons: Record<
-  "focus" | "video" | "launch" | "dictate",
+  "focus" | "video" | "launch" | "dictate" | "board" | "social",
   ReactElement
 > = {
   /* clock */
@@ -40,6 +40,22 @@ export const ToolIcons: Record<
     <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" xmlns="http://www.w3.org/2000/svg">
       <path d="M6 8.7c2.7-1.2 3.6-3.9 3.6-6.3-2.4 0-5.1.9-6.3 3.6L1.8 7.5l2.7 2.7L6 8.7z" />
       <circle cx="7.2" cy="4.8" r="0.9" fill="currentColor" stroke="none" />
+    </svg>
+  ),
+  /* box, arrow, circle: a sketch */
+  board: (
+    <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" xmlns="http://www.w3.org/2000/svg">
+      <rect x="1.4" y="1.6" width="4.8" height="3.6" rx="0.9" />
+      <circle cx="8.6" cy="8.6" r="2" />
+      <path d="M3.8 5.2v1.9a1.2 1.2 0 001.2 1.2h1.6" />
+    </svg>
+  ),
+  /* calendar with a scheduled dot */
+  social: (
+    <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" xmlns="http://www.w3.org/2000/svg">
+      <rect x="1.4" y="2.4" width="9.2" height="8.2" rx="1.4" />
+      <path d="M1.4 5h9.2M4 1.2v2.2M8 1.2v2.2" />
+      <circle cx="7.6" cy="8" r="1" fill="currentColor" stroke="none" />
     </svg>
   ),
   /* mic */

@@ -1,12 +1,12 @@
 [package]
-name = "suite"
-version = "0.1.0"
+name = "shipshape"
+version = "0.2.0"
 description = "Local-first studio for people who ship"
-authors = ["suite"]
+authors = ["shipshape"]
 edition = "2021"
 
 [lib]
-name = "suite_lib"
+name = "shipshape_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
@@ -26,6 +26,23 @@ serde_json = "1"
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 tauri-plugin-http = "2.6.0"
 tauri-plugin-global-shortcut = "2.3.2"
+tauri-plugin-log = "2"
+tauri-plugin-process = "2"
+tauri-plugin-window-state = "2"
+log = "0.4"
+reqwest = { version = "0.12", features = ["stream"] }
+tokio = { version = "1", features = ["fs", "io-util", "macros", "net", "sync"] }
+futures-util = "0.3"
+sha2 = "0.10"
+hex = "0.4"
+# social: the local agent server (REST + MCP + OAuth loopback)
+axum = { version = "0.8", features = ["multipart"] }
+tower-http = { version = "0.6", features = ["cors"] }
+rand = "0.9"
+base64 = "0.22"
+
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+tauri-plugin-updater = "2"
 
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.61", features = [
@@ -36,4 +53,6 @@ windows = { version = "0.61", features = [
   "Win32_System_SystemInformation",
   "Win32_System_LibraryLoader",
 ] }
+# Same major as wry's, so the COM types line up with tauri's `PlatformWebview`.
+webview2-com = "0.38"
 uiautomation = "0.24"

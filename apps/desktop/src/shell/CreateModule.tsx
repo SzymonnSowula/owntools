@@ -20,7 +20,7 @@ export default function CreateModule() {
       {toast ? (
         <div
           className={`pointer-events-none absolute bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-[12px] px-4 py-2 text-sm font-medium shadow-lg ${
-            toast.type === "error" ? "bg-coral text-white" : "bg-ink text-white"
+            toast.type === "error" ? "bg-coral text-white" : "bg-ink text-paper"
           }`}
         >
           {toast.message}

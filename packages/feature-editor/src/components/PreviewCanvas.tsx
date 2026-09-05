@@ -3,7 +3,8 @@ import { WinDots, ToolIcons } from "@ui/WinDots";
 import type { Project } from "../types";
 import { canvasSize, drawFrame } from "../lib/compositor";
 import { isPro } from "@licensing/license";
-import { timelineToSource } from "../lib/segments";
+import { timelineDuration, timelineToSource } from "../lib/segments";
+import { TransitionTracker } from "../lib/transitions";
 import { useAppStore } from "../store/appStore";
 
 /**
@@ -17,11 +18,13 @@ export function PreviewCanvas({
   screen,
   webcam,
   background,
+  overlayImages,
 }: {
   project: Project;
   screen: HTMLVideoElement | null;
   webcam: HTMLVideoElement | null;
   background: HTMLImageElement | null;
+  overlayImages?: Record<string, HTMLImageElement>;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -29,10 +32,12 @@ export function PreviewCanvas({
   const screenRef = useRef(screen);
   const webcamRef = useRef(webcam);
   const bgRef = useRef(background);
+  const overlaysRef = useRef(overlayImages);
   projectRef.current = project;
   screenRef.current = screen;
   webcamRef.current = webcam;
   bgRef.current = background;
+  overlaysRef.current = overlayImages;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -53,13 +58,15 @@ export function PreviewCanvas({
     observer.observe(wrap);
 
     let raf = 0;
+    const transitions = new TransitionTracker();
     let last: {
       time: number;
       project: Project | null;
       width: number;
       screenReady: number | undefined;
       bg: CanvasImageSource | null;
-    } = { time: -1, project: null, width: 0, screenReady: undefined, bg: null };
+      overlays: Record<string, HTMLImageElement> | undefined;
+    } = { time: -1, project: null, width: 0, screenReady: undefined, bg: null, overlays: undefined };
     let lastChangeAt = 0;
     const loop = (now: number) => {
       raf = requestAnimationFrame(loop);
@@ -85,7 +92,8 @@ export function PreviewCanvas({
         p !== last.project ||
         width !== last.width ||
         screenRef.current?.readyState !== last.screenReady ||
-        bgRef.current !== last.bg;
+        bgRef.current !== last.bg ||
+        overlaysRef.current !== last.overlays;
       if (changed) {
         lastChangeAt = now;
         last = {
@@ -94,6 +102,7 @@ export function PreviewCanvas({
           width,
           screenReady: screenRef.current?.readyState,
           bg: bgRef.current,
+          overlays: overlaysRef.current,
         };
       }
       // Keep drawing briefly after a change: video frames arrive async after seeks.
@@ -101,15 +110,21 @@ export function PreviewCanvas({
 
       if (canvas.width !== width) canvas.width = width;
       if (canvas.height !== height) canvas.height = height;
+      const timelineTime = state.timelineTime;
       drawFrame({
         ctx,
         width,
         height,
-        sourceTime: timelineToSource(state.timelineTime, p.segments),
+        sourceTime: timelineToSource(timelineTime, p.segments),
+        timelineTime,
+        timelineDuration: timelineDuration(p.segments),
         project: p,
         screenVideo: screenRef.current,
         webcamVideo: webcamRef.current,
         backgroundImage: bgRef.current,
+        overlayImages: overlaysRef.current,
+        transition: transitions.begin(p.segments, timelineTime),
+        onFrameReady: (frame) => transitions.end(frame, p.segments, timelineTime),
         watermark: !isPro(),
       });
     };
