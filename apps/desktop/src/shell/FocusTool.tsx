@@ -118,7 +118,7 @@ function FocusOverview() {
   const setView = useAppStore((s) => s.setView);
   const setFocusOverview = useShellStore((s) => s.setFocusOverview);
   return (
-    <div className="desktop-bg" style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: 24 }}>
+    <div className="desktop-bg focus-overview" style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: 24 }}>
       <div className="tiles" style={{ maxWidth: 920, margin: "0 auto" }}>
         {VIEWS.map((item, i) => (
           <button

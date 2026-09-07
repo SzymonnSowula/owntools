@@ -178,6 +178,7 @@ export function PdfConvertModal({ open, onClose }: PdfConvertModalProps) {
       title="PDF → text / Word / images"
       subtitle="Read and rendered on this device — the PDF never leaves it."
       onClose={onClose}
+      status={<SavedLine outcome={saved} />}
       busy={busy}
       footer={
         <>
@@ -293,7 +294,6 @@ export function PdfConvertModal({ open, onClose }: PdfConvertModalProps) {
             Ready — {result.pages} page{result.pages === 1 ? "" : "s"} · {result.name} · {formatBytes(result.blob.size)}
           </ToolNote>
           {result.text !== null ? <TextPreview text={result.text} /> : null}
-          <SavedLine outcome={saved} />
         </>
       ) : null}
     </ToolModal>

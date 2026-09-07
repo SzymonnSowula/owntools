@@ -123,6 +123,7 @@ export function ConvertVideoModal({ open, onClose }: ConvertVideoModalProps) {
       title="Convert video"
       subtitle="Re-encoded with the machine's own codecs; nothing is uploaded."
       onClose={onClose}
+      status={<SavedLine outcome={saved} />}
       busy={busy}
       footer={
         <>
@@ -242,7 +243,6 @@ export function ConvertVideoModal({ open, onClose }: ConvertVideoModalProps) {
             Ready — {formatBytes(result.size)}
             {file ? ` (was ${formatBytes(file.size)})` : ""}.
           </ToolNote>
-          <SavedLine outcome={saved} />
         </>
       ) : null}
     </ToolModal>

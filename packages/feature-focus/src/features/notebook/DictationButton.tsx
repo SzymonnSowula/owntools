@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   createDictationRecorder,
   dictate,
+  dictationReady,
   dictationStatus,
   openDictationMic,
 } from "@feature-dictation/engine";
@@ -59,7 +60,7 @@ export function DictationButton({ onFinal, onInterim }: Props) {
     } catch {
       status = null;
     }
-    if (!status || !status.engine || !status.model) {
+    if (!dictationReady(status)) {
       setError("Set up dictation in the dictate tool first.");
       return;
     }

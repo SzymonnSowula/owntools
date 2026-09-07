@@ -102,6 +102,7 @@ export function ImageConvertModal({ open, onClose }: ImageConvertModalProps) {
       title="Convert images"
       subtitle="PNG, JPG, WebP, GIF, BMP, AVIF or SVG in — smaller, resized, or just another format out."
       onClose={onClose}
+      status={<SavedLine outcome={saved} />}
       busy={busy}
       footer={
         <>
@@ -212,7 +213,6 @@ export function ImageConvertModal({ open, onClose }: ImageConvertModalProps) {
             {formatBytes(before)} → {formatBytes(after)}
             {before > 0 ? ` (${after <= before ? "−" : "+"}${Math.abs(Math.round((1 - after / before) * 100))}%)` : ""}
           </ToolNote>
-          <SavedLine outcome={saved} />
         </>
       ) : null}
     </ToolModal>

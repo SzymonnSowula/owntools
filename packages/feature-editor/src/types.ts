@@ -17,6 +17,38 @@ export interface CursorSample {
   down: boolean;
 }
 
+export type InputButton = "left" | "right" | "middle";
+
+/** What sort of key went down — never which one. */
+export type KeyKind = "key" | "space" | "enter" | "backspace" | "modifier";
+
+/** A mouse button going down or up, stamped in-process by the native sampler. */
+export interface ButtonEvent {
+  t: number;
+  button: InputButton;
+  down: boolean;
+  /** Pointer position at the edge, desktop pixels. */
+  x: number;
+  y: number;
+}
+
+export interface KeyEvent {
+  t: number;
+  kind: KeyKind;
+}
+
+/**
+ * Clicks and keystrokes timed by the native sampler (250 Hz), as opposed to
+ * the 33 ms cursor track. Present on takes recorded with "click & key timing"
+ * on; the editor's click rings and sound effects prefer it when it is there.
+ */
+export interface InputTrack {
+  buttons: ButtonEvent[];
+  keys: KeyEvent[];
+  /** Sampling rate of the source, Hz. */
+  rate: number;
+}
+
 export interface ScreenBounds {
   x: number;
   y: number;
@@ -237,6 +269,29 @@ export interface AudioSettings {
   fadeOut: number;
 }
 
+export type SfxPackId = "soft" | "mechanical" | "playful";
+
+/**
+ * Generated sound effects, mixed in on export and played in the preview:
+ * clicks, typing, zooms and transitions, all from `lib/sfx/`.
+ */
+export interface SfxSettings {
+  enabled: boolean;
+  pack: SfxPackId;
+  /** 0–2, master gain over every effect. */
+  volume: number;
+  clicks: boolean;
+  clickVolume: number;
+  typing: boolean;
+  typingVolume: number;
+  zooms: boolean;
+  zoomVolume: number;
+  transitions: boolean;
+  transitionVolume: number;
+  /** Pan clicks and zooms by where they happened in the frame. */
+  spatial: boolean;
+}
+
 /** Fade from / to black at the ends of the timeline, in seconds. */
 export interface FadeSettings {
   in: number;
@@ -280,6 +335,8 @@ export interface Project {
   cursorAlign?: CursorAlign;
   webcamOffset: number;
   cursor: CursorSample[];
+  /** Precise clicks and keystrokes from the native sampler; see `lib/inputTrack.ts`. */
+  inputs?: InputTrack;
   autoZoom: boolean;
   segments: Segment[];
   zooms: ZoomClip[];
@@ -291,6 +348,7 @@ export interface Project {
   cursorStyle: CursorSettings;
   progressBar: ProgressBarSettings;
   audio: AudioSettings;
+  sfx: SfxSettings;
   fade: FadeSettings;
   shares: ShareLink[];
   aspect: AspectRatio;

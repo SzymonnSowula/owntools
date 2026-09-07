@@ -39,7 +39,7 @@ export default function PrivacyPage() {
       <h2>the desktop app</h2>
       <p>
         Everything the app makes lives in its data folder on your computer (in AppData, under{" "}
-        <code>app.suite.desktop</code>). Nothing in that folder is synced, backed up or read by
+        <code>app.shipshape.desktop</code>). Nothing in that folder is synced, backed up or read by
         us. If you uninstall the app, the folder is yours to keep or delete.
       </p>
       <p>The app connects to the internet only when you ask it to do something that needs it:</p>

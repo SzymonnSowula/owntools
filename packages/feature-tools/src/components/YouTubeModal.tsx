@@ -168,6 +168,7 @@ export function YouTubeModal({ open, onClose }: YouTubeModalProps) {
       title="YouTube → transcript"
       subtitle="Captions come from YouTube; whisper runs here when there are none, or to translate."
       onClose={onClose}
+      status={<SavedLine outcome={saved} />}
       busy={busy !== null}
       wide
       footer={
@@ -367,7 +368,6 @@ export function YouTubeModal({ open, onClose }: YouTubeModalProps) {
             {GROUPINGS.find((g) => g.value === grouping)?.hint}
           </ToolNote>
           <TextPreview text={text} />
-          <SavedLine outcome={saved} />
         </>
       ) : null}
     </ToolModal>

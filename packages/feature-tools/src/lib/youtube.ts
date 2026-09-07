@@ -134,7 +134,13 @@ export function pickAudioFormat(formats: RawFormat[]): AudioFormat | null {
 export function readPlayerResponse(raw: unknown, id: string): YouTubeVideo {
   const r = (raw && typeof raw === "object" ? raw : {}) as RawPlayer;
   const status = r.playabilityStatus?.status ?? "UNKNOWN";
-  const unplayable = status === "OK" ? null : r.playabilityStatus?.reason || `YouTube answered "${status}".`;
+  const reason = r.playabilityStatus?.reason;
+  const unplayable =
+    status === "OK"
+      ? null
+      : reason && /unavailable/i.test(reason)
+        ? "YouTube says this video is unavailable — private, removed, or a mistyped link."
+        : reason || `YouTube answered "${status}".`;
   const details = r.videoDetails ?? {};
   const thumbs = (details.thumbnail?.thumbnails ?? []).filter((t) => t.url);
   thumbs.sort((a, b) => (b.width ?? 0) - (a.width ?? 0));

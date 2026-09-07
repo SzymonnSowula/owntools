@@ -10,6 +10,9 @@ import { useOverlayImages } from "../lib/useOverlayImages";
 import { ensureFiniteDuration } from "../lib/videoEl";
 import { playbackStep, sourceToTimeline, timelineDuration, timelineToSource } from "../lib/segments";
 import { cutIntervalsFromSegments, detectSilence } from "../lib/silence";
+import { sfxPack } from "../lib/sfx/packs";
+import { sfxPlanFor } from "../lib/sfx/plan";
+import { sfxPreview } from "../lib/sfx/player";
 import { useAppStore } from "../store/appStore";
 
 export function Editor() {
@@ -129,6 +132,32 @@ export function Editor() {
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
   }, [playing, project]);
+
+  // The preview is audible: the recording plays through the <video> at the
+  // project's volume (fades and gain above 1× are export-only) and the sound
+  // effects through the scheduler below, so the two can be judged together.
+  useEffect(() => {
+    const screen = screenRef.current;
+    if (!screen || !project) return;
+    screen.muted = project.audio.muted;
+    screen.volume = Math.min(1, Math.max(0, project.audio.volume));
+  }, [project?.audio.muted, project?.audio.volume, media?.screenUrl]);
+
+  // Sound effects follow the same plan the export mixes and the timeline
+  // shows; the plan is swapped on every edit without re-firing what is queued.
+  useEffect(() => {
+    if (!project) return;
+    sfxPreview().setPlan(project.sfx.enabled ? sfxPlanFor(project) : [], sfxPack(project.sfx.pack));
+  }, [project]);
+
+  useEffect(() => {
+    const player = sfxPreview();
+    const unsub = useAppStore.subscribe((s) => player.sync(s.timelineTime, s.playing));
+    return () => {
+      unsub();
+      player.stopAll();
+    };
+  }, []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -356,7 +385,7 @@ export function Editor() {
         className="pointer-events-none fixed left-0 top-0 -z-10 h-[180px] w-[320px] opacity-0"
         playsInline
         preload="auto"
-        muted
+        muted={project.audio.muted}
       />
       {media.webcamUrl ? (
         <video

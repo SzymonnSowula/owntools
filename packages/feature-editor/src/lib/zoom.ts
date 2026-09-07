@@ -242,14 +242,17 @@ export function viewWindow(anchor: number, scale: number): { start: number; end:
   return { start, end: start + 1 / scale };
 }
 
+/** How long a clip eases in and out; between them they never eat more than ~85% of it. */
+export function zoomEase(clip: ZoomClip): { inT: number; outT: number } {
+  const dur = Math.max(0.001, clip.end - clip.start);
+  return { inT: Math.min(ZOOM_IN_TIME, dur * 0.45), outT: Math.min(ZOOM_OUT_TIME, dur * 0.45) };
+}
+
 /** The active clip at `t` and the eased scale it asks for. */
 function envelopeAt(zooms: ZoomClip[], t: number): { clip: ZoomClip | null; scale: number } {
   const z = zooms.find((clip) => t >= clip.start && t <= clip.end);
   if (!z) return { clip: null, scale: 1 };
-  const dur = Math.max(0.001, z.end - z.start);
-  // Never let in+out eat more than ~85% of the clip.
-  const inT = Math.min(ZOOM_IN_TIME, dur * 0.45);
-  const outT = Math.min(ZOOM_OUT_TIME, dur * 0.45);
+  const { inT, outT } = zoomEase(z);
   let k = 1;
   const sinceStart = t - z.start;
   const untilEnd = z.end - t;

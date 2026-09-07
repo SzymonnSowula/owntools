@@ -15,7 +15,11 @@ export interface NetInit {
 export async function netFetch(url: string, init: NetInit = {}): Promise<Response> {
   if (isTauri()) {
     const { fetch: tauriFetch } = await import("@tauri-apps/plugin-http");
-    return tauriFetch(url, init);
+    // The plugin stamps the webview's origin (https://tauri.localhost) on
+    // every request unless told otherwise, and YouTube answers 403 to a
+    // foreign Origin. An empty Origin makes the plugin (built with
+    // `unsafe-headers`) send none at all.
+    return tauriFetch(url, { ...init, headers: { Origin: "", ...init.headers } });
   }
   if (import.meta.env.DEV) {
     return fetch(`/__proxy?url=${encodeURIComponent(url)}`, init);

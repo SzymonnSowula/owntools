@@ -12,6 +12,12 @@ import {
   type CaptureMatch,
 } from "@feature-editor/lib/captureSources";
 import { getCursor, getScreenSize } from "@feature-editor/lib/cursor";
+import {
+  collectInputTrack,
+  startInputTrack,
+  stopInputTrack,
+  type Pause,
+} from "@feature-editor/lib/inputTrack";
 import { invokeSafe } from "@feature-editor/lib/tauri";
 import { DEFAULT_WEBCAM } from "@feature-editor/lib/defaults";
 import { formatTime } from "@feature-editor/lib/time";
@@ -46,6 +52,7 @@ import type {
   CaptureSurface,
   CursorSample,
   DisplaySources,
+  InputTrack,
   ScreenBounds,
   SurfaceSample,
 } from "@feature-editor/types";
@@ -88,6 +95,8 @@ interface Take {
   /** Rect over time, when the recorded window was moved or resized. */
   surfaceTrack: SurfaceSample[];
   samples: CursorSample[];
+  /** Precise clicks and keystrokes from the native sampler, when it ran. */
+  inputs?: InputTrack;
   autoZoom: boolean;
 }
 
@@ -102,8 +111,8 @@ class LossError extends Error {}
 
 const MIC_UNAVAILABLE = "Microphone unavailable — recording system audio only.";
 
-const SETUP_SIZE = { width: 460, height: 620 };
-const FAILURE_SIZE = { width: 460, height: 720 };
+const SETUP_SIZE = { width: 460, height: 690 };
+const FAILURE_SIZE = { width: 460, height: 790 };
 const LIVE_SIZE = { width: 460, height: 64 };
 
 async function resizeSelf(size: { width: number; height: number }): Promise<void> {
@@ -169,6 +178,7 @@ export function RecorderOverlay() {
   const [micNote, setMicNote] = useState<string | null>(null);
   const [micMuted, setMicMuted] = useState(false);
   const [autoZoom, setAutoZoom] = useState(true);
+  const [inputTiming, setInputTiming] = useState(true);
   const [elapsed, setElapsed] = useState(0);
   const [paused, setPaused] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -201,6 +211,10 @@ export function RecorderOverlay() {
   const pausedMs = useRef(0);
   const pauseStarted = useRef(0);
   const pausedRef = useRef(false);
+  /** Every pause of this take, so the input track can be rebased around them. */
+  const pauses = useRef<Pause[]>([]);
+  /** performance.now() the native input sampler's clock starts at; null while it is not running. */
+  const inputBase = useRef<number | null>(null);
   // The track "ended" listener holds a stale closure, so the re-entry guard is a ref, not state.
   const stopping = useRef(false);
   const webcamPreview = useRef<HTMLVideoElement>(null);
@@ -250,6 +264,13 @@ export function RecorderOverlay() {
     cursorTimer.current = null;
     surfaceTimer.current = null;
     sampling.current = false;
+  }
+
+  /** Stops the native input sampler without keeping what it saw. */
+  function discardInputTrack() {
+    if (inputBase.current === null) return;
+    inputBase.current = null;
+    void stopInputTrack();
   }
 
   /** Lets go of every device. Call only after the recorders have stopped, or the last chunk is cut short. */
@@ -388,6 +409,11 @@ export function RecorderOverlay() {
         }
       }
 
+      // Precise click and key timing for the editor's sound effects and click
+      // rings. The 33 ms cursor track below stays the source of positions.
+      pauses.current = [];
+      inputBase.current = tauri && inputTiming ? await startInputTrack() : null;
+
       const screen = await getScreenSize();
       take.current = {
         id,
@@ -464,6 +490,7 @@ export function RecorderOverlay() {
       }
     } catch (err) {
       clearTimers();
+      discardInputTrack();
       await releaseCapture();
       await discardProjectDir(id).catch(() => undefined);
       take.current = null;
@@ -485,7 +512,9 @@ export function RecorderOverlay() {
       setPaused(true);
     } else {
       recs.forEach((r) => r.state === "paused" && r.resume());
-      pausedMs.current += performance.now() - pauseStarted.current;
+      const now = performance.now();
+      pausedMs.current += now - pauseStarted.current;
+      pauses.current.push({ from: pauseStarted.current, to: now });
       pausedRef.current = false;
       setPaused(false);
     }
@@ -526,6 +555,7 @@ export function RecorderOverlay() {
       captureLabel: match?.label,
       surfaceTrack: surfaceTrack.length ? surfaceTrack : undefined,
       cursor: t.samples,
+      inputs: t.inputs,
       autoZoom: t.autoZoom,
       zooms,
       // Captions come from the editor's on-device whisper pass, not from the recorder.
@@ -554,7 +584,9 @@ export function RecorderOverlay() {
     clearTimers();
     // A take stopped while paused must not count the open pause as recorded time.
     if (pausedRef.current) {
-      pausedMs.current += performance.now() - pauseStarted.current;
+      const now = performance.now();
+      pausedMs.current += now - pauseStarted.current;
+      pauses.current.push({ from: pauseStarted.current, to: now });
       pausedRef.current = false;
     }
     const t = take.current!;
@@ -562,6 +594,10 @@ export function RecorderOverlay() {
     // Ordered by time: promises settle in whatever order the IPC returns.
     t.samples = samples.current.slice().sort((a, b) => a.t - b.t);
     t.surfaceTrack = surface.current.slice().sort((a, b) => a.t - b.t);
+    // The input sampler stops with the recorders; its events are rebased once the files have settled.
+    const inputBaseAt = inputBase.current;
+    const rawInputs = inputBaseAt !== null ? stopInputTrack() : null;
+    inputBase.current = null;
     stopRecorders();
 
     // Wait for the final chunk before touching any device: closing the
@@ -575,6 +611,10 @@ export function RecorderOverlay() {
     } else {
       t.screenBlob = (await screenBlob.current) ?? new Blob();
       t.webcamBlob = camBlob.current ? await camBlob.current : undefined;
+    }
+    if (rawInputs && inputBaseAt !== null) {
+      const raw = await rawInputs;
+      if (raw) t.inputs = collectInputTrack(raw, inputBaseAt, startedAt.current, pauses.current);
     }
     return { take: t, lost };
   }
@@ -706,6 +746,7 @@ export function RecorderOverlay() {
     const wasLive = phase === "live";
     const id = take.current?.id;
     clearTimers();
+    discardInputTrack();
     try {
       stopRecorders();
       if (wasLive && screenFile.current) {
@@ -847,9 +888,15 @@ export function RecorderOverlay() {
         <span>Auto-zoom</span>
         <input type="checkbox" checked={autoZoom} onChange={(e) => setAutoZoom(e.target.checked)} />
       </label>
+      <label className="mt-2 flex items-center justify-between rounded-[14px] border border-line bg-card px-3 py-2.5 text-sm">
+        <span>Click &amp; key timing</span>
+        <input type="checkbox" checked={inputTiming} onChange={(e) => setInputTiming(e.target.checked)} />
+      </label>
       <p className="mt-2 px-1 text-[11px] text-muted">
-        Pick a screen or a window and the editor can draw the pointer, click rings and zooms on it. A
-        browser tab has no fixed place on the desktop, so cursor effects stay off for one.
+        Pick a screen or a window and the editor can draw the pointer, click rings and zooms on it; a
+        browser tab has no fixed place on the desktop, so cursor effects stay off for one. Click &amp;
+        key timing keeps when you clicked and typed — the sort of key, never which one — for the
+        sound effects in the editor.
       </p>
 
       {failure ? (

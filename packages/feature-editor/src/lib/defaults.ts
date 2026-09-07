@@ -8,10 +8,12 @@ import type {
   Project,
   ProgressBarSettings,
   Segment,
+  SfxSettings,
   TextOverlay,
   TransitionKind,
   WebcamSettings,
 } from "../types";
+import { normalizeInputTrack } from "./inputTrack";
 
 /**
  * One place for every default. `normalizeProject` folds a project.json
@@ -76,6 +78,22 @@ export const DEFAULT_AUDIO: AudioSettings = {
 };
 
 export const DEFAULT_FADE: FadeSettings = { in: 0, out: 0 };
+
+/** Off until asked for: a screencast with click sounds is a choice, not a surprise. */
+export const DEFAULT_SFX: SfxSettings = {
+  enabled: false,
+  pack: "soft",
+  volume: 1,
+  clicks: true,
+  clickVolume: 1,
+  typing: true,
+  typingVolume: 0.8,
+  zooms: true,
+  zoomVolume: 0.8,
+  transitions: true,
+  transitionVolume: 1,
+  spatial: true,
+};
 
 export const DEFAULT_TEXT: Omit<TextOverlay, "id" | "start" | "end" | "text"> = {
   x: 0.5,
@@ -186,6 +204,8 @@ export function normalizeProject(raw: Project | (Partial<Project> & Record<strin
     cursorStyle: merge(DEFAULT_CURSOR, r.cursorStyle),
     progressBar: merge(DEFAULT_PROGRESS_BAR, r.progressBar),
     audio: merge(DEFAULT_AUDIO, r.audio),
+    sfx: merge(DEFAULT_SFX, r.sfx),
+    inputs: normalizeInputTrack(r.inputs),
     fade: merge(DEFAULT_FADE, r.fade),
     cursorAlign: merge(DEFAULT_CURSOR_ALIGN, r.cursorAlign),
     autoZoom: typeof r.autoZoom === "boolean" ? r.autoZoom : true,

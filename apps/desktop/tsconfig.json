@@ -30,7 +30,8 @@
       "@feature-dictation/*": ["../../packages/feature-dictation/src/*"],
       "@feature-board/*": ["../../packages/feature-board/src/*"],
       "@feature-social/*": ["../../packages/feature-social/src/*"],
-      "@feature-tools/*": ["../../packages/feature-tools/src/*"]
+      "@feature-tools/*": ["../../packages/feature-tools/src/*"],
+      "@feature-disk/*": ["../../packages/feature-disk/src/*"]
     }
   },
   "include": ["src", "../../packages/*/src"],

@@ -5,12 +5,13 @@ import { showMainWindow } from "@core/recorderWindow";
 import {
   createDictationRecorder,
   dictate,
+  dictationReady,
   dictationStatus,
   dictationTarget,
   getDictationSettings,
   openDictationMic,
   typeText,
-  type DictationStatus,
+  type EngineStatus,
 } from "./engine";
 import { requestInsertInMain, type InsertOutcome } from "./insert";
 
@@ -255,13 +256,13 @@ export function DictationPill() {
     cancelled.current = false;
     try {
       await positionSelf();
-      let status: DictationStatus | null = null;
+      let status: EngineStatus | null = null;
       try {
         status = await dictationStatus();
       } catch {
         status = null;
       }
-      if (!status?.engine || !status.model) {
+      if (!dictationReady(status)) {
         await openSetup();
         return;
       }
@@ -290,7 +291,7 @@ export function DictationPill() {
             return;
           }
           logInfo("dictation", `take ended after ${took} ms`);
-          void finish(new Blob(chunks, { type: rec.mimeType || "audio/webm" }));
+          void finish(new Blob(chunks, { type: rec.mimeType || "audio/webm" }), took);
         };
         startedAt.current = Date.now();
         rec.start(200);
@@ -339,10 +340,10 @@ export function DictationPill() {
     }, ms);
   }
 
-  async function finish(blob: Blob) {
+  async function finish(blob: Blob, durationMs: number) {
     setState("transcribing");
     try {
-      const text = await dictate(blob);
+      const text = await dictate(blob, { durationMs });
       if (!text) {
         logInfo("dictation", "nothing was heard");
         showThenHide("Nothing was heard", 1400);

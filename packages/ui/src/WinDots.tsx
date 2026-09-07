@@ -23,7 +23,7 @@ const BRAND_GLYPH = (
  * (tiny filled details excepted).
  */
 export const ToolIcons: Record<
-  "focus" | "screeni" | "launch" | "dictate" | "video" | "record" | "board" | "social",
+  "focus" | "screeni" | "launch" | "dictate" | "video" | "record" | "board" | "social" | "disk",
   ReactElement
 > = {
   /* clock */
@@ -76,6 +76,13 @@ export const ToolIcons: Record<
       <rect x="1.4" y="2.4" width="9.2" height="8.2" rx="1.4" />
       <path d="M1.4 5h9.2M4 1.2v2.2M8 1.2v2.2" />
       <circle cx="7.6" cy="8" r="1" fill="currentColor" stroke="none" />
+    </svg>
+  ),
+  /* treemap: a box split into blocks */
+  disk: (
+    <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" xmlns="http://www.w3.org/2000/svg">
+      <rect x="1.4" y="1.4" width="9.2" height="9.2" rx="1.4" />
+      <path d="M6.2 1.4v9.2M6.2 6.4h4.4M1.4 7.4h4.8" />
     </svg>
   ),
   /* record circle */

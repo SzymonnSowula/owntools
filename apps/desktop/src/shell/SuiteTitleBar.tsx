@@ -83,6 +83,7 @@ const TOOL_LABEL: Record<Tool, string | null> = {
   dictate: "dictate",
   board: "board",
   social: "social",
+  disk: "disk",
 };
 
 export function SuiteTitleBar() {

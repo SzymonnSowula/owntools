@@ -55,6 +55,7 @@ const TOOL_ROWS = [
   { name: "launch", desc: "Paste a URL, get a 30-second video out of it." },
   { name: "board", desc: "An endless whiteboard: paste screenshots, sketch, think in boxes and arrows." },
   { name: "social", desc: "Schedule posts to 30+ networks from a calendar; agents can drive it over a local API." },
+  { name: "disk", desc: "See where the space went: a treemap of every file, duplicates, quick wins, snapshots." },
 ];
 
 const SHORTCUTS = [
@@ -216,7 +217,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
               <p className="onb-lead">everything you say, record and write — kept on this device.</p>
               <ul className="onb-list">
                 <li>No accounts, no cloud — everything stays on this device.</li>
-                <li>Six tools, one desk: dictation, recording, a quiet desk, launch videos, a whiteboard, a social scheduler.</li>
+                <li>Seven tools, one desk: dictation, recording, a quiet desk, launch videos, a whiteboard, a social scheduler, a disk analyzer.</li>
                 <li>Workspaces are sessions: one click opens your apps, links and timer.</li>
                 <li>Free to use; Pro unlocks watermark-free exports.</li>
               </ul>
@@ -225,7 +226,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
 
           {step === 1 ? (
             <>
-              <h2 className="onb-title">one desk, six tools</h2>
+              <h2 className="onb-title">one desk, seven tools</h2>
               <div className="onb-tools">
                 {TOOL_ROWS.map((t) => (
                   <div key={t.name} className="onb-tool">

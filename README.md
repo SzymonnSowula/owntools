@@ -45,6 +45,11 @@ packages/feature-dictation  engine.ts (models / settings / prompt /
                         transcribe), cleanup.ts, DictationPill, DictateView
 packages/feature-board  board: Excalidraw whiteboard — local boards in AppData,
                         screenshot paste/drop, PNG/SVG/.excalidraw export
+packages/feature-disk   disk: disk-space analyzer — treemap / sunburst / list,
+                        quick wins, duplicates, installed apps, free-space
+                        monitor, snapshots with diffs; the scanned tree lives
+                        in Rust (src-tauri/src/disk), a generated demo disk
+                        stands in under `pnpm dev`
 packages/{core,ui,licensing}  branding / audio / env · WinDots · license keys
 web/                    landing (Next 16, port 3006) + the free launch video
                         maker (app/tools/launch-video-maker, server route
@@ -80,11 +85,12 @@ is described in [`docs/release.md`](docs/release.md). The essentials:
   `SCRN-…` Pro keys.
 - **Updater key**: the private signing key lives outside the repo, in
   `~/.tauri/shipshape.key`. Never commit it.
-- **Identifier**: `app.suite.desktop` must never change — it is the AppData
-  path that holds the whisper engine, the models and all user data.
-  Rebranding touches `packages/core/src/branding.ts`, `productName`, the HTML
-  titles and the Cargo crate name (`src-tauri/Cargo.toml` + `main.rs`), never
-  the identifier.
+- **Identifier**: `app.shipshape.desktop` names every data folder (AppData:
+  whisper + Parakeet engines and models, recordings, boards, social; LocalAppData:
+  logs, WebView2 profile). It was `app.suite.desktop` until 0.3;
+  `src-tauri/src/migrate.rs` renames the old folders on the first start of a
+  new build. Changing it again means extending that migration, never just
+  editing tauri.conf.json.
 
 ## Notes
 

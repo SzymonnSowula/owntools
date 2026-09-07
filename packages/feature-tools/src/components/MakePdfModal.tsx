@@ -69,6 +69,7 @@ export function MakePdfModal({ open, onClose }: MakePdfModalProps) {
       title="Images → PDF"
       subtitle="Photos, screenshots, scans — and whole PDFs — stacked into one file, in this order."
       onClose={onClose}
+      status={<SavedLine outcome={saved} />}
       busy={busy}
       footer={
         <>
@@ -142,7 +143,6 @@ export function MakePdfModal({ open, onClose }: MakePdfModalProps) {
       {result ? (
         <>
           <ToolNote>Ready — {formatBytes(result.size)}.</ToolNote>
-          <SavedLine outcome={saved} />
         </>
       ) : null}
     </ToolModal>

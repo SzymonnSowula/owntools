@@ -6,7 +6,13 @@
  * przez społeczność Amara.org", "Thanks for watching!" — and, when a chunk goes
  * wrong, the same sentence twenty times. None of that is speech, so it never
  * belongs in a dictated note.
+ *
+ * The same pass applies the vocabulary: canonical spellings for the words the
+ * user listed, and the spoken-phrase → text replacements ("my email address"
+ * becomes the address).
  */
+
+import type { ReplacementRule } from "./vocabulary";
 
 /** Bracketed / parenthesised sound tags — `[MUSIC]`, `(śmiech)`, `♪ … ♪`. */
 const SOUND_TAG_WORDS =
@@ -40,6 +46,20 @@ const HALLUCINATIONS = [
   "продолжение следует",
   "amara.org",
 ];
+
+/**
+ * Hesitation sounds, English and Polish. Deliberately short: "no", "well",
+ * "like", "so" are fillers *sometimes* and words the rest of the time, and a
+ * dictation tool that eats real words is worse than one that leaves an "um".
+ */
+const FILLERS = "um+|uh+|uhm+|erm+|ehm+|hmm+|mhm+|mm+|yyy+|eee+|yhm+|eh+|ee+|yy+";
+
+const FILLER_RE = new RegExp(`(?<![\\p{L}\\p{N}])(?:${FILLERS})(?![\\p{L}\\p{N}]),?`, "giu");
+
+/** Private-use character: stands in for a removed filler while the text is repaired. */
+const MARK = String.fromCharCode(0xe000);
+const MARK_AT_SENTENCE_START = new RegExp(`(^|[.!?…]\\s+)(?:${MARK}[,.]?\\s*)+(\\p{Ll})`, "gu");
+const MARK_ANYWHERE = new RegExp(`\\s*${MARK}`, "g");
 
 /** Collapses a run of the same sentence into one — whisper's repetition loop. */
 function dedupeRuns(text: string): string {
@@ -84,8 +104,14 @@ function isHallucination(line: string): boolean {
 export interface CleanupOptions {
   /** Canonical spellings — each occurrence is rewritten to this exact casing. */
   vocabulary?: string[];
+  /** Spoken phrase → text, applied last (after sentence casing). */
+  replacements?: ReplacementRule[];
   /** Uppercase the first letter and make sure the text ends with punctuation. */
   sentenceCase?: boolean;
+  /** Drop "um", "uh", "yyy" and their friends. */
+  removeFillers?: boolean;
+  /** Sound tags, subtitle boilerplate and repetition loops out. Default true. */
+  hallucinations?: boolean;
 }
 
 /** Strips sound tags and invented lines; safe to run on a single segment. */
@@ -136,13 +162,76 @@ export function applyVocabulary(text: string, vocabulary: string[]): string {
   return out;
 }
 
+/**
+ * A spoken token as whisper might write it. Letters must come in order, but a
+ * token of four letters or more may be broken by a space or hyphen anywhere
+ * ("email" → "e-mail", "superwhisper" → "super whisper"); anything that is not
+ * a letter or digit (an apostrophe, a dot) matches loosely.
+ */
+function tokenPattern(token: string): string {
+  const chars = [...token];
+  const flexible = chars.length >= 4;
+  return chars
+    .map((ch) => (/[\p{L}\p{N}]/u.test(ch) ? escapeRegExp(ch) : "[^\\p{L}\\p{N}\\s]?"))
+    .join(flexible ? "[\\s-]?" : "");
+}
+
+/**
+ * The whole phrase: tokens in order with spaces or hyphens between them — or
+ * nothing at all, since whisper writes "superwhisper" as readily as "super
+ * whisper".
+ */
+export function phrasePattern(spoken: string): RegExp {
+  const tokens = spoken.split(/[\s\-–]+/).filter(Boolean);
+  const body = tokens.map(tokenPattern).join("[\\s\\-–]*");
+  return new RegExp(`(?<![\\p{L}\\p{N}])${body}(?![\\p{L}\\p{N}])`, "giu");
+}
+
+/**
+ * "my email address" → the address, "super whisper" → "Superwhisper". Rules
+ * come longest-first from `replacementRules`, so a longer phrase is never
+ * eaten by a shorter one it contains. The replacement is inserted verbatim.
+ */
+export function applyReplacements(text: string, rules: ReplacementRule[]): string {
+  let out = text;
+  for (const rule of rules) {
+    const spoken = rule.spoken.trim();
+    if (spoken.length < 2 || !rule.replacement) continue;
+    out = out.replace(phrasePattern(spoken), () => rule.replacement);
+  }
+  return out;
+}
+
+/**
+ * Drops hesitation sounds. A filler that opened a sentence takes its comma
+ * with it and the next word is capitalised ("Um, so we ship." → "So we ship.").
+ */
+export function removeFillers(text: string): string {
+  let out = text.replace(FILLER_RE, MARK);
+  if (!out.includes(MARK)) return text;
+  // A filler that opened a sentence: the word after it now starts the sentence.
+  out = out.replace(MARK_AT_SENTENCE_START, (_m, lead: string, ch: string) => lead + ch.toLocaleUpperCase());
+  // Everywhere else the filler and its comma simply go, and the text closes up.
+  out = out.replace(MARK_ANYWHERE, "");
+  return out
+    .replace(/,\s*([.!?…])/g, "$1")
+    .replace(/\s+([,.!?;:…])/g, "$1")
+    .replace(/,\s*,/g, ",")
+    .replace(/\s{2,}/g, " ")
+    .replace(/^[\s,.]+/, "")
+    .trim();
+}
+
 /** Full pass: non-speech out, loops collapsed, spacing fixed, vocabulary applied. */
 export function cleanTranscript(raw: string, options: CleanupOptions = {}): string {
-  let text = stripNonSpeech(raw);
+  const hallucinations = options.hallucinations !== false;
+  let text = hallucinations ? stripNonSpeech(raw) : raw.trim();
   if (!text) return "";
 
-  text = dedupeWords(text);
-  text = dedupeRuns(text);
+  if (hallucinations) {
+    text = dedupeWords(text);
+    text = dedupeRuns(text);
+  }
 
   // Whisper leaves a space before punctuation when a segment boundary lands there.
   text = text
@@ -152,11 +241,13 @@ export function cleanTranscript(raw: string, options: CleanupOptions = {}): stri
     .replace(/\s{2,}/g, " ")
     .trim();
 
+  if (options.removeFillers) text = removeFillers(text);
   if (options.vocabulary?.length) text = applyVocabulary(text, options.vocabulary);
 
   if (options.sentenceCase && text) {
     text = text[0].toLocaleUpperCase() + text.slice(1);
   }
+  if (options.replacements?.length) text = applyReplacements(text, options.replacements);
   return text;
 }
 

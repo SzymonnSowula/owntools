@@ -64,6 +64,7 @@ export function ConvertAudioModal({ open, onClose }: ConvertAudioModalProps) {
       title="Convert audio"
       subtitle="Any audio or video file in; MP3, M4A, WAV, OGG or FLAC out — encoded on this device."
       onClose={onClose}
+      status={<SavedLine outcome={saved} />}
       busy={busy}
       footer={
         <>
@@ -141,7 +142,6 @@ export function ConvertAudioModal({ open, onClose }: ConvertAudioModalProps) {
       {result ? (
         <>
           <ToolNote>Ready — {formatBytes(result.size)}.</ToolNote>
-          <SavedLine outcome={saved} />
         </>
       ) : null}
     </ToolModal>

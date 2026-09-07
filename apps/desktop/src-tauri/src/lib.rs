@@ -2,11 +2,15 @@ mod capture;
 mod cursor;
 mod diagnostics;
 mod dictation;
+mod disk;
 mod downloader;
 mod ffmpeg;
 mod hotkeys;
 mod importer;
+mod input_track;
 mod launcher;
+mod migrate;
+mod parakeet;
 mod permissions;
 mod prefs;
 #[cfg(windows)]
@@ -80,6 +84,9 @@ fn log_targets() -> Vec<Target> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Before anything resolves a path: the data folders may still carry the
+    // pre-rename identifier (see migrate.rs). Logged once the log plugin is up.
+    let migration_notes = migrate::migrate_identifier();
     let builder = tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
             show_main(app);
@@ -117,6 +124,7 @@ pub fn run() {
     let builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
 
     builder
+        .manage(disk::DiskState::default())
         .invoke_handler(tauri::generate_handler![
             quit_app,
             usage::usage_set_enabled,
@@ -127,6 +135,8 @@ pub fn run() {
             cursor::get_screen_size,
             capture::list_display_sources,
             capture::capture_window_rect,
+            input_track::input_track_start,
+            input_track::input_track_stop,
             ffmpeg::ffmpeg_available,
             ffmpeg::convert_to_mp4,
             importer::import_legacy_data,
@@ -135,6 +145,9 @@ pub fn run() {
             dictation::dictation_status,
             dictation::dictation_remove_model,
             dictation::whisper_transcribe,
+            parakeet::parakeet_install_runtime,
+            parakeet::parakeet_transcribe,
+            parakeet::parakeet_remove_model,
             dictation::type_text,
             dictation::dictation_target,
             downloader::download_file,
@@ -148,10 +161,51 @@ pub fn run() {
             social::social_agent_info,
             social::social_agent_regenerate_token,
             social::social_agent_configure,
-            shield::capture_shield
+            shield::capture_shield,
+            disk::disk_volumes,
+            disk::disk_home,
+            disk::disk_recent,
+            disk::disk_scan_start,
+            disk::disk_scan_cancel,
+            disk::disk_summary,
+            disk::disk_node,
+            disk::disk_children,
+            disk::disk_subtree,
+            disk::disk_find,
+            disk::disk_search,
+            disk::disk_top_files,
+            disk::disk_breakdown,
+            disk::disk_quick_wins,
+            disk::disk_reveal,
+            disk::disk_open,
+            disk::disk_trash,
+            disk::disk_dupes_start,
+            disk::disk_dupes_cancel,
+            disk::disk_dupes_result,
+            disk::disk_apps,
+            disk::disk_app_uninstall,
+            disk::disk_open_apps_settings,
+            disk::disk_monitor_start,
+            disk::disk_monitor_read,
+            disk::disk_snapshot_save,
+            disk::disk_snapshot_list,
+            disk::disk_snapshot_delete,
+            disk::disk_snapshot_diff,
+            disk::disk_snapshot_open
         ])
-        .setup(|app| {
+        .setup(move |app| {
             log::info!("shipshape {} starting", app.package_info().version);
+            for note in &migration_notes {
+                log::info!("{note}");
+            }
+            match app.path().app_data_dir() {
+                Ok(dir) => {
+                    for note in migrate::migrate_layout(&dir) {
+                        log::info!("{note}");
+                    }
+                }
+                Err(e) => log::warn!("app data dir unavailable, layout migration skipped: {e}"),
+            }
             // The sampler thread idles until the frontend enables time tracking
             // or arms the scroll guard; nothing is read from other windows before
             // that, and the scroll guard's input hooks are installed only on arm.

@@ -182,6 +182,7 @@ export default defineConfig(async () => ({
       "@feature-board": resolve(dirname, "../../packages/feature-board/src"),
       "@feature-social": resolve(dirname, "../../packages/feature-social/src"),
       "@feature-tools": resolve(dirname, "../../packages/feature-tools/src"),
+      "@feature-disk": resolve(dirname, "../../packages/feature-disk/src"),
     },
     // The launch engine lives outside this app's node_modules; without dedupe
     // its `react`/`remotion` imports would resolve to a second copy and break

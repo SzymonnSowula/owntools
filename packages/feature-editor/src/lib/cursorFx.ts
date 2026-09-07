@@ -1,4 +1,4 @@
-import type { CursorSample, CursorSettings } from "../types";
+import type { CursorSample, CursorSettings, InputTrack } from "../types";
 import { normalizeCursor, type CursorFrame } from "./cursorMap";
 import { sampleCursorAt } from "./zoom";
 
@@ -29,13 +29,24 @@ export function extractClicks(samples: CursorSample[]): ClickEvent[] {
   return out;
 }
 
-const clickCache = new WeakMap<CursorSample[], ClickEvent[]>();
+/** Left-button presses off the native input track: stamped at 250 Hz, at the exact pointer position. */
+export function clicksFromInputs(inputs: InputTrack): ClickEvent[] {
+  const out: ClickEvent[] = [];
+  for (const b of inputs.buttons) {
+    if (b.down && b.button === "left") out.push({ t: b.t, x: b.x, y: b.y });
+  }
+  return out;
+}
 
-export function clicksFor(samples: CursorSample[]): ClickEvent[] {
-  let hit = clickCache.get(samples);
+const clickCache = new WeakMap<CursorSample[] | InputTrack, ClickEvent[]>();
+
+/** The take's clicks — the precise track when there is one, else the cursor track's down-edges. */
+export function clicksFor(samples: CursorSample[], inputs?: InputTrack): ClickEvent[] {
+  const key = inputs ?? samples;
+  let hit = clickCache.get(key);
   if (!hit) {
-    hit = extractClicks(samples);
-    clickCache.set(samples, hit);
+    hit = inputs ? clicksFromInputs(inputs) : extractClicks(samples);
+    clickCache.set(key, hit);
   }
   return hit;
 }
@@ -61,6 +72,8 @@ export interface CursorDrawInput {
   /** Maps desktop pixels to this frame; null means we cannot place the pointer. */
   frame: CursorFrame;
   samples: CursorSample[];
+  /** Precise presses, when the take has them; the rings land on these instead. */
+  inputs?: InputTrack;
   sourceTime: number;
   settings: CursorSettings;
 }
@@ -96,7 +109,7 @@ function hexAlpha(hex: string, alpha: number): string {
  * zoomed video space so everything scales exactly like the captured pointer.
  */
 export function drawCursorLayer(input: CursorDrawInput): void {
-  const { ctx, w, h, frame, samples, sourceTime, settings } = input;
+  const { ctx, w, h, frame, samples, inputs, sourceTime, settings } = input;
   if (!samples.length) return;
   if (settings.style === "system" && !settings.clicks && !settings.spotlight) return;
   const unit = h / 1080; // 1 "canvas pixel" at 1080p, keeps sizes stable across aspects
@@ -130,7 +143,7 @@ export function drawCursorLayer(input: CursorDrawInput): void {
   }
 
   if (settings.clicks) {
-    for (const click of activeClicks(clicksFor(samples), sourceTime)) {
+    for (const click of activeClicks(clicksFor(samples, inputs), sourceTime)) {
       const at = place(click.x, click.y);
       if (!at) continue;
       const p = (sourceTime - click.t) / CLICK_RIPPLE_SECONDS;

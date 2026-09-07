@@ -110,6 +110,7 @@ export function GifModal({ open, onClose }: GifModalProps) {
       title="Video → GIF"
       subtitle="A short looping clip — for a README, a pull request, a post."
       onClose={onClose}
+      status={<SavedLine outcome={saved} />}
       busy={busy}
       footer={
         <>
@@ -184,7 +185,6 @@ export function GifModal({ open, onClose }: GifModalProps) {
           <ToolNote>
             Ready — {result.width}×{result.height}, {result.frames} frames, {formatBytes(result.blob.size)}.
           </ToolNote>
-          <SavedLine outcome={saved} />
         </>
       ) : null}
     </ToolModal>

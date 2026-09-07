@@ -17,6 +17,9 @@ import type { AudioCodec, VideoCodec } from "mediabunny";
 import type { AudioSettings, MediaUrls, Project, Segment } from "../types";
 import { canvasSize, drawFrame } from "./compositor";
 import { timelineDuration, timelineToSource } from "./segments";
+import { applyFadesInPlace, mixChannel, renderSfxChannels } from "./sfx/mix";
+import { sfxPack } from "./sfx/packs";
+import { planSfx } from "./sfx/plan";
 import { TransitionTracker } from "./transitions";
 import { ensureFiniteDuration, seekVideo } from "./videoEl";
 
@@ -58,6 +61,34 @@ export function applyAudioSettings(
     }
   }
   return buffer;
+}
+
+/**
+ * Generated sound effects (clicks, typing, zooms, transitions) mixed onto the
+ * timeline audio — or onto silence, so a muted or mic-less take still gets
+ * them. The plan is the one the preview plays and the timeline shows; the
+ * project passed in must already carry the segments the video is cut to.
+ */
+export function addSoundEffects(
+  buffer: AudioBuffer | null,
+  project: Project,
+  duration: number,
+): AudioBuffer | null {
+  if (!project.sfx.enabled) return buffer;
+  const events = planSfx(project);
+  if (!events.length) return buffer;
+  const sampleRate = buffer?.sampleRate ?? 48000;
+  const channels = Math.max(buffer?.numberOfChannels ?? 2, project.sfx.spatial ? 2 : 1);
+  const length = buffer?.length ?? Math.ceil(duration * sampleRate);
+  if (length <= 0) return buffer;
+  const sfx = renderSfxChannels({ events, pack: sfxPack(project.sfx.pack), sampleRate, channels, length });
+  const out = new AudioBuffer({ length, numberOfChannels: channels, sampleRate });
+  for (let ch = 0; ch < channels; ch++) {
+    applyFadesInPlace(sfx[ch], project.audio.fadeIn, project.audio.fadeOut, sampleRate);
+    const base = buffer ? buffer.getChannelData(Math.min(ch, buffer.numberOfChannels - 1)) : null;
+    out.copyToChannel(mixChannel(base, sfx[ch]), ch);
+  }
+  return out;
 }
 
 export interface ExportResult {
@@ -255,6 +286,7 @@ async function exportWithWebCodecs(
       audioBuffer = null;
     }
     audioBuffer = applyAudioSettings(audioBuffer, project.audio, duration);
+    audioBuffer = addSoundEffects(audioBuffer, { ...project, segments }, duration);
     if (audioBuffer) {
       audioSource = new AudioBufferSource({ codec: choice.audio, bitrate: 192_000 });
       output.addAudioTrack(audioSource);

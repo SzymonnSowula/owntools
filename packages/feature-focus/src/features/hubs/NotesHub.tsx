@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   createDictationRecorder,
   dictate,
+  dictationReady,
   dictationStatus,
   openDictationMic,
 } from "@feature-dictation/engine";
@@ -60,7 +61,7 @@ function VoiceNoteButton({ onSaved }: { onSaved: () => void }) {
     } catch {
       status = null;
     }
-    if (!status || !status.engine || !status.model) {
+    if (!dictationReady(status)) {
       setMessage("Voice notes need the dictation engine — set it up in the dictate tool.");
       return;
     }

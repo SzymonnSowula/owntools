@@ -1,118 +1,72 @@
 import { isTauri } from "@core/env";
+import { logInfo } from "@core/errors";
 import {
   blobToWhisperWav,
   DICTATION_MIC_CONSTRAINTS,
   preferredRecorderMime,
 } from "@core/audio";
 import { cleanTranscript, stripNonSpeech } from "./cleanup";
+import { pushHistory } from "./history";
+import {
+  DEFAULT_MODEL_FILE,
+  EMPTY_STATUS,
+  modelById,
+  PARAKEET_RUNTIME,
+  resolveActiveModel,
+  WHISPER_RUNTIME,
+  type DictationModel,
+  type Engine,
+  type EngineStatus,
+} from "./models";
+import {
+  entriesFromText,
+  promptTerms,
+  replacementRules,
+  sanitizeEntries,
+  spellingTerms,
+  type VocabularyEntry,
+} from "./vocabulary";
 
 // ---------------------------------------------------------------------------
-// Pinned artifacts
+// Two engines, one catalogue
 //
-// Everything we download is pinned to an exact byte count and SHA-256, and the
-// Rust downloader refuses to install a file that does not match. The engine
-// gets executed and the models get loaded, so a corrupt or swapped download
-// must never end up in AppData under a good name.
+// whisper.cpp (OpenAI Whisper) and sherpa-onnx (NVIDIA Parakeet) — see
+// `models.ts` for the pinned downloads and `parakeet.rs` / `dictation.rs` for
+// the processes that run them. Whisper does everything (files, subtitles,
+// translation, the vocabulary prompt); Parakeet is the faster dictation
+// engine. `transcribeBlob` picks per call.
 // ---------------------------------------------------------------------------
 
-/** Pinned whisper.cpp Windows build (release b4938). */
-export const ENGINE = {
-  url: "https://github.com/ggml-org/whisper.cpp/releases/download/b4938/whisper-bin-x64.zip",
-  bytes: 8361840,
-  sha256: "c2a4b60edb11f7e11a9191ffb50929535527d4d91c9903dbe3e554583bbbc63d",
-  /** Where the archive lands (relative to AppData) before it is unpacked. */
-  zip: "whisper/whisper-bin-x64.zip",
-} as const;
+export {
+  DEFAULT_MODEL_FILE,
+  dictationReady,
+  EMPTY_STATUS,
+  formatBytes,
+  MODEL_BASE_URL,
+  modelById,
+  modelInstalled,
+  modelReady,
+  MODELS,
+  PARAKEET_RUNTIME,
+  PARAKEET_V3_ID,
+  resolveActiveModel,
+  runtimeInstalled,
+  RUNTIMES,
+  WHISPER_MODELS,
+  WHISPER_RUNTIME,
+} from "./models";
+export type { DictationModel, Engine, EngineRuntime, EngineStatus, ModelTag, Vendor } from "./models";
 
-/**
- * Models come from one pinned revision of ggerganov/whisper.cpp — never `main`,
- * because the checksums below belong to these exact files.
- */
-export const MODEL_BASE_URL =
-  "https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/";
+/** The whisper runtime under its old name (onboarding reads `.bytes`). */
+export const ENGINE = { ...WHISPER_RUNTIME, zip: WHISPER_RUNTIME.archive } as const;
+/** Old name of `modelById` — whisper ids are the file names, so it still fits. */
+export const modelByFile = modelById;
+export type WhisperModel = DictationModel;
+export type DictationStatus = EngineStatus;
 
-/** "148 MB", "1.6 GB" — decimal units, the way the download pages quote them. */
-export function formatBytes(bytes: number): string {
-  if (bytes >= 1e9) return `${(bytes / 1e9).toFixed(1)} GB`;
-  if (bytes >= 1e6) return `${Math.round(bytes / 1e6)} MB`;
-  if (bytes >= 1e3) return `${Math.round(bytes / 1e3)} kB`;
-  return `${Math.max(0, Math.round(bytes))} B`;
-}
-
-export interface WhisperModel {
-  id: string;
-  file: string;
-  label: string;
-  /** Exact size of the pinned file, in bytes. */
-  bytes: number;
-  /** Hex SHA-256 of the pinned file. */
-  sha256: string;
-  /** Download size for the picker, derived from `bytes`. */
-  size: string;
-  note: string;
-}
-
-function defineModel(model: Omit<WhisperModel, "size">): WhisperModel {
-  return { ...model, size: formatBytes(model.bytes) };
-}
-
-/**
- * Accuracy ladder. `large-v3-turbo` is the one that actually understands
- * inflected languages, accents and jargon; base is only there because it is
- * small enough to try dictation on a slow machine.
- */
-export const WHISPER_MODELS: WhisperModel[] = [
-  defineModel({
-    id: "base",
-    file: "ggml-base.bin",
-    label: "Base",
-    bytes: 147951465,
-    sha256: "60ed5bc3dd14eea856493d334349b405782ddcaf0028d4b5df4088345fba2efe",
-    note: "Fastest, weakest. English-only dictation at a push.",
-  }),
-  defineModel({
-    id: "small",
-    file: "ggml-small.bin",
-    label: "Small",
-    bytes: 487601967,
-    sha256: "1be3a9b2063867b937e64e2ec7483364a79917e157fa98c5d94b5c1fffea987b",
-    note: "Noticeably better on non-English speech, still light.",
-  }),
-  defineModel({
-    id: "large-v3-turbo-q5",
-    file: "ggml-large-v3-turbo-q5_0.bin",
-    label: "Large v3 turbo (compressed)",
-    bytes: 574041195,
-    sha256: "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2",
-    note: "Recommended — large-model accuracy, quantised so it stays fast on CPU.",
-  }),
-  defineModel({
-    id: "large-v3-turbo",
-    file: "ggml-large-v3-turbo.bin",
-    label: "Large v3 turbo",
-    bytes: 1624555275,
-    sha256: "1fc70f774d38eb169993ac391eea357ef47c88757ef72ee5943879b7e8e2bc69",
-    note: "Best quality. Wants a fast machine and plenty of RAM.",
-  }),
-];
-
-export const DEFAULT_MODEL_FILE = "ggml-large-v3-turbo-q5_0.bin";
-
-export function modelByFile(file: string): WhisperModel | undefined {
-  return WHISPER_MODELS.find((m) => m.file === file);
-}
-
-/** Download URL of a model file at the pinned revision. */
+/** Download URL of a whisper model file at the pinned revision. */
 export function modelUrl(file: string): string {
-  return `${MODEL_BASE_URL}${file}`;
-}
-
-export interface DictationStatus {
-  engine: boolean;
-  model: boolean;
-  dir: string;
-  /** Installed model filenames, best first. */
-  models: string[];
+  return modelById(file)?.files[0]?.url ?? "";
 }
 
 export type DictationLang = "auto" | "en" | "pl";
@@ -120,10 +74,22 @@ export type DictationQuality = "fast" | "balanced" | "accurate";
 
 export interface DictationSettings {
   lang: DictationLang;
-  /** Model filename; empty = let the backend pick the best installed one. */
+  /**
+   * Model id from the catalogue (`models.ts`); empty = the best runnable one.
+   * Whisper ids are file names, so settings from before the catalogue still
+   * point at the same model.
+   */
   model: string;
   quality: DictationQuality;
-  /** Names, product terms, jargon — fed to whisper and used to fix spelling. */
+  /**
+   * The vocabulary: spellings whisper is told about and rewrites to, plus
+   * spoken phrase → text replacements. See `vocabulary.ts`.
+   */
+  entries: VocabularyEntry[];
+  /**
+   * Pre-0.3 comma-separated terms. Read once by `getDictationSettings`, which
+   * turns it into `entries`; kept in the type so an old JSON still parses.
+   */
   vocabulary: string;
   /** Free-form sentence or two about what you dictate about. */
   context: string;
@@ -131,20 +97,39 @@ export interface DictationSettings {
   useSessionContext: boolean;
   /** Drop `[BLANK_AUDIO]`, subtitle boilerplate and repetition loops. */
   cleanup: boolean;
+  /** Drop "um", "uh", "yyy" — hesitation sounds, not words. */
+  removeFillers: boolean;
+  /** Remember the last takes locally (History page). */
+  keepHistory: boolean;
 }
 
-const SETTINGS_KEY = "suite-dictation-settings";
+export const SETTINGS_KEY = "suite-dictation-settings";
 const LEGACY_LANG_KEY = "suite-dictation-lang";
 
 export const DEFAULT_SETTINGS: DictationSettings = {
   lang: "auto",
   model: "",
   quality: "balanced",
+  entries: [],
   vocabulary: "",
   context: "",
   useSessionContext: true,
   cleanup: true,
+  removeFillers: false,
+  keepHistory: true,
 };
+
+/**
+ * Folds any stored shape onto the current one: entries are validated, and the
+ * old free-text vocabulary becomes entries the first time it is seen.
+ */
+export function normalizeSettings(raw: Partial<DictationSettings> | null | undefined): DictationSettings {
+  const merged = { ...DEFAULT_SETTINGS, ...(raw ?? {}) };
+  let entries = sanitizeEntries(merged.entries);
+  const legacy = typeof merged.vocabulary === "string" ? merged.vocabulary : "";
+  if (!entries.length && legacy.trim()) entries = entriesFromText(legacy);
+  return { ...merged, entries, vocabulary: "" };
+}
 
 /** Beam search / best-of per preset — whisper's own default is 5 / 5. */
 const QUALITY_PRESETS: Record<DictationQuality, { beamSize: number; bestOf: number }> = {
@@ -156,24 +141,32 @@ const QUALITY_PRESETS: Record<DictationQuality, { beamSize: number; bestOf: numb
 export function getDictationSettings(): DictationSettings {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
-    if (raw) return { ...DEFAULT_SETTINGS, ...(JSON.parse(raw) as Partial<DictationSettings>) };
+    if (raw) return normalizeSettings(JSON.parse(raw) as Partial<DictationSettings>);
     const legacy = localStorage.getItem(LEGACY_LANG_KEY);
     if (legacy === "en" || legacy === "pl" || legacy === "auto") {
-      return { ...DEFAULT_SETTINGS, lang: legacy };
+      return normalizeSettings({ lang: legacy });
     }
   } catch {
     /* corrupt or unavailable storage — fall through to defaults */
   }
-  return { ...DEFAULT_SETTINGS };
+  return normalizeSettings(null);
 }
 
+/** Fired on `window` after every save, so every view of the settings agrees. */
+export const SETTINGS_EVENT = "suite-dictation-settings";
+
 export function saveDictationSettings(patch: Partial<DictationSettings>): DictationSettings {
-  const next = { ...getDictationSettings(), ...patch };
+  const next = normalizeSettings({ ...getDictationSettings(), ...patch });
   try {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(next));
     localStorage.setItem(LEGACY_LANG_KEY, next.lang);
   } catch {
     /* */
+  }
+  try {
+    window.dispatchEvent(new Event(SETTINGS_EVENT));
+  } catch {
+    /* no window */
   }
   return next;
 }
@@ -186,13 +179,9 @@ export function setDictationLang(lang: DictationLang): void {
   saveDictationSettings({ lang });
 }
 
-/** Vocabulary field (commas or newlines) → terms. */
+/** Canonical spellings from the vocabulary — the words rewritten after a take. */
 export function vocabularyTerms(settings = getDictationSettings()): string[] {
-  return settings.vocabulary
-    .split(/[,\n;]/)
-    .map((s) => s.trim())
-    .filter((s) => s.length > 1)
-    .slice(0, 80);
+  return spellingTerms(settings.entries);
 }
 
 // ---------------------------------------------------------------------------
@@ -225,7 +214,7 @@ export function buildPrompt(
   extra?: string,
 ): string {
   const parts: string[] = [];
-  const terms = vocabularyTerms(settings);
+  const terms = promptTerms(settings.entries);
   if (terms.length) parts.push(`${terms.join(", ")}.`);
   const context = settings.context.trim();
   if (context) parts.push(context);
@@ -238,11 +227,17 @@ export function buildPrompt(
   return prompt.length > 880 ? prompt.slice(0, 880) : prompt;
 }
 
-export async function dictationStatus(): Promise<DictationStatus | null> {
+/** What is installed, both engines. `null` outside the desktop app. */
+export async function dictationStatus(): Promise<EngineStatus | null> {
   if (!isTauri()) return null;
   const { invoke } = await import("@tauri-apps/api/core");
-  const status = await invoke<DictationStatus>("dictation_status");
-  return { ...status, models: status.models ?? [] };
+  const status = await invoke<Partial<EngineStatus>>("dictation_status");
+  return {
+    ...EMPTY_STATUS,
+    ...status,
+    models: status.models ?? [],
+    parakeet: { ...EMPTY_STATUS.parakeet, ...(status.parakeet ?? {}), models: status.parakeet?.models ?? [] },
+  };
 }
 
 /**
@@ -277,10 +272,15 @@ export async function dictationTarget(): Promise<DictationTarget> {
   }
 }
 
-export async function removeModel(file: string): Promise<void> {
+/** Deletes an installed model of either engine. */
+export async function removeModel(id: string): Promise<void> {
   if (!isTauri()) return;
   const { invoke } = await import("@tauri-apps/api/core");
-  await invoke("dictation_remove_model", { name: file });
+  if (modelById(id)?.engine === "parakeet") {
+    await invoke("parakeet_remove_model", { id });
+  } else {
+    await invoke("dictation_remove_model", { name: id });
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -288,9 +288,10 @@ export async function removeModel(file: string): Promise<void> {
 //
 // Downloads run in Rust (`download_file`): streamed to `<file>.part`, resumed
 // with an HTTP Range request if a previous attempt was interrupted, checked
-// against the pinned SHA-256 and only then renamed into place. A 1.6 GB model
-// never sits in the webview's memory, and a half-downloaded one is never
-// visible as installed.
+// against the pinned SHA-256 and only then renamed into place. A 1.6 GB
+// model never sits in the webview's memory, and a half-downloaded one is never
+// visible as installed. A file that is already complete and matches its
+// checksum is skipped, so a multi-file model resumes file by file.
 // ---------------------------------------------------------------------------
 
 export interface InstallProgress {
@@ -385,23 +386,8 @@ export async function cancelInstall(): Promise<void> {
   );
 }
 
-/**
- * Downloads the whisper.cpp binaries (once) and one model into AppData/whisper.
- * Existing models are left alone, so you can keep base around and add a bigger
- * one next to it.
- *
- * Resolves once both are in place. Rejects with `InstallCancelled` after
- * `cancelInstall()` (the partial file is kept, the next call resumes it) and
- * with an ordinary `Error` for anything else — network, checksum mismatch,
- * disk. Progress arrives per step; `total` is the pinned size when the server
- * sends no Content-Length.
- */
-export async function installDictation(
-  onProgress: (p: InstallProgress) => void,
-  modelFile: string = DEFAULT_MODEL_FILE,
-): Promise<void> {
-  if (!isTauri()) throw new Error("Dictation runs in the desktop app.");
-  cancelRequested = false;
+/** whisper.cpp: the pinned zip, unpacked in the webview (it is 8 MB). */
+async function installWhisperRuntime(onProgress: (p: InstallProgress) => void): Promise<void> {
   const { mkdir, readFile, remove, writeFile, exists, BaseDirectory } = await import(
     "@tauri-apps/plugin-fs"
   );
@@ -409,59 +395,124 @@ export async function installDictation(
   if (!(await exists("whisper", appData))) {
     await mkdir("whisper", { ...appData, recursive: true });
   }
+  await downloadToAppData(
+    {
+      id: "engine",
+      url: WHISPER_RUNTIME.url,
+      dest: WHISPER_RUNTIME.archive,
+      sha256: WHISPER_RUNTIME.sha256,
+      expectedSize: WHISPER_RUNTIME.bytes,
+    },
+    (loaded, total) => onProgress({ step: "engine", loaded, total }),
+  );
+  const zip = await readFile(WHISPER_RUNTIME.archive, appData);
+  const { unzipSync } = await import("fflate");
+  const files = unzipSync(zip);
+  for (const [name, data] of Object.entries(files)) {
+    if (name.endsWith("/") || data.length === 0) continue;
+    // Flatten zip-internal folders; keep only the CLI and its runtime DLLs
+    // (the zip also ships ~20 demo executables we don't need).
+    const base = name.split("/").pop()!;
+    const keep =
+      /^whisper-cli(\.exe)?$/i.test(base) ||
+      /^main(\.exe)?$/i.test(base) ||
+      (/\.dll$/i.test(base) && /^(whisper|ggml)/i.test(base));
+    if (!keep) continue;
+    await writeFile(`whisper/${base}`, data, appData);
+  }
+  await remove(WHISPER_RUNTIME.archive, appData).catch(() => undefined);
+}
 
-  const status = await dictationStatus();
+/** sherpa-onnx: the pinned tar.bz2, unpacked by Rust (`parakeet_install_runtime`). */
+async function installParakeetRuntime(onProgress: (p: InstallProgress) => void): Promise<void> {
+  await downloadToAppData(
+    {
+      id: "parakeet-runtime",
+      url: PARAKEET_RUNTIME.url,
+      dest: PARAKEET_RUNTIME.archive,
+      sha256: PARAKEET_RUNTIME.sha256,
+      expectedSize: PARAKEET_RUNTIME.bytes,
+    },
+    (loaded, total) => onProgress({ step: "engine", loaded, total }),
+  );
+  const { invoke } = await import("@tauri-apps/api/core");
+  await invoke("parakeet_install_runtime", { archive: PARAKEET_RUNTIME.archive });
+}
 
-  if (!status?.engine) {
+/** Where a model's files live, relative to AppData. */
+function modelFileDest(model: DictationModel, name: string): string {
+  return model.engine === "whisper" ? `whisper/${name}` : `parakeet/models/${model.id}/${name}`;
+}
+
+/**
+ * Downloads a model's files one after another; progress is the model as a
+ * whole. The big file comes first, so an interrupted install has the least
+ * left to fetch when it resumes.
+ */
+async function installModelFiles(
+  model: DictationModel,
+  onProgress: (p: InstallProgress) => void,
+): Promise<void> {
+  const files = [...model.files].sort((a, b) => b.bytes - a.bytes);
+  const total = model.bytes;
+  let done = 0;
+  for (const file of files) {
+    if (cancelRequested) throw new InstallCancelled();
     await downloadToAppData(
       {
-        id: "engine",
-        url: ENGINE.url,
-        dest: ENGINE.zip,
-        sha256: ENGINE.sha256,
-        expectedSize: ENGINE.bytes,
+        id: `model:${model.id}:${file.name}`,
+        url: file.url,
+        dest: modelFileDest(model, file.name),
+        sha256: file.sha256,
+        expectedSize: file.bytes,
       },
-      (loaded, total) => onProgress({ step: "engine", loaded, total }),
+      (loaded) => onProgress({ step: "model", loaded: done + loaded, total }),
     );
-    // The archive is 8 MB, so reading it back into the webview to unpack is fine.
-    const zip = await readFile(ENGINE.zip, appData);
-    const { unzipSync } = await import("fflate");
-    const files = unzipSync(zip);
-    for (const [name, data] of Object.entries(files)) {
-      if (name.endsWith("/") || data.length === 0) continue;
-      // Flatten zip-internal folders; keep only the CLI and its runtime DLLs
-      // (the zip also ships ~20 demo executables we don't need).
-      const base = name.split("/").pop()!;
-      const keep =
-        /^whisper-cli(\.exe)?$/i.test(base) ||
-        /^main(\.exe)?$/i.test(base) ||
-        (/\.dll$/i.test(base) && /^(whisper|ggml)/i.test(base));
-      if (!keep) continue;
-      await writeFile(`whisper/${base}`, data, appData);
-    }
-    await remove(ENGINE.zip, appData).catch(() => undefined);
+    done += file.bytes;
+    onProgress({ step: "model", loaded: done, total });
+  }
+}
+
+/**
+ * Installs one model from the catalogue plus the engine that runs it, when
+ * that is not in place yet. Existing models are left alone, so you can keep
+ * base around and add a bigger one next to it, or add Parakeet next to whisper.
+ *
+ * Resolves once everything is in place. Rejects with `InstallCancelled` after
+ * `cancelInstall()` (the partial file is kept, the next call resumes it) and
+ * with an ordinary `Error` for anything else — network, checksum mismatch,
+ * disk. Progress arrives per step; `total` is the pinned size when the server
+ * sends no Content-Length.
+ */
+export async function installDictation(
+  onProgress: (p: InstallProgress) => void,
+  modelId: string = DEFAULT_MODEL_FILE,
+): Promise<void> {
+  if (!isTauri()) throw new Error("Dictation runs in the desktop app.");
+  const model = modelById(modelId);
+  if (!model) throw new Error(`Unknown model: ${modelId}`);
+  cancelRequested = false;
+
+  const status = await dictationStatus();
+  const runtimeReady = model.engine === "whisper" ? status?.engine : status?.parakeet.runtime;
+  if (!runtimeReady) {
+    if (model.engine === "whisper") await installWhisperRuntime(onProgress);
+    else await installParakeetRuntime(onProgress);
   }
 
   // A cancel that landed while the archive was being unpacked.
   if (cancelRequested) throw new InstallCancelled();
 
-  if (!status?.models.includes(modelFile)) {
-    const known = modelByFile(modelFile);
-    await downloadToAppData(
-      {
-        id: `model:${modelFile}`,
-        url: modelUrl(modelFile),
-        dest: `whisper/${modelFile}`,
-        sha256: known?.sha256,
-        expectedSize: known?.bytes,
-      },
-      (loaded, total) => onProgress({ step: "model", loaded, total }),
-    );
-  }
+  const installed =
+    model.engine === "whisper"
+      ? (status?.models ?? []).includes(model.id)
+      : (status?.parakeet.models ?? []).includes(model.id);
+  if (!installed) await installModelFiles(model, onProgress);
 }
 
 /** Decoder overrides for one call; anything omitted comes from settings. */
 export interface TranscribeOverrides {
+  /** Model id; empty = the settings' choice, then the best runnable one. */
   model?: string;
   quality?: DictationQuality;
   /** Extra context for this take only (e.g. the note you are dictating into). */
@@ -469,6 +520,14 @@ export interface TranscribeOverrides {
   /** Skip the rolling session context (long files bring their own). */
   ignoreSessionContext?: boolean;
   maxLen?: number;
+  /**
+   * Someone is speaking *now* (the pill, a voice note): apply the phrase
+   * replacements and filler removal. A file being transcribed gets the
+   * spelling fixes only — "my email address" in a lecture is just words.
+   */
+  live?: boolean;
+  /** Length of the recording, for the history. */
+  durationMs?: number;
 }
 
 interface WhisperInvokeOptions {
@@ -478,6 +537,36 @@ interface WhisperInvokeOptions {
   bestOf?: number;
   suppressNonSpeech?: boolean;
   maxLen?: number;
+}
+
+/** Where the per-take WAV is written before an engine reads it. */
+const SCRATCH_DIR = "whisper";
+
+/** The JSON line sherpa-onnx prints for a file. */
+interface ParakeetResult {
+  text?: string;
+  tokens?: string[];
+  timestamps?: number[];
+}
+
+/**
+ * Which engine and model a call runs on. Subtitles (JSON with timestamps) and
+ * translation are whisper features, so those calls go to whisper whatever
+ * model is chosen; plain text goes to the chosen model.
+ */
+async function pickEngine(
+  chosen: string,
+  needsWhisper: boolean,
+): Promise<{ engine: Engine; model: string }> {
+  const status = await dictationStatus();
+  if (needsWhisper) {
+    if (!status?.engine || !status.models.length) throw new Error("Whisper is not installed.");
+    const keep = modelById(chosen)?.engine === "whisper" && status.models.includes(chosen);
+    return { engine: "whisper", model: keep ? chosen : "" };
+  }
+  const active = resolveActiveModel(chosen, status);
+  if (!active) throw new Error("No speech model is installed.");
+  return { engine: active.engine, model: active.id };
 }
 
 /**
@@ -493,39 +582,62 @@ export async function transcribeBlob(
 ): Promise<string> {
   if (!isTauri()) throw new Error("Transcription needs the desktop app.");
   const settings = getDictationSettings();
+  const target = await pickEngine(overrides.model ?? settings.model, json || translate);
+  logInfo("dictation", `engine ${target.engine} · model ${target.model || "(best installed)"}`);
   const wav = await blobToWhisperWav(blob);
-  const { writeFile, BaseDirectory } = await import("@tauri-apps/plugin-fs");
-  const rel = `whisper/input-${Date.now()}.wav`;
-  await writeFile(rel, wav, { baseDir: BaseDirectory.AppData });
+  const { exists, mkdir, writeFile, BaseDirectory } = await import("@tauri-apps/plugin-fs");
+  // The scratch WAV lives next to the whisper models; with Parakeet alone
+  // installed that folder does not exist yet (caught natively: "os error 3").
+  const appData = { baseDir: BaseDirectory.AppData };
+  if (!(await exists(SCRATCH_DIR, appData))) await mkdir(SCRATCH_DIR, { ...appData, recursive: true });
+  const rel = `${SCRATCH_DIR}/input-${Date.now()}.wav`;
+  await writeFile(rel, wav, appData);
 
   const { appDataDir, join } = await import("@tauri-apps/api/path");
   const absolute = await join(await appDataDir(), rel);
-
-  const preset = QUALITY_PRESETS[overrides.quality ?? settings.quality];
-  const promptSettings = overrides.ignoreSessionContext
-    ? { ...settings, useSessionContext: false }
-    : settings;
-  const options: WhisperInvokeOptions = {
-    prompt: buildPrompt(promptSettings, overrides.prompt),
-    model: overrides.model ?? settings.model,
-    beamSize: preset.beamSize,
-    bestOf: preset.bestOf,
-    suppressNonSpeech: settings.cleanup,
-    maxLen: overrides.maxLen,
-  };
-
   const { invoke } = await import("@tauri-apps/api/core");
+
   try {
-    const raw = await invoke<string>("whisper_transcribe", {
-      wav: absolute,
-      lang: lang === "auto" ? "auto" : lang,
-      json,
-      translate,
-      options,
-    });
-    if (json || !settings.cleanup) return raw;
+    let raw: string;
+    if (target.engine === "parakeet") {
+      const line = await invoke<string>("parakeet_transcribe", {
+        wav: absolute,
+        model: target.model,
+      });
+      let parsed: ParakeetResult = {};
+      try {
+        parsed = JSON.parse(line) as ParakeetResult;
+      } catch {
+        throw new Error("Parakeet returned something that is not a result.");
+      }
+      raw = (parsed.text ?? "").trim();
+    } else {
+      const preset = QUALITY_PRESETS[overrides.quality ?? settings.quality];
+      const promptSettings = overrides.ignoreSessionContext
+        ? { ...settings, useSessionContext: false }
+        : settings;
+      const options: WhisperInvokeOptions = {
+        prompt: buildPrompt(promptSettings, overrides.prompt),
+        model: target.model,
+        beamSize: preset.beamSize,
+        bestOf: preset.bestOf,
+        suppressNonSpeech: settings.cleanup,
+        maxLen: overrides.maxLen,
+      };
+      raw = await invoke<string>("whisper_transcribe", {
+        wav: absolute,
+        lang: lang === "auto" ? "auto" : lang,
+        json,
+        translate,
+        options,
+      });
+      if (json) return raw;
+    }
     return cleanTranscript(raw, {
+      hallucinations: settings.cleanup,
       vocabulary: vocabularyTerms(settings),
+      replacements: overrides.live ? replacementRules(settings.entries) : [],
+      removeFillers: overrides.live ? settings.removeFillers : false,
       sentenceCase: true,
     });
   } finally {
@@ -544,8 +656,13 @@ export async function dictate(
   overrides: TranscribeOverrides = {},
 ): Promise<string> {
   const settings = getDictationSettings();
-  const text = (await transcribeBlob(blob, settings.lang, false, false, overrides)).trim();
-  if (text) pushDictationContext(text);
+  const text = (
+    await transcribeBlob(blob, settings.lang, false, false, { ...overrides, live: true })
+  ).trim();
+  if (text) {
+    pushDictationContext(text);
+    if (settings.keepHistory) pushHistory(text, overrides.durationMs);
+  }
   return text;
 }
 
@@ -595,3 +712,4 @@ export async function typeText(text: string): Promise<void> {
 }
 
 export { cleanTranscript, stripNonSpeech, joinDictation } from "./cleanup";
+export type { VocabularyEntry } from "./vocabulary";

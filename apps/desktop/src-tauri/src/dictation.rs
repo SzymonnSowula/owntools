@@ -113,11 +113,15 @@ fn safe_model_name(name: &str) -> Option<String> {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct DictationStatus {
+    /// whisper.cpp is unpacked.
     pub engine: bool,
+    /// At least one whisper model is installed.
     pub model: bool,
     pub dir: String,
-    /// Installed models, best first.
+    /// Installed whisper models, best first.
     pub models: Vec<String>,
+    /// The second engine (sherpa-onnx + NVIDIA Parakeet), see parakeet.rs.
+    pub parakeet: crate::parakeet::ParakeetStatus,
 }
 
 #[tauri::command]
@@ -129,6 +133,7 @@ pub fn dictation_status(app: AppHandle) -> Result<DictationStatus, String> {
         model: !models.is_empty(),
         dir: dir.to_string_lossy().to_string(),
         models,
+        parakeet: crate::parakeet::status(&app),
     })
 }
 

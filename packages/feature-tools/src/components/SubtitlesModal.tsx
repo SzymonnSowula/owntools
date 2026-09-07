@@ -91,6 +91,7 @@ export function SubtitlesModal({ open, onClose }: SubtitlesModalProps) {
       title="Convert subtitles"
       subtitle="SubRip or WebVTT in; the other one, or plain text, out."
       onClose={onClose}
+      status={<SavedLine outcome={saved} />}
       footer={
         <>
           <button className="btn btn-secondary flex-1" onClick={onClose}>
@@ -168,7 +169,6 @@ export function SubtitlesModal({ open, onClose }: SubtitlesModalProps) {
       {cues ? (
         <>
           <TextPreview text={output.length > 4000 ? `${output.slice(0, 4000)}\n…` : output} />
-          <SavedLine outcome={saved} />
         </>
       ) : null}
     </ToolModal>

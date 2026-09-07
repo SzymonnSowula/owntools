@@ -15,6 +15,9 @@ import {
 import { saveProjectAsset } from "../lib/projectIo";
 import { transcribeCaptions, whisperReady } from "../lib/transcribe";
 import { isJumpCut } from "../lib/segments";
+import { SFX_PACKS, sfxPack, type SfxSoundId } from "../lib/sfx/packs";
+import { sfxCounts, sfxPlanFor } from "../lib/sfx/plan";
+import { sfxPreview } from "../lib/sfx/player";
 import { DEFAULT_TRANSITION, MAX_TRANSITION, MIN_TRANSITION, TRANSITION_KINDS } from "../lib/transitions";
 import { useAppStore } from "../store/appStore";
 import type {
@@ -104,6 +107,8 @@ export function Inspector() {
     updateProject({ progressBar: { ...project.progressBar, ...patch } }, history);
   const patchAudio = (patch: Partial<Project["audio"]>, history = false) =>
     updateProject({ audio: { ...project.audio, ...patch } }, history);
+  const patchSfx = (patch: Partial<Project["sfx"]>, history = false) =>
+    updateProject({ sfx: { ...project.sfx, ...patch } }, history);
 
   async function pickBackground(file: File) {
     if (!project) return;
@@ -718,15 +723,18 @@ export function Inspector() {
         ) : null}
 
         {tab === "audio" ? (
-          <Section title="Audio">
-            <Toggle label="Mute" checked={project.audio.muted} onChange={(muted) => patchAudio({ muted }, true)} />
-            <Slider label="Volume" min={0} max={2} step={0.05} value={project.audio.volume} unit="×" onChange={(volume) => patchAudio({ volume })} />
-            <Slider label="Fade in" min={0} max={3} step={0.1} value={project.audio.fadeIn} unit="s" onChange={(fadeIn) => patchAudio({ fadeIn })} />
-            <Slider label="Fade out" min={0} max={3} step={0.1} value={project.audio.fadeOut} unit="s" onChange={(fadeOut) => patchAudio({ fadeOut })} />
-            <p className="mt-3 text-[11px] leading-relaxed text-muted">
-              Applied on export. Microphone and system sound are recorded as one track; Auto-cut in the toolbar trims the silences.
-            </p>
-          </Section>
+          <>
+            <Section title="Audio">
+              <Toggle label="Mute" checked={project.audio.muted} onChange={(muted) => patchAudio({ muted }, true)} />
+              <Slider label="Volume" min={0} max={2} step={0.05} value={project.audio.volume} unit="×" onChange={(volume) => patchAudio({ volume })} />
+              <Slider label="Fade in" min={0} max={3} step={0.1} value={project.audio.fadeIn} unit="s" onChange={(fadeIn) => patchAudio({ fadeIn })} />
+              <Slider label="Fade out" min={0} max={3} step={0.1} value={project.audio.fadeOut} unit="s" onChange={(fadeOut) => patchAudio({ fadeOut })} />
+              <p className="mt-3 text-[11px] leading-relaxed text-muted">
+                Mute and volume play in the preview; fades and gain above 1× apply on export. Microphone and system sound are recorded as one track; Auto-cut in the toolbar trims the silences.
+              </p>
+            </Section>
+            <SoundEffectsSection project={project} patchSfx={patchSfx} />
+          </>
         ) : null}
       </div>
 
@@ -736,6 +744,150 @@ export function Inspector() {
         </button>
       </div>
     </aside>
+  );
+}
+
+/**
+ * Generated sound effects: one switch, a pack, then a row per source with its
+ * own switch, level and a "hear" button. Counts come from the same plan the
+ * preview plays and the export mixes, so what the row promises is what lands.
+ */
+function SoundEffectsSection({
+  project,
+  patchSfx,
+}: {
+  project: Project;
+  patchSfx: (patch: Partial<Project["sfx"]>, history?: boolean) => void;
+}) {
+  const sfx = project.sfx;
+  const pack = sfxPack(sfx.pack);
+  const counts = sfxCounts(sfxPlanFor(project));
+  const total = counts.click + counts.key + counts.zoom + counts.transition;
+  const hasInputs = Boolean(project.inputs);
+  const hasKeys = Boolean(project.inputs?.keys.length);
+  const hear = (sound: SfxSoundId, id: Project["sfx"]["pack"] = sfx.pack) =>
+    sfxPreview().audition(sfxPack(id), sound, 0.5);
+  return (
+    <Section title="Sound effects">
+      <Toggle label="Sound effects" checked={sfx.enabled} onChange={(enabled) => patchSfx({ enabled }, true)} />
+      <p className="mt-1.5 text-[11px] leading-relaxed text-muted">
+        Clicks, typing, zooms and transitions, generated on your device to match the take.
+        {sfx.enabled ? ` ${total} ${total === 1 ? "sound" : "sounds"} on the timeline.` : ""}
+      </p>
+      {sfx.enabled ? (
+        <>
+          <div className="mt-3 grid grid-cols-3 gap-1">
+            {SFX_PACKS.map((p) => (
+              <Chip
+                key={p.id}
+                active={sfx.pack === p.id}
+                title={p.hint}
+                onClick={() => {
+                  patchSfx({ pack: p.id }, true);
+                  hear("clickFull", p.id);
+                }}
+              >
+                {p.name}
+              </Chip>
+            ))}
+          </div>
+          <p className="mt-1.5 text-[11px] text-muted">{pack.hint}</p>
+          <Slider label="Volume" min={0} max={2} step={0.05} value={sfx.volume} unit="×" onChange={(volume) => patchSfx({ volume })} />
+          <SfxRow
+            label="Clicks"
+            count={counts.click}
+            checked={sfx.clicks}
+            volume={sfx.clickVolume}
+            onToggle={(clicks) => patchSfx({ clicks }, true)}
+            onVolume={(clickVolume) => patchSfx({ clickVolume })}
+            onHear={() => hear("clickFull")}
+            note={hasInputs ? undefined : "Timed off the cursor track — this take predates click timing, so each lands up to a frame late."}
+          />
+          <SfxRow
+            label="Typing"
+            count={counts.key}
+            checked={sfx.typing}
+            volume={sfx.typingVolume}
+            onToggle={(typing) => patchSfx({ typing }, true)}
+            onVolume={(typingVolume) => patchSfx({ typingVolume })}
+            onHear={() => hear("key")}
+            note={
+              hasKeys
+                ? undefined
+                : hasInputs
+                  ? "No keys were pressed during this take."
+                  : "This take has no key timing — record with “Click & key timing” on to get typing sounds."
+            }
+          />
+          <SfxRow
+            label="Zooms"
+            count={counts.zoom}
+            checked={sfx.zooms}
+            volume={sfx.zoomVolume}
+            onToggle={(zooms) => patchSfx({ zooms }, true)}
+            onVolume={(zoomVolume) => patchSfx({ zoomVolume })}
+            onHear={() => hear("zoomIn")}
+          />
+          <SfxRow
+            label="Transitions"
+            count={counts.transition}
+            checked={sfx.transitions}
+            volume={sfx.transitionVolume}
+            onToggle={(transitions) => patchSfx({ transitions }, true)}
+            onVolume={(transitionVolume) => patchSfx({ transitionVolume })}
+            onHear={() => hear("whoosh")}
+          />
+          <div className="mt-3">
+            <Toggle label="Pan by position" checked={sfx.spatial} onChange={(spatial) => patchSfx({ spatial }, true)} />
+          </div>
+          <p className="mt-1.5 text-[11px] leading-relaxed text-muted">
+            A click on the left of the frame sounds from the left. Needs the recorded area (Cursor tab).
+          </p>
+        </>
+      ) : null}
+    </Section>
+  );
+}
+
+function SfxRow({
+  label,
+  count,
+  checked,
+  volume,
+  note,
+  onToggle,
+  onVolume,
+  onHear,
+}: {
+  label: string;
+  count: number;
+  checked: boolean;
+  volume: number;
+  note?: string;
+  onToggle: (v: boolean) => void;
+  onVolume: (v: number) => void;
+  onHear: () => void;
+}) {
+  return (
+    <div className="mt-3 rounded-[10px] border border-line px-2.5 py-2">
+      <div className="flex items-center justify-between gap-2 text-sm">
+        <label className="flex min-w-0 items-center gap-2">
+          <input type="checkbox" checked={checked} onChange={(e) => onToggle(e.target.checked)} />
+          <span className="truncate">{label}</span>
+          <span className="rounded-full bg-paper px-1.5 text-[10px] tabular-nums text-muted">{count}</span>
+        </label>
+        <button
+          type="button"
+          className="btn btn-ghost !h-6 !px-2 !py-0 text-[11px] text-muted"
+          title={`Hear the ${label.toLowerCase()} sound`}
+          onClick={onHear}
+        >
+          ▶ hear
+        </button>
+      </div>
+      {checked ? <Slider label="Level" min={0} max={2} step={0.05} value={volume} unit="×" onChange={onVolume} /> : null}
+      {note ? <p className="mt-1.5 text-[11px] leading-relaxed text-muted">{note}</p> : null}
+    </div>
   );
 }
 

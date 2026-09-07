@@ -23,6 +23,7 @@ export default defineConfig({
       "@feature-board": pkg("feature-board"),
       "@feature-social": pkg("feature-social"),
       "@feature-tools": pkg("feature-tools"),
+      "@feature-disk": pkg("feature-disk"),
     },
   },
   test: {

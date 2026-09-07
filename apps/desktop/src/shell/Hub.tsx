@@ -101,6 +101,21 @@ const CARDS: ToolCard[] = [
     ),
   },
   {
+    tool: "disk",
+    window: "disk.app",
+    name: "disk",
+    desc: "See where the space went: a treemap of every file, duplicates, quick wins, snapshots.",
+    color: "#0a84ff",
+    tilt: -0.8,
+    dots: ToolIcons.disk,
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
+        <rect x="2.5" y="2.5" width="15" height="15" rx="2.5" />
+        <path d="M10.5 2.5v15M10.5 10.5h7M2.5 12.5h8" />
+      </svg>
+    ),
+  },
+  {
     tool: "social",
     window: "social.app",
     name: "social",

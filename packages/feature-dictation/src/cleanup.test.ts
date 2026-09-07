@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { applyVocabulary, cleanTranscript, joinDictation, stripNonSpeech } from "./cleanup";
+import {
+  applyReplacements,
+  applyVocabulary,
+  cleanTranscript,
+  joinDictation,
+  phrasePattern,
+  removeFillers,
+  stripNonSpeech,
+} from "./cleanup";
 
 describe("stripNonSpeech", () => {
   it("removes bracketed and parenthesised sound tags", () => {
@@ -136,5 +144,91 @@ describe("joinDictation", () => {
 
   it("returns an empty string for an empty take", () => {
     expect(joinDictation("anything", "")).toBe("");
+  });
+});
+
+describe("applyReplacements", () => {
+  const rules = [
+    { spoken: "my email address", replacement: "anna@shipshape.app" },
+    { spoken: "super whisper", replacement: "Superwhisper" },
+    { spoken: "my sign-off", replacement: "Best regards,\nAnna" },
+  ];
+
+  it("swaps the spoken phrase for the text, keeping the punctuation around it", () => {
+    expect(applyReplacements("You can reach me at my email address.", rules)).toBe(
+      "You can reach me at anna@shipshape.app.",
+    );
+    expect(applyReplacements("My Email Address, then a comma", rules)).toBe(
+      "anna@shipshape.app, then a comma",
+    );
+  });
+
+  it("tolerates whisper's own spellings: hyphens and broken words", () => {
+    expect(applyReplacements("send it to my e-mail address", rules)).toBe("send it to anna@shipshape.app");
+    expect(applyReplacements("I use superwhisper and Super-Whisper", rules)).toBe(
+      "I use Superwhisper and Superwhisper",
+    );
+  });
+
+  it("never matches inside another word and inserts the text verbatim", () => {
+    expect(applyReplacements("supermy email addresses", rules)).toBe("supermy email addresses");
+    expect(applyReplacements("my sign-off", rules)).toBe("Best regards,\nAnna");
+    expect(applyReplacements("costs $5", [{ spoken: "five", replacement: "$5 & more" }])).toBe("costs $5");
+    expect(applyReplacements("costs five", [{ spoken: "five", replacement: "$5 & more" }])).toBe(
+      "costs $5 & more",
+    );
+  });
+
+  it("lets a longer phrase win when the rules come longest-first", () => {
+    const both = [
+      { spoken: "my work email", replacement: "work@x.dev" },
+      { spoken: "my email", replacement: "home@x.dev" },
+    ];
+    expect(applyReplacements("my work email and my email", both)).toBe("work@x.dev and home@x.dev");
+  });
+
+  it("keeps short tokens strict", () => {
+    // "2FA" is three characters: no optional breaks, so "2 FA" stays.
+    expect(phrasePattern("2FA").test("turn on 2 FA")).toBe(false);
+    expect(phrasePattern("2FA").test("turn on 2fa")).toBe(true);
+  });
+});
+
+describe("removeFillers", () => {
+  it("drops hesitation sounds and repairs the sentence around them", () => {
+    expect(removeFillers("Um, so we ship on Monday, uh, I think.")).toBe("So we ship on Monday, I think.");
+    expect(removeFillers("Yyy no więc, eee, zaczynamy.")).toBe("No więc, zaczynamy.");
+    expect(removeFillers("Okay. Hmm, next point. mm")).toBe("Okay. Next point.");
+  });
+
+  it("leaves real words alone", () => {
+    expect(removeFillers("The album is called Umma")).toBe("The album is called Umma");
+    expect(removeFillers("no, well, like I said")).toBe("no, well, like I said");
+  });
+});
+
+describe("cleanTranscript with the vocabulary", () => {
+  it("applies spellings, sentence case and replacements in that order", () => {
+    const text = cleanTranscript("my email address is not ship shape", {
+      vocabulary: ["shipshape"],
+      replacements: [{ spoken: "my email address", replacement: "anna@shipshape.app" }],
+      sentenceCase: true,
+    });
+    expect(text).toBe("anna@shipshape.app is not shipshape");
+  });
+
+  it("still applies the vocabulary with hallucination cleanup off", () => {
+    expect(
+      cleanTranscript("[BLANK_AUDIO] ship shape. ship shape.", {
+        hallucinations: false,
+        vocabulary: ["shipshape"],
+      }),
+    ).toBe("[BLANK_AUDIO] shipshape. shipshape.");
+  });
+
+  it("removes fillers before capitalising", () => {
+    expect(cleanTranscript("um so the launch is ready", { removeFillers: true, sentenceCase: true })).toBe(
+      "So the launch is ready",
+    );
   });
 });

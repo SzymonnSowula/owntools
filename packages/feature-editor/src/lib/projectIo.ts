@@ -17,7 +17,11 @@ import type { MediaUrls, Project, ProjectMeta, RecordedMedia } from "../types";
 import { normalizeProject } from "./defaults";
 import { isTauri } from "./tauri";
 
-const ROOT = "screeni";
+/**
+ * `<AppData>/recordings`. The folder was called `screeni` until 0.3; the Rust
+ * side renames it on start-up (migrate.rs), so this is the only name here.
+ */
+const ROOT = "recordings";
 const PROJECTS = `${ROOT}/projects`;
 const INDEX = `${ROOT}/index.json`;
 /** The browser preview keeps its list in localStorage, where a cap makes sense. On disk there is none. */
@@ -334,7 +338,7 @@ export async function revealProjectInFolder(meta: Pick<ProjectMeta, "id" | "dir"
  * Reveals the recordings folder. revealItemInDir selects an item inside its
  * parent, so we point it at a project folder (the preferred one when it
  * exists) and the explorer opens on projects/ itself. With no projects yet,
- * projects/ is selected inside screeni/.
+ * projects/ is selected inside recordings/.
  */
 export async function revealProjectsFolder(preferId?: string): Promise<void> {
   if (!isTauri()) return;

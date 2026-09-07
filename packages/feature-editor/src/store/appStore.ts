@@ -22,6 +22,7 @@ import {
   DEFAULT_FADE,
   DEFAULT_OVERLAY,
   DEFAULT_PROGRESS_BAR,
+  DEFAULT_SFX,
   DEFAULT_TEXT,
   DEFAULT_WEBCAM,
   normalizeProject,
@@ -67,6 +68,7 @@ export function emptyProject(partial?: Partial<Project>): Project {
     cursorStyle: { ...DEFAULT_CURSOR },
     progressBar: { ...DEFAULT_PROGRESS_BAR },
     audio: { ...DEFAULT_AUDIO },
+    sfx: { ...DEFAULT_SFX },
     fade: { ...DEFAULT_FADE },
     cursorAlign: { ...DEFAULT_CURSOR_ALIGN },
     aspect: "16:9",
@@ -86,6 +88,7 @@ interface EditorSnapshot {
   cursorStyle: Project["cursorStyle"];
   progressBar: Project["progressBar"];
   audio: Project["audio"];
+  sfx: Project["sfx"];
   fade: Project["fade"];
   captureRect: Project["captureRect"];
   captureSource: Project["captureSource"];
@@ -107,6 +110,7 @@ function snap(project: Project): EditorSnapshot {
     cursorStyle: project.cursorStyle,
     progressBar: project.progressBar,
     audio: project.audio,
+    sfx: project.sfx,
     fade: project.fade,
     captureRect: project.captureRect,
     captureSource: project.captureSource,

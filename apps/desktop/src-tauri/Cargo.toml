@@ -24,7 +24,10 @@ tauri-plugin-dialog = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
-tauri-plugin-http = "2.6.0"
+# `unsafe-headers`: lets the frontend send `Origin: ""`, which the plugin then
+# drops instead of stamping the webview origin on the request — YouTube's
+# InnerTube endpoint answers 403 to any request carrying a foreign Origin.
+tauri-plugin-http = { version = "2.6.0", features = ["unsafe-headers"] }
 tauri-plugin-global-shortcut = "2.3.2"
 tauri-plugin-log = "2"
 tauri-plugin-process = "2"
@@ -35,6 +38,14 @@ tokio = { version = "1", features = ["fs", "io-util", "macros", "net", "sync"] }
 futures-util = "0.3"
 sha2 = "0.10"
 hex = "0.4"
+# parakeet: unpacking the sherpa-onnx runtime archive (.tar.bz2); the bzip2
+# backend is the pure-Rust one, so no C toolchain surprises on CI.
+tar = "0.4"
+bzip2 = "0.6"
+# data-folder migration (identifier rename) runs before Tauri resolves paths.
+dirs = "6"
+# disk: snapshots are gzip JSON.
+flate2 = "1"
 # social: the local agent server (REST + MCP + OAuth loopback)
 axum = { version = "0.8", features = ["multipart"] }
 tower-http = { version = "0.6", features = ["cors"] }
@@ -52,7 +63,11 @@ windows = { version = "0.61", features = [
   "Win32_System_Threading",
   "Win32_System_SystemInformation",
   "Win32_System_LibraryLoader",
+  "Win32_Storage_FileSystem",
+  "Win32_UI_Shell",
 ] }
+# disk: installed apps come from the registry's Uninstall keys.
+winreg = "0.55"
 # Same major as wry's, so the COM types line up with tauri's `PlatformWebview`.
 webview2-com = "0.38"
 uiautomation = "0.24"

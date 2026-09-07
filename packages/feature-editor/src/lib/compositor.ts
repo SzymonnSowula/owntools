@@ -337,6 +337,7 @@ export function drawFrame(input: DrawFrameInput): void {
       h: video.h,
       frame: cursorFrame,
       samples: project.cursor,
+      inputs: project.inputs,
       sourceTime,
       settings: project.cursorStyle,
     });

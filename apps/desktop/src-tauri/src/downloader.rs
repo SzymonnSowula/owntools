@@ -113,6 +113,37 @@ pub async fn download_file(app: AppHandle, request: DownloadRequest) -> Result<S
     }
     clear_cancelled(&request.id);
 
+    // Already there and intact: a multi-file model resumes file by file, and
+    // the files that made it must not be fetched twice.
+    if let Some(expected) = request.sha256.as_deref() {
+        if let Ok(meta) = tokio::fs::metadata(&dest).await {
+            let size_ok = request.expected_size.map(|n| n == meta.len()).unwrap_or(true);
+            if meta.is_file() && meta.len() > 0 && size_ok {
+                let path = dest.clone();
+                let digest = tauri::async_runtime::spawn_blocking(move || -> std::io::Result<String> {
+                    let mut file = std::fs::File::open(&path)?;
+                    let mut hasher = Sha256::new();
+                    std::io::copy(&mut file, &mut hasher)?;
+                    Ok(hex::encode(hasher.finalize()))
+                })
+                .await
+                .map_err(|e| e.to_string())?;
+                if matches!(digest, Ok(ref d) if d.eq_ignore_ascii_case(expected)) {
+                    let _ = app.emit(
+                        PROGRESS_EVENT,
+                        DownloadProgress {
+                            id: request.id.clone(),
+                            loaded: meta.len(),
+                            total: meta.len(),
+                        },
+                    );
+                    log::info!("download {}: already complete, skipped", request.id);
+                    return Ok(dest.to_string_lossy().to_string());
+                }
+            }
+        }
+    }
+
     // Resume: hash what is already on disk so the final checksum still covers
     // the whole file.
     let mut hasher = Sha256::new();

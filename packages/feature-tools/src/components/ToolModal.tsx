@@ -10,6 +10,8 @@ export interface ToolModalProps {
   wide?: boolean;
   children: ReactNode;
   footer: ReactNode;
+  /** Always-visible strip above the buttons — where a file went, outside the scrolling body. */
+  status?: ReactNode;
 }
 
 /**
@@ -18,7 +20,7 @@ export interface ToolModalProps {
  * running. Styled with the same tokens as the older transcribe / extract
  * modals so the family reads as one.
  */
-export function ToolModal({ title, subtitle, onClose, busy, wide, children, footer }: ToolModalProps) {
+export function ToolModal({ title, subtitle, onClose, busy, wide, children, footer, status }: ToolModalProps) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape" || busy) return;
@@ -45,6 +47,7 @@ export function ToolModal({ title, subtitle, onClose, busy, wide, children, foot
         <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-2 pt-4">
           <div className="flex flex-col gap-3">{children}</div>
         </div>
+        <div className="px-6 pt-3 empty:hidden">{status}</div>
         <div className="flex flex-wrap gap-2 px-6 pb-6 pt-4">{footer}</div>
       </div>
     </div>

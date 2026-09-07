@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Project, Selection } from "../types";
 import { formatTime } from "../lib/time";
 import { sourceToTimeline, timelineDuration } from "../lib/segments";
+import { sfxPlanFor, type SfxEvent } from "../lib/sfx/plan";
 import { useAppStore } from "../store/appStore";
 
 const TRACKS = [
@@ -350,6 +351,17 @@ export function Timeline({ project }: { project: Project }) {
             </div>
           ))}
 
+          {project.sfx.enabled ? (
+            <div className="mb-1.5 flex items-stretch gap-2">
+              <div className="left-0 z-10 w-16 shrink-0 pt-0.5 text-[11px] font-medium text-muted [position:sticky]">
+                Sounds
+              </div>
+              <div className="relative h-4 flex-1 rounded-[8px] bg-paper">
+                <SfxMarks project={project} pps={pps} />
+              </div>
+            </div>
+          ) : null}
+
           {tool === "cut" && bladeX !== null ? (
             <div
               className="pointer-events-none absolute bottom-0 top-6 z-30 w-px bg-teal"
@@ -364,6 +376,49 @@ export function Timeline({ project }: { project: Project }) {
         </div>
       </div>
     </div>
+  );
+}
+
+const SFX_COLOR: Record<SfxEvent["kind"], string> = {
+  click: "#0a84ff",
+  key: "#8e8e93",
+  zoom: "#5e5ce6",
+  transition: "#32ade6",
+};
+/** At most this many ticks are drawn; a long typing take is thinned evenly. */
+const MAX_MARKS = 2500;
+
+/** One tick per planned sound, coloured by what it is. Read-only: the Audio tab decides what plays. */
+function SfxMarks({ project, pps }: { project: Project; pps: number }) {
+  const events = sfxPlanFor(project);
+  const marks = useMemo(() => {
+    if (events.length <= MAX_MARKS) return events;
+    const step = events.length / MAX_MARKS;
+    const out: SfxEvent[] = [];
+    for (let i = 0; i < events.length; i += step) out.push(events[Math.floor(i)]);
+    return out;
+  }, [events]);
+  const title = `${events.length} ${events.length === 1 ? "sound" : "sounds"}`;
+  return (
+    <svg className="absolute inset-0 h-full w-full" aria-label={title}>
+      <title>{title}</title>
+      {marks.map((e, i) => {
+        const x = e.t * pps;
+        const key = e.kind === "key";
+        return (
+          <line
+            key={i}
+            x1={x}
+            x2={x}
+            y1={key ? 5 : 2}
+            y2={key ? 11 : 14}
+            stroke={SFX_COLOR[e.kind]}
+            strokeWidth={key ? 1 : 1.5}
+            opacity={0.85}
+          />
+        );
+      })}
+    </svg>
   );
 }
 

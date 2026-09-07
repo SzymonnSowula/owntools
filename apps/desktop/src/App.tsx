@@ -21,7 +21,7 @@ import { logError } from "@core/errors";
 import { listenForDictation } from "@feature-dictation/insert";
 import { initLicense } from "@licensing/license";
 
-const TOOLS: readonly Tool[] = ["hub", "focus", "create", "launch", "dictate", "board", "social"];
+const TOOLS: readonly Tool[] = ["hub", "focus", "create", "launch", "dictate", "board", "social", "disk"];
 
 const CreateModule = lazy(() => import("./shell/CreateModule"));
 const HubToolModals = lazy(() => import("./shell/HubToolModals"));
@@ -29,6 +29,7 @@ const LaunchModule = lazy(() => import("@feature-launch/LaunchView"));
 const DictateModule = lazy(() => import("@feature-dictation/DictateView"));
 const BoardModule = lazy(() => import("@feature-board/BoardView"));
 const SocialModule = lazy(() => import("@feature-social/SocialView"));
+const DiskModule = lazy(() => import("@feature-disk/DiskView"));
 
 function LazyPane({ children }: { children: React.ReactNode }) {
   return (
@@ -253,6 +254,12 @@ export default function App() {
         <main className="create-main">
           <Suspense fallback={<div className="grid flex-1 place-items-center text-sm">Loading social…</div>}>
             <SocialModule />
+          </Suspense>
+        </main>
+      ) : tool === "disk" ? (
+        <main className="create-main mod-disk">
+          <Suspense fallback={<div className="grid flex-1 place-items-center text-sm">Loading disk…</div>}>
+            <DiskModule />
           </Suspense>
         </main>
       ) : (
