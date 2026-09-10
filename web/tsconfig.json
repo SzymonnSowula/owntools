@@ -26,10 +26,10 @@
       "@/*": [
         "./*"
       ],
-      "@shipshape/launch-engine": [
+      "@owntools/launch-engine": [
         "../packages/feature-launch/src/engine/index.ts"
       ],
-      "@shipshape/launch-engine/*": [
+      "@owntools/launch-engine/*": [
         "../packages/feature-launch/src/engine/*"
       ]
     }

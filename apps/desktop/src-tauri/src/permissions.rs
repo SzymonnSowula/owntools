@@ -85,6 +85,49 @@ pub fn grant_media(window: &WebviewWindow) {
 #[cfg(not(windows))]
 pub fn grant_media(_window: &WebviewWindow) {}
 
+// ---------------------------------------------------------------------------
+// macOS: the permission that decides whether dictation can type at all
+// ---------------------------------------------------------------------------
+
+/// What macOS lets us do with the keyboard of *other* applications.
+/// `"granted"` — the transcript can be typed straight into the app in front;
+/// `"denied"` — it goes to the clipboard instead and the UI explains why;
+/// `"not-needed"` — every other platform, where nothing has to be granted.
+#[tauri::command]
+pub fn accessibility_status() -> &'static str {
+    #[cfg(target_os = "macos")]
+    {
+        if crate::mac::is_trusted() {
+            "granted"
+        } else {
+            "denied"
+        }
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        "not-needed"
+    }
+}
+
+/// Asks macOS to show its "open System Settings" sheet. Only ever called from
+/// a button the user pressed: the sheet appears once per app, so spending it
+/// on a background check would leave the user with no prompt and no clue.
+#[tauri::command]
+pub fn accessibility_request() -> &'static str {
+    #[cfg(target_os = "macos")]
+    {
+        if crate::mac::request_trust() {
+            "granted"
+        } else {
+            "denied"
+        }
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        "not-needed"
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::is_own_page;

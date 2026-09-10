@@ -56,11 +56,11 @@ function PreferencesDialog({ channel, onClose }: { channel: Channel; onClose: ()
       }
     >
       <div className="flex flex-col gap-4 p-5">
-        <Field label="Name shown in shipshape">
+        <Field label="Name shown in owntools">
           <input className="sc-field" value={name} onChange={(e) => setName(e.target.value)} />
         </Field>
         <Field label="Signature" hint="Appended after a blank line to every post on this channel. Leave empty for none.">
-          <textarea className="sc-field" rows={2} value={prefs.signature ?? ""} onChange={(e) => set({ signature: e.target.value })} placeholder="— posted with shipshape" />
+          <textarea className="sc-field" rows={2} value={prefs.signature ?? ""} onChange={(e) => set({ signature: e.target.value })} placeholder="— posted with owntools" />
         </Field>
         <Field label="Character limit" hint={`${net.name} default: ${Number.isFinite(net.limits.chars) ? net.limits.chars : "none"}. Override for instances or accounts with a different limit.`}>
           <input
@@ -255,7 +255,7 @@ export function ChannelsPage() {
                   </button>
                 }
               >
-                Bluesky, Mastodon, Telegram, Discord, Slack, Dev.to and Medium work with a password, a token or a webhook. X and LinkedIn work with your own developer app. Keys never leave this device.
+                Paste whatever you have — a Discord or Slack webhook URL, a Telegram bot token, a Bluesky app password, a @you@instance address — and owntools works out which network it is. Bluesky, Mastodon, Telegram, Discord, Slack, Dev.to and Medium take a minute or two; X and LinkedIn need your own developer app. Keys never leave this device.
               </EmptyState>
             </div>
           </div>

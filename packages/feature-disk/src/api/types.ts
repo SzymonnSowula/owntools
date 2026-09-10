@@ -144,6 +144,13 @@ export interface TrashOutcome {
   failed: { id: number; path: string; error: string }[];
 }
 
+/** How far the Recycle Bin move has got; `path` is empty on the final tick. */
+export interface TrashProgress {
+  done: number;
+  total: number;
+  path: string;
+}
+
 export interface DupeGroup {
   hash: string;
   size: number;

@@ -35,6 +35,12 @@ pub fn now_iso() -> String {
     Utc::now().to_rfc3339_opts(SecondsFormat::Millis, true)
 }
 
+/// Now, with this machine's offset — what a `scheduledAt` looks like when the
+/// person (or an agent) means "right now" rather than a UTC instant.
+pub fn local_now_iso() -> String {
+    Local::now().to_rfc3339_opts(SecondsFormat::Secs, false)
+}
+
 pub fn read_json(path: &Path) -> Option<Value> {
     let text = fs::read_to_string(path).ok()?;
     serde_json::from_str(&text).ok()

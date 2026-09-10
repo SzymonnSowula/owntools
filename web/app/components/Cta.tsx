@@ -1,8 +1,9 @@
 import type { ReactNode } from "react";
-import { checkoutUrl, downloadUrl } from "@/lib/site";
+import { checkoutUrl, downloadUrl, downloadUrlMac } from "@/lib/site";
 
 /** Copy shown in place of the two CTAs while their destinations are unset. */
-export const DOWNLOAD_SOON = "windows build — launching soon";
+export const DOWNLOAD_SOON = "windows build - launching soon";
+export const MAC_DOWNLOAD_SOON = "mac build - launching soon";
 export const CHECKOUT_SOON = "checkout opens on launch day";
 
 /**
@@ -56,6 +57,23 @@ export function DownloadCta({
 }) {
   return (
     <Cta href={downloadUrl} fallback={fallback} className={className}>
+      {children}
+    </Cta>
+  );
+}
+
+/** "download for mac" — a link once NEXT_PUBLIC_DOWNLOAD_URL_MACOS is set. */
+export function MacDownloadCta({
+  className,
+  children,
+  fallback = MAC_DOWNLOAD_SOON,
+}: {
+  className?: string;
+  children: ReactNode;
+  fallback?: ReactNode;
+}) {
+  return (
+    <Cta href={downloadUrlMac} fallback={fallback} className={className}>
       {children}
     </Cta>
   );

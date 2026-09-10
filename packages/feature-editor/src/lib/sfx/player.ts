@@ -87,7 +87,7 @@ export class SfxPreview {
     if (ctx.state === "suspended") void ctx.resume().catch(() => undefined);
     const keep = this.pack;
     this.pack = pack;
-    this.play({ t: 0, sound, kind: "click", gain, pan: 0, rate: 1 }, ctx.currentTime);
+    this.play({ id: "audition", t: 0, sound, kind: "click", gain, pan: 0, rate: 1 }, ctx.currentTime);
     this.pack = keep;
   }
 

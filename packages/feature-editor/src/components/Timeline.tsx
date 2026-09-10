@@ -3,6 +3,7 @@ import type { Project, Selection } from "../types";
 import { formatTime } from "../lib/time";
 import { sourceToTimeline, timelineDuration } from "../lib/segments";
 import { sfxPlanFor, type SfxEvent } from "../lib/sfx/plan";
+import { SFX_SOUND_LABELS } from "../lib/sfx/packs";
 import { useAppStore } from "../store/appStore";
 
 const TRACKS = [
@@ -209,6 +210,9 @@ export function Timeline({ project }: { project: Project }) {
             return;
           }
           if (target.closest("[data-clip]")) return;
+          // The sounds row is a control, not scenery: without this, `beginPan`
+          // captures the pointer and neither the switch nor a tick is clickable.
+          if (target.closest("[data-sfx-toggle], [data-sfx-lane]")) return;
           if (target.closest('[data-track="ruler"]')) {
             beginScrub(e);
           } else {
@@ -351,16 +355,7 @@ export function Timeline({ project }: { project: Project }) {
             </div>
           ))}
 
-          {project.sfx.enabled ? (
-            <div className="mb-1.5 flex items-stretch gap-2">
-              <div className="left-0 z-10 w-16 shrink-0 pt-0.5 text-[11px] font-medium text-muted [position:sticky]">
-                Sounds
-              </div>
-              <div className="relative h-4 flex-1 rounded-[8px] bg-paper">
-                <SfxMarks project={project} pps={pps} />
-              </div>
-            </div>
-          ) : null}
+          <SfxTrack project={project} pps={pps} />
 
           {tool === "cut" && bladeX !== null ? (
             <div
@@ -379,6 +374,43 @@ export function Timeline({ project }: { project: Project }) {
   );
 }
 
+/**
+ * The sounds row. It stays on the timeline whether or not effects are on —
+ * a row that disappears when you switch it off is a row nobody finds again —
+ * and while they are off the lane is the switch: click it and the take sounds.
+ * With them on the lane is an editor: click a tick to select that one sound,
+ * Del to take it off, and the chip above it says what it was.
+ */
+function SfxTrack({ project, pps }: { project: Project; pps: number }) {
+  const setSfxEnabled = useAppStore((s) => s.setSfxEnabled);
+  const on = project.sfx.enabled;
+  const count = sfxPlanFor(project).length;
+  return (
+    <div className="mb-1.5 flex items-stretch gap-2">
+      <div className="left-0 z-10 w-16 shrink-0 pt-0.5 text-[11px] font-medium text-muted [position:sticky]">
+        Sounds
+      </div>
+      {on ? (
+        <SfxLane project={project} pps={pps} />
+      ) : (
+        <button
+          type="button"
+          data-sfx-toggle
+          className="relative h-4 flex-1 rounded-[8px] border border-dashed border-line bg-paper/60 text-left text-[10px] leading-none text-muted hover:border-teal hover:text-teal-2"
+          title="Turn the generated clicks, keystrokes and zoom whooshes back on"
+          onClick={() => setSfxEnabled(true)}
+        >
+          <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2">
+            {count
+              ? `off — click to add ${count} ${count === 1 ? "sound" : "sounds"}`
+              : "off — click to add sound effects"}
+          </span>
+        </button>
+      )}
+    </div>
+  );
+}
+
 const SFX_COLOR: Record<SfxEvent["kind"], string> = {
   click: "#0a84ff",
   key: "#8e8e93",
@@ -387,10 +419,102 @@ const SFX_COLOR: Record<SfxEvent["kind"], string> = {
 };
 /** At most this many ticks are drawn; a long typing take is thinned evenly. */
 const MAX_MARKS = 2500;
+/** How far from a tick a click still counts as hitting it, in pixels. */
+const HIT_SLOP = 7;
 
-/** One tick per planned sound, coloured by what it is. Read-only: the Audio tab decides what plays. */
-function SfxMarks({ project, pps }: { project: Project; pps: number }) {
+/**
+ * The lane itself: ticks, a hit test, and the chip for whatever is selected.
+ * Hit-testing is a binary search over the plan rather than a rect per event —
+ * a typing take has thousands of them and they must stay clickable at any zoom.
+ */
+function SfxLane({ project, pps }: { project: Project; pps: number }) {
   const events = sfxPlanFor(project);
+  const selection = useAppStore((s) => s.selection);
+  const setSelection = useAppStore((s) => s.setSelection);
+  const removeSfx = useAppStore((s) => s.removeSfx);
+  const lane = useRef<HTMLDivElement>(null);
+  const selected = selection?.type === "sfx" ? events.find((e) => e.id === selection.id) ?? null : null;
+
+  function nearest(clientX: number): SfxEvent | null {
+    const rect = lane.current?.getBoundingClientRect();
+    if (!rect || !events.length) return null;
+    const x = (clientX - rect.left) / pps;
+    let lo = 0;
+    let hi = events.length - 1;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (events[mid].t < x) lo = mid + 1;
+      else hi = mid;
+    }
+    let best: SfxEvent | null = null;
+    let bestGap = Infinity;
+    for (const k of [lo - 1, lo, lo + 1]) {
+      const e = events[k];
+      if (!e) continue;
+      const gap = Math.abs(e.t - x) * pps;
+      if (gap < bestGap) {
+        bestGap = gap;
+        best = e;
+      }
+    }
+    return bestGap <= HIT_SLOP ? best : null;
+  }
+
+  return (
+    <div
+      ref={lane}
+      data-sfx-lane
+      className="relative h-4 flex-1 rounded-[8px] bg-paper"
+      title="Click a sound to select it, Del to take it off"
+      onPointerDown={(e) => {
+        const hit = nearest(e.clientX);
+        setSelection(hit ? { type: "sfx", id: hit.id } : null);
+      }}
+    >
+      <SfxMarks events={events} pps={pps} selectedId={selected?.id} />
+      {selected ? (
+        <SfxChip event={selected} pps={pps} onRemove={() => removeSfx([selected.id])} />
+      ) : null}
+    </div>
+  );
+}
+
+/** The name of a selected sound, and the button that takes it off. */
+function SfxChip({ event, pps, onRemove }: { event: SfxEvent; pps: number; onRemove: () => void }) {
+  return (
+    <div
+      className="absolute -top-6 z-20 flex items-center gap-1.5 whitespace-nowrap rounded-[8px] border border-line bg-card px-1.5 py-0.5 text-[10px] shadow-[0_6px_16px_rgba(23,21,31,0.18)]"
+      style={{ left: event.t * pps, transform: "translateX(-50%)" }}
+      // The chip sits over the lane: without this its press runs the lane's hit
+      // test first, which is a different sound wherever the × ends up landing.
+      onPointerDown={(e) => e.stopPropagation()}
+    >
+      <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: SFX_COLOR[event.kind] }} />
+      <span className="text-ink">{SFX_SOUND_LABELS[event.sound]}</span>
+      <span className="text-muted">{formatTime(event.t, true)}</span>
+      <button
+        type="button"
+        data-sfx-lane
+        className="rounded-[5px] px-1 font-semibold text-muted hover:bg-paper hover:text-red"
+        title="Take this sound off the timeline (Del)"
+        onClick={onRemove}
+      >
+        ×
+      </button>
+    </div>
+  );
+}
+
+/** One tick per planned sound, coloured by what it is; the selected one is drawn over the rest. */
+function SfxMarks({
+  events,
+  pps,
+  selectedId,
+}: {
+  events: SfxEvent[];
+  pps: number;
+  selectedId?: string;
+}) {
   const marks = useMemo(() => {
     if (events.length <= MAX_MARKS) return events;
     const step = events.length / MAX_MARKS;
@@ -399,25 +523,36 @@ function SfxMarks({ project, pps }: { project: Project; pps: number }) {
     return out;
   }, [events]);
   const title = `${events.length} ${events.length === 1 ? "sound" : "sounds"}`;
+  const selected = selectedId ? events.find((e) => e.id === selectedId) : undefined;
   return (
-    <svg className="absolute inset-0 h-full w-full" aria-label={title}>
+    <svg className="pointer-events-none absolute inset-0 h-full w-full" aria-label={title}>
       <title>{title}</title>
-      {marks.map((e, i) => {
+      {marks.map((e) => {
         const x = e.t * pps;
         const key = e.kind === "key";
         return (
           <line
-            key={i}
+            key={e.id}
             x1={x}
             x2={x}
             y1={key ? 5 : 2}
             y2={key ? 11 : 14}
             stroke={SFX_COLOR[e.kind]}
             strokeWidth={key ? 1 : 1.5}
-            opacity={0.85}
+            opacity={selectedId ? 0.45 : 0.85}
           />
         );
       })}
+      {selected ? (
+        <line
+          x1={selected.t * pps}
+          x2={selected.t * pps}
+          y1={0}
+          y2={16}
+          stroke={SFX_COLOR[selected.kind]}
+          strokeWidth={3}
+        />
+      ) : null}
     </svg>
   );
 }

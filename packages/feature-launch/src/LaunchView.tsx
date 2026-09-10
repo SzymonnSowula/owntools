@@ -536,7 +536,7 @@ export default function LaunchView() {
             {!pro ? (
               <p className="mt-2 flex items-center justify-end gap-2 text-xs text-muted">
                 <span>
-                  Free version adds a small "made with shipshape" badge — a Pro key removes it.
+                  Free version adds a small "made with owntools" badge — a Pro key removes it.
                 </span>
                 <button
                   type="button"

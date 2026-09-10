@@ -82,7 +82,7 @@ export const RECORDS: RecordDef[] = [
   {
     id: "night-shift",
     title: "Night Shift",
-    artist: "shipshape studio",
+    artist: "owntools studio",
     side: "A1",
     blurb: "Low keys, a worn pressing, the office empty",
     art: { base: "#12141c", ink: "#e8e6df", accent: "#5e5ce6", pattern: "rings" },
@@ -110,7 +110,7 @@ export const RECORDS: RecordDef[] = [
   {
     id: "morning-rain",
     title: "Morning Rain",
-    artist: "shipshape studio",
+    artist: "owntools studio",
     side: "A2",
     blurb: "Bells through the window, weather on the glass",
     art: { base: "#e8eef4", ink: "#1d2733", accent: "#32ade6", pattern: "waves" },
@@ -138,7 +138,7 @@ export const RECORDS: RecordDef[] = [
   {
     id: "deep-water",
     title: "Deep Water",
-    artist: "shipshape studio",
+    artist: "owntools studio",
     side: "B1",
     blurb: "Almost no melody. For the hours that need none",
     art: { base: "#0b1f24", ink: "#dcefe9", accent: "#2fb3a3", pattern: "sun" },
@@ -165,7 +165,7 @@ export const RECORDS: RecordDef[] = [
   {
     id: "cafe-etranger",
     title: "Café Étranger",
-    artist: "shipshape studio",
+    artist: "owntools studio",
     side: "A3",
     blurb: "Nylon strings and a room that never empties",
     art: { base: "#f2e6d2", ink: "#2a1f14", accent: "#d1743a", pattern: "grid" },
@@ -193,7 +193,7 @@ export const RECORDS: RecordDef[] = [
   {
     id: "paper-and-ink",
     title: "Paper & Ink",
-    artist: "shipshape studio",
+    artist: "owntools studio",
     side: "B2",
     blurb: "One note at a time, plenty of room between",
     art: { base: "#f7f4ec", ink: "#17150f", accent: "#8a8577", pattern: "bars" },
@@ -220,7 +220,7 @@ export const RECORDS: RecordDef[] = [
   {
     id: "blue-hour",
     title: "Blue Hour",
-    artist: "shipshape studio",
+    artist: "owntools studio",
     side: "B3",
     blurb: "Strings holding the light just before it goes",
     art: { base: "#1a1b33", ink: "#e6e6f5", accent: "#7b7bff", pattern: "sun" },
@@ -248,7 +248,7 @@ export const RECORDS: RecordDef[] = [
   {
     id: "static-bloom",
     title: "Static Bloom",
-    artist: "shipshape studio",
+    artist: "owntools studio",
     side: "A4",
     blurb: "Bright figures opening out of the noise floor",
     art: { base: "#1c1024", ink: "#f4e8ff", accent: "#e0559b", pattern: "dust" },
@@ -275,7 +275,7 @@ export const RECORDS: RecordDef[] = [
   {
     id: "long-drive",
     title: "Long Drive",
-    artist: "shipshape studio",
+    artist: "owntools studio",
     side: "B4",
     blurb: "A steady pulse and a road that keeps going",
     art: { base: "#241608", ink: "#ffeedd", accent: "#ff9f3a", pattern: "rings" },

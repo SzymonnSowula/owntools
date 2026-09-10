@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from "react";
 import {
   cancelInstall,
-  DEFAULT_MODEL_FILE,
+  defaultInstallModel,
   getDictationSettings,
   installDictation,
   isInstallCancelled,
@@ -82,7 +82,11 @@ export function installPercent(progress: InstallProgress | null): number | null 
  * failed — the outcome is in the session (`notice` / `error`), so callers do
  * not need a try/catch. A call while an install is already running joins it.
  */
-export function startInstall(modelFile: string = DEFAULT_MODEL_FILE): Promise<boolean> {
+export function startInstall(modelFile?: string): Promise<boolean> {
+  // Resolved here rather than as a default argument: which model is the
+  // sensible one depends on the platform, and a module-scope constant
+  // would freeze the answer before `navigator` exists.
+  modelFile = modelFile ?? defaultInstallModel().id;
   if (running) return running;
   set({ installing: modelFile, progress: null, cancelling: false, error: null, notice: null });
   running = (async () => {

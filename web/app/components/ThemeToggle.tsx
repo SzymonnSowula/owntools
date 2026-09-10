@@ -5,7 +5,7 @@ import { Moon, Sun } from "lucide-react";
 
 /**
  * Day/night switch. Day (light) is the default brand theme; night flips
- * data-theme="dark" on <html>. Persisted in localStorage("shipshape-theme");
+ * data-theme="dark" on <html>. Persisted in localStorage("owntools-theme");
  * an inline script in layout.tsx applies it before first paint.
  */
 export function ThemeToggle() {
@@ -24,7 +24,7 @@ export function ThemeToggle() {
       delete document.documentElement.dataset.theme;
     }
     try {
-      localStorage.setItem("shipshape-theme", next ? "dark" : "light");
+      localStorage.setItem("owntools-theme", next ? "dark" : "light");
     } catch {}
   };
 

@@ -67,13 +67,41 @@ mod platform {
 
 #[cfg(target_os = "macos")]
 mod platform {
+    //! Quartz reports the pointer in *points*, which on a Retina display are
+    //! half the size of a pixel. Tauri (and therefore `capture.rs`) reports
+    //! monitors in physical pixels, because tao multiplies each screen's frame
+    //! by its backing scale factor. Mixing the two put the drawn pointer at
+    //! half its true offset on every Mac with a Retina screen — the macOS
+    //! version of the two-monitor bug the editor already carries scars from.
+    //!
+    //! Since tao scales a screen's *origin* by that same screen's factor, the
+    //! conversion collapses to one multiplication: a global point on a display
+    //! whose backing scale is `s` sits at `point * s` in the pixel space the
+    //! rest of the app speaks. `scale_at` finds `s` for the display the
+    //! pointer is on.
+
     use super::{CursorState, ScreenSize};
     use std::ffi::c_void;
 
     #[repr(C)]
+    #[derive(Clone, Copy)]
     struct CGPoint {
         x: f64,
         y: f64,
+    }
+
+    #[repr(C)]
+    #[derive(Clone, Copy)]
+    struct CGSize {
+        width: f64,
+        height: f64,
+    }
+
+    #[repr(C)]
+    #[derive(Clone, Copy)]
+    struct CGRect {
+        origin: CGPoint,
+        size: CGSize,
     }
 
     #[link(name = "CoreGraphics", kind = "framework")]
@@ -81,10 +109,12 @@ mod platform {
         fn CGEventCreate(source: *const c_void) -> *mut c_void;
         fn CGEventGetLocation(event: *mut c_void) -> CGPoint;
         fn CGEventSourceButtonState(state_id: u32, button: u32) -> bool;
-        fn CGMainDisplayID() -> u32;
-        fn CGDisplayPixelsWide(display: u32) -> usize;
-        fn CGDisplayPixelsHigh(display: u32) -> usize;
+        fn CGGetActiveDisplayList(max: u32, displays: *mut u32, count: *mut u32) -> i32;
         fn CGDisplayBounds(display: u32) -> CGRect;
+        fn CGDisplayCopyDisplayMode(display: u32) -> *mut c_void;
+        fn CGDisplayModeGetWidth(mode: *mut c_void) -> usize;
+        fn CGDisplayModeGetPixelWidth(mode: *mut c_void) -> usize;
+        fn CGDisplayModeRelease(mode: *mut c_void);
     }
 
     #[link(name = "CoreFoundation", kind = "framework")]
@@ -92,20 +122,60 @@ mod platform {
         fn CFRelease(cf: *mut c_void);
     }
 
-    #[repr(C)]
-    struct CGRect {
-        origin: CGPoint,
-        size: CGSize,
-    }
-
-    #[repr(C)]
-    struct CGSize {
-        width: f64,
-        height: f64,
-    }
-
     const HID_SYSTEM_STATE: u32 = 1;
     const LEFT_BUTTON: u32 = 0;
+    const MAX_DISPLAYS: usize = 16;
+
+    fn displays() -> Vec<u32> {
+        let mut ids = [0u32; MAX_DISPLAYS];
+        let mut count = 0u32;
+        let ok = unsafe {
+            CGGetActiveDisplayList(MAX_DISPLAYS as u32, ids.as_mut_ptr(), &mut count)
+        };
+        if ok != 0 {
+            return Vec::new();
+        }
+        ids[..count as usize].to_vec()
+    }
+
+    /// Backing scale of one display: the current mode's pixel width over its
+    /// width in points. 1.0 on a plain external screen, 2.0 on a Retina one,
+    /// and the true fractional value in a scaled mode.
+    fn scale_of(display: u32) -> f64 {
+        unsafe {
+            let mode = CGDisplayCopyDisplayMode(display);
+            if mode.is_null() {
+                return 1.0;
+            }
+            let points = CGDisplayModeGetWidth(mode) as f64;
+            let pixels = CGDisplayModeGetPixelWidth(mode) as f64;
+            CGDisplayModeRelease(mode);
+            if points > 0.0 && pixels > 0.0 {
+                pixels / points
+            } else {
+                1.0
+            }
+        }
+    }
+
+    fn contains(rect: CGRect, x: f64, y: f64) -> bool {
+        x >= rect.origin.x
+            && y >= rect.origin.y
+            && x < rect.origin.x + rect.size.width
+            && y < rect.origin.y + rect.size.height
+    }
+
+    /// The scale that applies at a global point. Falls back to the main
+    /// display when the pointer is between screens (it briefly can be).
+    fn scale_at(x: f64, y: f64) -> f64 {
+        let ids = displays();
+        for id in &ids {
+            if contains(unsafe { CGDisplayBounds(*id) }, x, y) {
+                return scale_of(*id);
+            }
+        }
+        ids.first().map(|id| scale_of(*id)).unwrap_or(1.0)
+    }
 
     pub fn cursor() -> Result<CursorState, String> {
         unsafe {
@@ -118,33 +188,40 @@ mod platform {
             // CGEventGetLocation already reports global *display* coordinates,
             // which have a top-left origin — the same convention as a video
             // frame. Flipping it, as this used to, mirrored every recording
-            // about the middle of the screen. The frontend rebases against the
-            // captured rectangle (see cursorMap.ts), so what belongs here is
-            // the raw position and nothing else.
-            //
-            // TODO(macOS port): these are points, while `capture.rs` reports
-            // monitors in physical pixels via Tauri. On a Retina display the
-            // two differ by the backing scale factor and the pointer would sit
-            // at half its true offset — reconcile before shipping macOS.
+            // about the middle of the screen.
+            let scale = scale_at(point.x, point.y);
             let down = CGEventSourceButtonState(HID_SYSTEM_STATE, LEFT_BUTTON);
             Ok(CursorState {
-                x: point.x,
-                y: point.y,
+                x: point.x * scale,
+                y: point.y * scale,
                 down,
             })
         }
     }
 
+    /// The whole desktop in physical pixels — the union of every display's
+    /// bounds, each scaled by its own factor, which is exactly the rectangle
+    /// Tauri's monitor list describes.
     pub fn screen() -> ScreenSize {
-        unsafe {
-            let display = CGMainDisplayID();
-            let bounds = CGDisplayBounds(display);
-            ScreenSize {
-                x: bounds.origin.x,
-                y: 0.0,
-                width: CGDisplayPixelsWide(display) as f64,
-                height: CGDisplayPixelsHigh(display) as f64,
-            }
+        let ids = displays();
+        if ids.is_empty() {
+            return ScreenSize { x: 0.0, y: 0.0, width: 1920.0, height: 1080.0 };
+        }
+        let (mut left, mut top) = (f64::MAX, f64::MAX);
+        let (mut right, mut bottom) = (f64::MIN, f64::MIN);
+        for id in ids {
+            let bounds = unsafe { CGDisplayBounds(id) };
+            let scale = scale_of(id);
+            left = left.min(bounds.origin.x * scale);
+            top = top.min(bounds.origin.y * scale);
+            right = right.max((bounds.origin.x + bounds.size.width) * scale);
+            bottom = bottom.max((bounds.origin.y + bounds.size.height) * scale);
+        }
+        ScreenSize {
+            x: left,
+            y: top,
+            width: right - left,
+            height: bottom - top,
         }
     }
 }

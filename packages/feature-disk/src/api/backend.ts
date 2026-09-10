@@ -17,6 +17,7 @@ import type {
   SubtreeQuery,
   TopFilesQuery,
   TrashOutcome,
+  TrashProgress,
   TreeNode,
   VolumeInfo,
 } from "./types";
@@ -67,6 +68,7 @@ export interface DiskBackend {
   snapshotDiff(id: string, against?: string): Promise<SnapshotDiff>;
   snapshotOpen(id: string): Promise<ScanSummary>;
 
+  onTrashProgress(cb: (p: TrashProgress) => void): () => void;
   onScanProgress(cb: (p: ScanProgress) => void): () => void;
   onScanDone(cb: (d: ScanDone) => void): () => void;
   onDupesProgress(cb: (p: DupesProgress) => void): () => void;

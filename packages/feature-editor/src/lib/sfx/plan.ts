@@ -30,6 +30,13 @@ import { mulberry32 } from "./synth";
 export type SfxEventKind = "click" | "key" | "zoom" | "transition";
 
 export interface SfxEvent {
+  /**
+   * Stable across edits: derived from what made the sound (the source-time of
+   * a press, a segment's id) and never from its place in the plan, so cutting
+   * the video elsewhere does not renumber it and a removal keeps pointing at
+   * the sound the user actually removed.
+   */
+  id: string;
   /** Seconds on the cut timeline. */
   t: number;
   sound: SfxSoundId;
@@ -58,9 +65,11 @@ const ZOOM_JOIN = 0.15;
 const PAN_SPREAD = 0.55;
 const ZOOM_PAN_SPREAD = 0.3;
 
-const KEY_SOUND: Record<KeyKind, SfxSoundId> = {
-  key: "key",
-  modifier: "key",
+const KEY_SOUND: Record<KeyKind, SfxSoundId | SfxSoundId[]> = {
+  // Three recordings of an ordinary key, rotated by the seeded random below:
+  // one sample on every letter is what makes a typing sound effect sound fake.
+  key: ["key", "key2", "key3"],
+  modifier: ["key", "key2", "key3"],
   space: "keySpace",
   enter: "keyEnter",
   backspace: "keyBackspace",
@@ -129,6 +138,9 @@ export function screenX(project: Project, x: number, y: number, sourceTime: numb
   return clamp((p.nx - win.start) * z.scale, 0, 1);
 }
 
+/** Source seconds as milliseconds, which is finer than any of the sources. */
+const stamp = (seconds: number): string => Math.round(seconds * 1000).toString(36);
+
 export function planSfx(project: Project): SfxEvent[] {
   const { sfx, segments } = project;
   if (!segments.length || timelineDuration(segments) <= 0) return [];
@@ -152,6 +164,7 @@ export function planSfx(project: Project): SfxEvent[] {
         if (p.t - lastDown < MIN_CLICK_GAP) continue;
         lastDown = p.t;
         events.push({
+          id: `cd${stamp(p.t)}`,
           t,
           sound: p.button === "right" ? "rightClick" : precise ? "click" : "clickFull",
           kind: "click",
@@ -163,6 +176,7 @@ export function planSfx(project: Project): SfxEvent[] {
         // A release off the 33 ms track lands up to a frame late; only the native one is worth hearing.
         // The right click plays whole at the press — its release is in the recording already.
         events.push({
+          id: `cu${stamp(p.t)}`,
           t,
           sound: "clickUp",
           kind: "click",
@@ -184,9 +198,14 @@ export function planSfx(project: Project): SfxEvent[] {
       if (t === null) continue;
       if (k.t - last < MIN_KEY_GAP) continue;
       last = k.t;
+      const choices = KEY_SOUND[k.kind] ?? "key";
+      const sound = Array.isArray(choices)
+        ? choices[Math.min(choices.length - 1, Math.floor(rand() * choices.length))]
+        : choices;
       events.push({
+        id: `k${stamp(k.t)}`,
         t,
-        sound: KEY_SOUND[k.kind] ?? "key",
+        sound,
         kind: "key",
         gain: KEY_GAIN * (k.kind === "modifier" ? 0.7 : 1) * (0.85 + 0.15 * rand()) * level,
         pan: 0,
@@ -208,6 +227,7 @@ export function planSfx(project: Project): SfxEvent[] {
         const t = timelineTimeOf(project, z.start);
         if (t !== null) {
           events.push({
+            id: `zi${z.id}`,
             t: Math.max(0, t - ZOOM_LEAD),
             sound: "zoomIn",
             kind: "zoom",
@@ -221,6 +241,7 @@ export function planSfx(project: Project): SfxEvent[] {
         const t = timelineTimeOf(project, z.end - outT);
         if (t !== null) {
           events.push({
+            id: `zo${z.id}`,
             t,
             sound: "zoomOut",
             kind: "zoom",
@@ -243,6 +264,7 @@ export function planSfx(project: Project): SfxEvent[] {
       const sound = TRANSITION_SOUND[tr.kind as Exclude<TransitionKind, "none">];
       const nominal = sound === "swell" ? 0.9 : 0.8;
       events.push({
+        id: `tr${seg.id}`,
         t: Math.max(0, segmentTimelineStart(segments, i) - TRANSITION_LEAD),
         sound,
         kind: "transition",
@@ -254,7 +276,17 @@ export function planSfx(project: Project): SfxEvent[] {
   }
 
   events.sort((a, b) => a.t - b.t);
+  if (sfx.removed?.length) {
+    const gone = new Set(sfx.removed);
+    return events.filter((e) => !gone.has(e.id));
+  }
   return events;
+}
+
+/** What a removed id would have sounded like, for the "restore" list. */
+export function planWithRemoved(project: Project): SfxEvent[] {
+  if (!project.sfx.removed?.length) return planSfx(project);
+  return planSfx({ ...project, sfx: { ...project.sfx, removed: [] } });
 }
 
 const planCache = new WeakMap<Project, SfxEvent[]>();

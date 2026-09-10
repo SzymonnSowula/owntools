@@ -103,8 +103,8 @@ export function MediaPage() {
               const uses = usedBy(m.id);
               return (
                 <div key={m.id} className="sc-card overflow-hidden">
-                  <div className="aspect-square bg-paper">
-                    <Thumb item={m} className="h-full w-full object-cover" />
+                  <div className="relative aspect-square bg-paper">
+                    <Thumb item={m} className="h-full w-full object-cover" badge />
                   </div>
                   <div className="flex items-center gap-2 px-3 py-2">
                     <div className="min-w-0 flex-1">

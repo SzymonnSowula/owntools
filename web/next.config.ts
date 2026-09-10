@@ -4,7 +4,7 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   // The launch engine is shared with the desktop app and ships as TypeScript
   // source, so Next has to compile it like first-party code.
-  transpilePackages: ["@shipshape/launch-engine"],
+  transpilePackages: ["@owntools/launch-engine"],
   // Next 16 builds with Turbopack and dev-runs with webpack here, so the same
   // aliases have to be declared for both.
   turbopack: {

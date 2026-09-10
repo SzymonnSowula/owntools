@@ -1,5 +1,5 @@
 import type { SfxPackId } from "../../types";
-import { MOUSE_CLICK_SPLIT, sample } from "./samples";
+import { KEYBOARD_CUTS, MOUSE_CLICK_SPLIT, sample, type KeyboardCut } from "./samples";
 import type { NoiseLayer, Recipe, SampleLayer, ToneLayer } from "./synth";
 
 /**
@@ -10,12 +10,14 @@ import type { NoiseLayer, Recipe, SampleLayer, ToneLayer } from "./synth";
  * typewriter's cousin; "playful" is pops and bloops, the sound of a friendly
  * app.
  *
- * The mouse click is a recording (`samples.ts`), the same one in every pack
- * with the pack's own colouring on top. It comes in three cuts: `click` is
- * the press alone and `clickUp` the release, for a take whose input track
- * knows when the button came up; `clickFull` is the whole click — press and
- * release as they were recorded, 85 ms apart — for a take that only has the
- * cursor track's down-edges.
+ * The mouse click and the keys are recordings (`samples.ts`), the same ones
+ * in every pack with the pack's own colouring on top. The click comes in
+ * three cuts: `click` is the press alone and `clickUp` the release, for a
+ * take whose input track knows when the button came up; `clickFull` is the
+ * whole click — press and release as they were recorded, 85 ms apart — for a
+ * take that only has the cursor track's down-edges. The keyboard comes in six:
+ * three ordinary keys the planner rotates through so a sentence never sounds
+ * like one sample on repeat, plus the space bar, enter and backspace.
  */
 
 export type SfxSoundId =
@@ -24,6 +26,8 @@ export type SfxSoundId =
   | "clickFull"
   | "rightClick"
   | "key"
+  | "key2"
+  | "key3"
   | "keySpace"
   | "keyEnter"
   | "keyBackspace"
@@ -46,6 +50,8 @@ export const SFX_SOUND_LABELS: Record<SfxSoundId, string> = {
   clickFull: "Click",
   rightClick: "Right click",
   key: "Key",
+  key2: "Key (second)",
+  key3: "Key (third)",
   keySpace: "Space bar",
   keyEnter: "Enter",
   keyBackspace: "Backspace",
@@ -81,7 +87,6 @@ function tone(
 
 const bp = (freq: number, q = 1, to?: number): Filter => ({ type: "bandpass", freq, q, to });
 const lp = (freq: number, to?: number, q = 0.707): Filter => ({ type: "lowpass", freq, q, to });
-const hp = (freq: number, q = 0.707): Filter => ({ type: "highpass", freq, q });
 
 function recipe(duration: number, layers: Recipe["layers"], seed = 1, peak = 0.9): Recipe {
   return { duration, seed, peak, layers };
@@ -124,6 +129,29 @@ function clickCuts(
   };
 }
 
+/**
+ * The six recorded keystrokes, coloured per pack. Unlike the click's cuts these
+ * are normalised: each was levelled when it was extracted, so normalising again
+ * only undoes what a pack's filter takes off — every key stays as loud as every
+ * other one and the planner's own jitter is what varies a take.
+ */
+function keyCuts(colour: Colour, extra: Recipe["layers"] = []): Record<KeyboardCut, Recipe> {
+  const rate = colour.rate ?? 1;
+  const out = {} as Record<KeyboardCut, Recipe>;
+  for (const id of Object.keys(KEYBOARD_CUTS) as KeyboardCut[]) {
+    const cut = KEYBOARD_CUTS[id];
+    out[id] = {
+      duration: (cut.to - cut.from) / rate + 0.006,
+      peak: 0.9,
+      layers: [
+        { type: "sample", sample: "keyboard", gain: 1, from: cut.from, to: cut.to, ...colour },
+        ...extra,
+      ],
+    };
+  }
+  return out;
+}
+
 const soft: SfxPack = {
   id: "soft",
   name: "Soft",
@@ -131,26 +159,8 @@ const soft: SfxPack = {
   sounds: {
     // The click as recorded, only a touch of the very top taken off.
     ...clickCuts({ filter: { type: "lowpass", freq: 9000, q: 0.6 } }),
-    key: recipe(0.07, [
-      noise(1, 0.0005, 0.012, bp(1500, 0.9)),
-      noise(0.35, 0.0002, 0.003, hp(5000)),
-      tone(0.45, 115, 0.001, 0.016),
-    ], 4, 0.85),
-    keySpace: recipe(0.09, [
-      noise(1, 0.0006, 0.016, bp(950, 0.8)),
-      noise(0.25, 0.0002, 0.003, hp(4000)),
-      tone(0.6, 85, 0.001, 0.024),
-    ], 5),
-    keyEnter: recipe(0.09, [
-      noise(1, 0.0006, 0.017, bp(1150, 0.9)),
-      noise(0.3, 0.0002, 0.003, hp(4500)),
-      tone(0.6, 95, 0.001, 0.024),
-    ], 6, 0.92),
-    keyBackspace: recipe(0.07, [
-      noise(1, 0.0005, 0.011, bp(1750, 1)),
-      noise(0.3, 0.0002, 0.003, hp(5000)),
-      tone(0.4, 120, 0.001, 0.014),
-    ], 7, 0.85),
+    // The board as recorded with the top taken off — a keyboard in the next room.
+    ...keyCuts({ filter: { type: "lowpass", freq: 4200, q: 0.7 } }),
     zoomIn: recipe(0.65, [
       noise(1, 0.12, 0.16, bp(450, 0.7, 2300), { hold: 0.05 }),
       noise(0.35, 0.1, 0.15, lp(700)),
@@ -178,28 +188,9 @@ const mechanical: SfxPack = {
   sounds: {
     // Brighter and a shade quicker: the body rolled off, the snap kept.
     ...clickCuts({ filter: { type: "highpass", freq: 900, q: 0.7 }, rate: 1.06 }),
-    key: recipe(0.07, [
-      noise(1, 0.0003, 0.009, bp(2600, 2)),
-      noise(0.8, 0.0002, 0.004, hp(4000)),
-      tone(0.35, 160, 0.001, 0.012),
-      tone(0.3, 3200, 0.0002, 0.005),
-    ], 24, 0.88),
-    keySpace: recipe(0.09, [
-      noise(1, 0.0004, 0.014, bp(1400, 1.5)),
-      noise(0.6, 0.0002, 0.004, hp(3500)),
-      tone(0.5, 110, 0.001, 0.02),
-    ], 25),
-    keyEnter: recipe(0.09, [
-      noise(1, 0.0004, 0.015, bp(1700, 1.6)),
-      noise(0.6, 0.0002, 0.004, hp(3800)),
-      tone(0.5, 125, 0.001, 0.02),
-      tone(0.25, 2800, 0.0002, 0.006),
-    ], 26, 0.92),
-    keyBackspace: recipe(0.07, [
-      noise(1, 0.0003, 0.009, bp(3000, 2)),
-      noise(0.7, 0.0002, 0.004, hp(4500)),
-      tone(0.3, 170, 0.001, 0.011),
-    ], 27, 0.88),
+    // Closest to the tape: the recording *is* a mechanical board, so this pack
+    // only tightens the low end and hurries it a touch.
+    ...keyCuts({ filter: { type: "highpass", freq: 320, q: 0.7 }, rate: 1.05 }),
     zoomIn: recipe(0.6, [
       noise(1, 0.1, 0.15, bp(500, 1.1, 4000), { hold: 0.04 }),
       noise(0.25, 0.08, 0.14, lp(900)),
@@ -227,10 +218,8 @@ const playful: SfxPack = {
   sounds: {
     // The real click with a small bloop under the press.
     ...clickCuts({}, [tone(0.22, 720, 0.002, 0.035, 360)]),
-    key: recipe(0.08, [tone(0.8, 880, 0.001, 0.025, 520), noise(0.3, 0.0004, 0.008, lp(2500))], 44, 0.85),
-    keySpace: recipe(0.1, [tone(1, 520, 0.001, 0.035, 300), noise(0.3, 0.0004, 0.01, lp(1800))], 45),
-    keyEnter: recipe(0.12, [tone(1, 620, 0.001, 0.04, 310), tone(0.4, 930, 0.001, 0.03, 465)], 46, 0.92),
-    keyBackspace: recipe(0.08, [tone(0.9, 700, 0.001, 0.02, 980), noise(0.25, 0.0004, 0.006, lp(2500))], 47, 0.85),
+    // The same keys pitched up with a bloop under them.
+    ...keyCuts({ rate: 1.14 }, [tone(0.3, 760, 0.001, 0.03, 420)]),
     zoomIn: recipe(0.65, [
       noise(1, 0.12, 0.16, bp(500, 0.8, 3000), { hold: 0.05 }),
       tone(0.2, 300, 0.1, 0.25, 600),

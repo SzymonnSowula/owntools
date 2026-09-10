@@ -23,16 +23,16 @@ export const viewport: Viewport = {
 };
 
 /* Applies the saved theme before first paint (day is the default). */
-const themeInit = `try{if(localStorage.getItem("shipshape-theme")==="dark")document.documentElement.dataset.theme="dark"}catch(e){}`;
+const themeInit = `try{if(localStorage.getItem("owntools-theme")==="dark")document.documentElement.dataset.theme="dark"}catch(e){}`;
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: "shipshape — dictate, transcribe and record on your own device",
-    template: "%s · shipshape",
+    default: "owntools - dictate, transcribe and record on your own device",
+    template: "%s · owntools",
   },
   description:
-    "Dictate into any app, transcribe audio and video, record your screen, take notes, sketch on a whiteboard, schedule your social posts, translate, and turn a link into a video. One desktop app that runs on your own machine and keeps working offline.",
+    "Dictate into any app, transcribe audio and video, record your screen, take notes, sketch on a whiteboard, schedule your social posts, see what is eating your disk, translate, and turn a link into a video. One desktop app that runs on your own machine and keeps working offline.",
   keywords: [
     "dictation app",
     "voice typing",
@@ -52,17 +52,17 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     url: siteUrl,
-    siteName: "shipshape",
-    title: "shipshape — dictate, transcribe and record on your own device",
+    siteName: "owntools",
+    title: "owntools - dictate, transcribe and record on your own device",
     description:
-      "Dictate anywhere, transcribe anything, record your screen, take notes, sketch on a whiteboard, schedule posts, translate. One app, no account, nothing uploaded.",
+      "Dictate anywhere, transcribe anything, record your screen, take notes, sketch on a whiteboard, schedule posts, reclaim disk space, translate. One app, no account, nothing uploaded.",
     locale: "en_US",
   },
   twitter: {
     card: "summary_large_image",
-    title: "shipshape — dictate, transcribe and record on your own device",
+    title: "owntools - dictate, transcribe and record on your own device",
     description:
-      "Dictate anywhere, transcribe anything, record your screen, take notes, sketch on a whiteboard, schedule posts, translate. One app, no account, nothing uploaded.",
+      "Dictate anywhere, transcribe anything, record your screen, take notes, sketch on a whiteboard, schedule posts, reclaim disk space, translate. One app, no account, nothing uploaded.",
   },
   alternates: { canonical: siteUrl },
 };

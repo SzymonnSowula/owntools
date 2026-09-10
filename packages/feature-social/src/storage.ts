@@ -37,6 +37,8 @@ export const PATHS = {
   tags: "tags.json",
   media: "media.json",
   settings: "settings.json",
+  /** Mirror of the network catalogue, written for the Rust agent server. */
+  networks: "networks.json",
   posts: "posts",
   mediaDir: "media",
   avatars: "avatars",
@@ -145,7 +147,7 @@ function makeTauriStorage(): SocialStorage {
 /* Browser: IndexedDB key/value keyed by the same relative paths        */
 /* ------------------------------------------------------------------ */
 
-const DB_NAME = "shipshape-social";
+const DB_NAME = "owntools-social";
 const STORE = "files";
 let dbPromise: Promise<IDBDatabase> | null = null;
 

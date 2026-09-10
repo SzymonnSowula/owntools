@@ -35,7 +35,7 @@ fn copy_dir_recursive(from: &Path, to: &Path) -> std::io::Result<()> {
     Ok(())
 }
 
-/// Copies focus.json and the screeni projects tree into shipshape's AppData.
+/// Copies focus.json and the screeni projects tree into the owntools AppData folder.
 /// Idempotent: existing destination files are never overwritten.
 #[tauri::command]
 pub fn import_legacy_data(app: AppHandle) -> Result<ImportReport, String> {

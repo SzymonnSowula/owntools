@@ -27,7 +27,7 @@ export interface RitualStep {
   enabled: boolean;
 }
 
-/** Which shipshape module the session lands on. */
+/** Which owntools module the session lands on. */
 export type RitualTool = "hub" | "focus" | "create" | "launch" | "dictate";
 
 export interface WorkspaceRitual {

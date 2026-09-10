@@ -183,7 +183,7 @@ const tauriStorage: BoardStorage = {
 /* Browser: IndexedDB key/value                                        */
 /* ------------------------------------------------------------------ */
 
-const DB_NAME = "shipshape-board";
+const DB_NAME = "owntools-board";
 const STORE = "kv";
 let dbPromise: Promise<IDBDatabase> | null = null;
 

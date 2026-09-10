@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Project } from "../types";
 import { activeClicks, extractClicks } from "./cursorFx";
-import { DEFAULT_BACKGROUND, DEFAULT_CURSOR, DEFAULT_WEBCAM, normalizeProject } from "./defaults";
+import { DEFAULT_BACKGROUND, DEFAULT_CURSOR, DEFAULT_WEBCAM, PROJECT_SCHEMA, normalizeProject } from "./defaults";
 import { GRADIENT_PRESETS } from "./gradients";
 import {
   BUILT_IN_PRESETS,
@@ -60,6 +60,24 @@ describe("normalizeProject", () => {
     const raw = legacyProject();
     raw.backgroundPath = "screeni/projects/proj_1/background.jpg";
     expect(normalizeProject(raw as unknown as Project).background.mode).toBe("image");
+  });
+
+  it("gives a project written before schema 1 the new sound-effects default", () => {
+    // Effects shipped off, so `false` in an old file is the old default, not a choice.
+    const raw = legacyProject();
+    raw.sfx = { enabled: false, pack: "mechanical", clickVolume: 0.4 };
+    const p = normalizeProject(raw as unknown as Project);
+    expect(p.sfx.enabled).toBe(true);
+    expect(p.sfx.pack).toBe("mechanical");
+    expect(p.sfx.clickVolume).toBe(0.4);
+    expect(p.schema).toBe(PROJECT_SCHEMA);
+  });
+
+  it("leaves sound effects switched off when the file knows the current default", () => {
+    const raw = legacyProject();
+    raw.schema = PROJECT_SCHEMA;
+    raw.sfx = { enabled: false };
+    expect(normalizeProject(raw as unknown as Project).sfx.enabled).toBe(false);
   });
 
   it("keeps transitions that are well formed and drops broken segments", () => {

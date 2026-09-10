@@ -131,7 +131,7 @@ export function buildDemoSpec(options: DemoOptions = {}): Spec {
     dir("D3DSCache", cacheFiles(14, 200 * KB, 30 * MB)),
     dir("NVIDIA", [dir("DXCache", cacheFiles(80, 100 * KB, 12 * MB)), dir("GLCache", cacheFiles(40, 100 * KB, 8 * MB))]),
     dir("Yarn", [dir("Berry", [dir("cache", cacheFiles(180, 20 * KB, 9 * MB, 10, 200))])]),
-    dir("shipshape", [dir("recordings", files(6, (i) => dir(`take-${hex(6)}`, [file("screen.webm", between(200 * MB, 1.4 * GB), age(i, i + 10)), file("project.json", 4 * KB, age(i, i + 10))]))), dir("whisper", [file("ggml-large-v3-turbo-q5_0.bin", 574 * MB, age(6, 7)), file("whisper-cli.exe", 8 * MB, age(6, 7))])]),
+    dir("owntools", [dir("recordings", files(6, (i) => dir(`take-${hex(6)}`, [file("screen.webm", between(200 * MB, 1.4 * GB), age(i, i + 10)), file("project.json", 4 * KB, age(i, i + 10))]))), dir("whisper", [file("ggml-large-v3-turbo-q5_0.bin", 574 * MB, age(6, 7)), file("whisper-cli.exe", 8 * MB, age(6, 7))])]),
   ]);
 
   const roaming = dir("Roaming", [
@@ -166,7 +166,7 @@ export function buildDemoSpec(options: DemoOptions = {}): Spec {
     file("obs-studio-31.0.exe", 142 * MB, age(60, 61)),
     file("dataset-export-2026-06.zip", 1.4 * GB, age(90, 91)),
     file("brand-assets.zip", 384 * MB, age(50, 51)),
-    file("shipshape_0.2.0_x64-setup.exe", 108 * MB, age(2, 3)),
+    file("owntools_0.2.0_x64-setup.exe", 108 * MB, age(2, 3)),
     ...docFiles(60, ["pdf", "pdf", "docx", "xlsx", "pptx"], 40 * KB, 24 * MB),
     ...jpgs(70, 300 * KB, 9 * MB, "photo_"),
     file("DSC_0412.jpg", dupPhotoSize, age(35, 36), dupPhoto),
@@ -190,11 +190,11 @@ export function buildDemoSpec(options: DemoOptions = {}): Spec {
     ]);
 
   const projects = dir("Projects", [
-    project("shipshape", {
+    project("owntools", {
       modules: 420,
       build: [
         dir("dist", [...cacheFiles(40, 50 * KB, 9 * MB, 0, 3), dir("assets", cacheFiles(60, 100 * KB, 12 * MB, 0, 3))]),
-        dir("target", [dir("debug", [...files(14, (i) => file(`shipshape_lib${i ? `-${hex(16)}` : ""}.${pick(["rlib", "pdb", "exe", "dll", "rmeta"])}`, between(20 * MB, 400 * MB), age(0, 5))), dir("deps", cacheFiles(500, 100 * KB, 6 * MB, 0, 20)), dir("incremental", files(30, () => dir(`shipshape-${hex(16)}`, cacheFiles(int(5, 30), 100 * KB, 5 * MB, 0, 10))))]), dir("release", [...files(6, () => file(`${pick(["shipshape", "shipshape_lib"])}.${pick(["exe", "pdb", "rlib"])}`, between(20 * MB, 300 * MB), age(1, 6))), dir("deps", cacheFiles(300, 100 * KB, 6 * MB, 1, 20))])]),
+        dir("target", [dir("debug", [...files(14, (i) => file(`owntools_lib${i ? `-${hex(16)}` : ""}.${pick(["rlib", "pdb", "exe", "dll", "rmeta"])}`, between(20 * MB, 400 * MB), age(0, 5))), dir("deps", cacheFiles(500, 100 * KB, 6 * MB, 0, 20)), dir("incremental", files(30, () => dir(`owntools-${hex(16)}`, cacheFiles(int(5, 30), 100 * KB, 5 * MB, 0, 10))))]), dir("release", [...files(6, () => file(`${pick(["owntools", "owntools_lib"])}.${pick(["exe", "pdb", "rlib"])}`, between(20 * MB, 300 * MB), age(1, 6))), dir("deps", cacheFiles(300, 100 * KB, 6 * MB, 1, 20))])]),
       ],
       extra: [file("Cargo.toml", 3 * KB, age(0, 10)), dir("docs", docFiles(20, ["md", "pdf"], 20 * KB, 6 * MB))],
     }),
@@ -220,7 +220,7 @@ export function buildDemoSpec(options: DemoOptions = {}): Spec {
 
   const videos = dir("Videos", [
     dir("Captures", files(14, (i) => file(`Desktop 2026.0${int(6, 9)}.${int(10, 28)} - ${int(10, 23)}.${int(10, 59)}.${int(10, 59)}.0${i}.mp4`, between(200 * MB, 1.2 * GB), age(i * 4, i * 4 + 2)))),
-    dir("shipshape exports", files(9, (i) => file(`launch-take-${i + 1}.mp4`, between(40 * MB, 320 * MB), age(i, i + 3)))),
+    dir("owntools exports", files(9, (i) => file(`launch-take-${i + 1}.mp4`, between(40 * MB, 320 * MB), age(i, i + 3)))),
     bigVideo("Keynote 2026 — full talk (4K).mkv", dupTalkSize, age(40, 41), dupTalk),
     bigVideo("wedding-raw.mp4", 4.3 * GB, age(500, 501)),
   ]);
@@ -238,7 +238,7 @@ export function buildDemoSpec(options: DemoOptions = {}): Spec {
   const desktop = dir("Desktop", [
     ...docFiles(12, ["pdf", "docx", "txt"], 10 * KB, 5 * MB),
     file("todo.md", 4 * KB, age(0, 1)),
-    file("shipshape_0.2.0_x64-setup.exe", 108 * MB, age(2, 3)),
+    file("owntools_0.2.0_x64-setup.exe", 108 * MB, age(2, 3)),
     file("cursor-setup-x64-1.6.2.exe", dupInstallerSize, age(9, 10), dupInstaller),
     dir("old stuff", [...docFiles(30, ["pdf", "docx"], 100 * KB, 20 * MB), file("backup-2023.zip", 2.4 * GB, age(700, 900)), file("Win11_24H2_English_x64.iso", dupIsoSize, age(120, 121), dupIso)]),
   ]);

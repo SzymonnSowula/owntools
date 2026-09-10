@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /* ------------------------------------------------------------------ *
- * shipshape design system — "open desk"                              *
+ * owntools design system — "open desk"                              *
  * day theme (default): bright desk, blue sky, paper mac-windows.     *
  * night theme: premium dusk (superwhisper-grade), same skeleton.     *
  * One accent family: Apple blue #0a84ff · indigo #5e5ce6 ·          *
@@ -71,6 +71,37 @@ html {
   background: var(--color-paper);
 }
 
+/* --- scale on big screens -------------------------------------------------
+   The layout is authored for ~1400px. Past that, grow the whole page rather
+   than restyling it, so a 2K desktop reads at arm's length instead of showing
+   the same design shrunk into the middle. Anything using vh/vw has to divide
+   by --zoom (see the note at the top of this rule's block comment). */
+:root {
+  --zoom: 1;
+}
+
+@media (min-width: 1500px) {
+  :root {
+    --zoom: 1.15;
+  }
+}
+
+@media (min-width: 1900px) {
+  :root {
+    --zoom: 1.3;
+  }
+}
+
+@media (min-width: 2800px) {
+  :root {
+    --zoom: 1.45;
+  }
+}
+
+body {
+  zoom: var(--zoom);
+}
+
 /* anchored sections land below the fixed pill nav */
 [id] {
   scroll-margin-top: 90px;
@@ -98,86 +129,8 @@ body {
   background-size: 22px 22px;
 }
 
-/* hero sky — day: XP-bliss blue; night: superwhisper dusk.
-   Drop web/public/wallpapers/hero.jpg / hero-dark.jpg to use real photos. */
-.hero-sky {
-  color: #ffffff;
-  background-color: #5ca4e4;
-  background-image:
-    url("/wallpapers/hero.jpg"),
-    radial-gradient(46% 32% at 12% 20%, rgba(255, 255, 255, 0.9), transparent 70%),
-    radial-gradient(40% 30% at 82% 12%, rgba(255, 255, 255, 0.75), transparent 70%),
-    radial-gradient(60% 40% at 50% 96%, rgba(214, 236, 210, 0.85), transparent 72%),
-    linear-gradient(to bottom, #3f8fd9 0%, #5ea7e5 55%, #8ec4ee 86%, #b8dcd8 100%);
-  background-size: cover, auto, auto, auto, auto;
-  background-position: center;
-}
 
-:root[data-theme="dark"] .hero-sky {
-  background-color: #060610;
-  background-image:
-    url("/wallpapers/hero-dark.jpg"),
-    radial-gradient(120% 70% at 20% 108%, rgba(224, 122, 95, 0.34), transparent 60%),
-    radial-gradient(130% 80% at 80% 112%, rgba(94, 92, 230, 0.3), transparent 60%),
-    linear-gradient(to bottom, #05050c 0%, #0a1630 34%, #16345e 68%, #4a5a8a 88%, #8d7d95 100%);
-  background-size: cover, auto, auto, auto;
-  background-position: center;
-}
 
-/* ascii code raining over the sky (procedural, /wallpapers/ascii-grid.svg) */
-.ascii-sky {
-  position: relative;
-  isolation: isolate;
-}
-
-.ascii-sky::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  background-image: url("/wallpapers/ascii-grid.svg");
-  background-size: 640px 520px;
-  opacity: 0.22;
-  -webkit-mask-image: linear-gradient(to bottom, black 0%, black 45%, transparent 85%);
-  mask-image: linear-gradient(to bottom, black 0%, black 45%, transparent 85%);
-  pointer-events: none;
-}
-
-:root[data-theme="dark"] .ascii-sky::before {
-  opacity: 0.16;
-}
-
-/* NOTE: children that must paint above the ::before overlay need their own
-   position (relative/absolute) — hero content and decorations already have it.
-   Do NOT force `position` on all children here: an un-layered rule would beat
-   Tailwind's layered `.absolute` and break card positioning. */
-
-/* meadow break (pricing) — the field wallpaper, framed on its bottom part
-   (the grass). Reuses /wallpapers/hero.jpg; gradients render if it's missing.
-   Day: bright as-is; night: same field under a dark wash + light text. */
-.sky-day {
-  color: #1d1d1f;
-  background-color: #7db8e8;
-  background-image:
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0) 40%),
-    url("/wallpapers/hero.jpg"),
-    radial-gradient(48% 34% at 14% 22%, rgba(255, 255, 255, 0.95), transparent 70%),
-    radial-gradient(40% 30% at 78% 14%, rgba(255, 255, 255, 0.8), transparent 70%),
-    linear-gradient(to bottom, #4d9be0 0%, #7db8e8 45%, #8fbf8f 100%);
-  background-size: cover, cover, auto, auto, auto;
-  background-position: center bottom;
-}
-
-:root[data-theme="dark"] .sky-day {
-  color: #f5f5f7;
-  background-color: #0a1420;
-  background-image:
-    linear-gradient(to bottom, rgba(6, 10, 20, 0.62), rgba(6, 10, 20, 0.74)),
-    url("/wallpapers/hero.jpg"),
-    linear-gradient(to bottom, #0a1630 0%, #10263f 55%, #12281e 100%);
-  background-size: cover, cover, auto;
-  background-position: center bottom;
-}
 
 /* ------------------------------- windows ------------------------------- */
 
@@ -421,45 +374,26 @@ body {
   overflow: hidden;
 }
 
-/* nature visual for bento tiles: meadow-sky gradient (photo drop-in via
-   /wallpapers/hero.jpg) with the ASCII grid raining over it */
-.nature {
-  position: relative;
-  background-color: #5ca4e4;
-  background-image:
-    url("/wallpapers/hero.jpg"),
-    linear-gradient(to bottom, #4694dc 0%, #7db8e8 52%, #9ccb9c 100%);
-  background-size: cover, auto;
-  background-position: center;
-}
-
-:root[data-theme="dark"] .nature {
-  background-color: #0a1630;
-  background-image:
-    url("/wallpapers/hero-dark.jpg"),
-    linear-gradient(to bottom, #0a1630 0%, #16345e 60%, #1c3a2e 100%);
-  background-size: cover, auto;
-  background-position: center;
-}
-
-.nature::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background-image: url("/wallpapers/ascii-grid.svg");
-  background-size: 520px 420px;
-  opacity: 0.28;
-  -webkit-mask-image: linear-gradient(to bottom, black 30%, transparent 95%);
-  mask-image: linear-gradient(to bottom, black 30%, transparent 95%);
-  pointer-events: none;
-}
-
-/* content placed on .nature must be position:relative to paint above ::after */
+/* .nature is retired — bento tiles now use .scene + .ground (see the
+   layered-scenes block at the end of this file). */
 
 /* ------------------------------- toolkit -------------------------------- */
 
 .toolkit-row {
   scrollbar-width: none;
+  /* an overflow-x scroller clips the block axis too, so the hover lift and the
+     tinted glow under a card were being cut off along a hard rectangle. Give
+     the scrollport room in every direction and hand it back with margins, so
+     nothing in the layout moves. */
+  padding-block: 20px 34px;
+  padding-left: 24px;
+  margin-block: -20px -26px;
+  margin-left: -24px;
+  /* snapping aligns the card, not the padding, so tell it where the row really
+     starts — otherwise the scroller parks at 24px and eats the room again.
+     Note the padding is set per side: the shorthand would kill the pr-* utility
+     that keeps the last card clear of the fog. */
+  scroll-padding-left: 24px;
 }
 
 .toolkit-row::-webkit-scrollbar {
@@ -487,6 +421,166 @@ body {
 @media (min-width: 768px) {
   .toolkit-fog {
     width: 190px;
+  }
+}
+
+/* ----------------------------- tool showcase ---------------------------- */
+
+/* One tall row per tool. --f (0..1) is written by ToolShowcase.tsx and says how
+   close the row sits to the middle of the screen, so a scroll settles on one
+   tool at a time instead of six competing for the eye. Without JS every row
+   stays at --f: 1, i.e. fully lit. */
+.ts-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 72px;
+}
+
+.ts-row {
+  --f: 1;
+  --tint: var(--color-accent);
+  display: grid;
+  gap: 36px;
+  align-items: center;
+  opacity: calc(0.45 + 0.55 * var(--f));
+  transform: scale(calc(0.98 + 0.02 * var(--f)));
+  transform-origin: center;
+}
+
+/* the media panel — a real window, big enough to carry a clip of the tool */
+.ts-frame {
+  border-radius: 26px;
+  padding: 9px;
+  border: 1px solid color-mix(in srgb, var(--tint) 26%, var(--color-line));
+  background:
+    linear-gradient(150deg, color-mix(in srgb, var(--tint) 38%, transparent), color-mix(in srgb, var(--tint) 8%, transparent) 55%, transparent 85%),
+    var(--glow-b);
+  box-shadow: 0 34px 80px color-mix(in srgb, var(--tint) 16%, transparent);
+}
+
+.ts-window {
+  border-radius: 18px;
+}
+
+.ts-stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  aspect-ratio: 16 / 9;
+  background:
+    radial-gradient(120% 90% at 18% 0%, color-mix(in srgb, var(--tint) 18%, transparent), transparent 62%),
+    radial-gradient(rgba(29, 29, 31, 0.09) 1px, transparent 1px) 0 0 / 18px 18px,
+    #ffffff;
+}
+
+.ts-stage > video,
+.ts-stage > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* the drawn stand-in is built at mockup scale — blow it up on the stage and
+   let it cast a shadow, so it reads as a window resting on the scene behind it
+   rather than a sticker in the middle of an empty rectangle */
+.ts-mock {
+  position: relative;
+  z-index: 1;
+  transform: scale(1.5);
+  filter: drop-shadow(0 22px 40px rgba(12, 22, 44, 0.32));
+}
+
+@media (max-width: 640px) {
+  .ts-mock {
+    transform: scale(1.15);
+  }
+}
+
+/* it already sits inside a window, so drop its own title bar: a window inside
+   a window at the same scale reads as a mistake, not as depth */
+.ts-mock .wincard-bar {
+  display: none;
+}
+
+.ts-bubble {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--tint) 30%, transparent);
+  background: color-mix(in srgb, var(--tint) 12%, transparent);
+  color: color-mix(in srgb, var(--tint) 62%, var(--color-ink));
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.ts-name {
+  margin-top: 18px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: lowercase;
+  color: var(--tint);
+}
+
+.ts-chip {
+  border-radius: 999px;
+  border: 1px solid var(--color-line);
+  background: var(--color-card);
+  padding: 5px 11px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-muted);
+}
+
+.ts-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 20px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--tint);
+}
+
+.ts-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+@media (min-width: 1024px) {
+  .ts-rows {
+    gap: 132px;
+  }
+
+  .ts-row {
+    grid-template-columns: minmax(0, 1.22fr) minmax(0, 0.78fr);
+    gap: 64px;
+    min-height: calc(58vh / var(--zoom));
+    opacity: calc(0.2 + 0.8 * var(--f));
+    transform: scale(calc(0.965 + 0.035 * var(--f)));
+  }
+
+  /* every other row mirrors: the wide column swaps sides with the media */
+  .ts-row--flip {
+    grid-template-columns: minmax(0, 0.78fr) minmax(0, 1.22fr);
+  }
+
+  .ts-row--flip .ts-media {
+    order: 2;
+  }
+
+  .ts-row--flip .ts-copy {
+    order: 1;
+  }
+
+  .ts-mock {
+    transform: scale(1.7);
   }
 }
 
@@ -611,6 +705,10 @@ body {
     transform: none;
     transition: none;
   }
+  .ts-row {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 /* ------------------------------ documents ------------------------------- */
@@ -717,4 +815,313 @@ body {
 
 :root[data-theme="dark"] .marker::after {
   opacity: 0.95;
+}
+
+/* ====================================================================== *
+ * LAYERED SCENES — the branding primitive                                *
+ * ---------------------------------------------------------------------- *
+ * A "scene" is a framed stage that holds depth: a nature ground, one or   *
+ * more floating panes, and a glass rim. Every tinted visual on the page   *
+ * is built from these four classes instead of ad-hoc gradients, so a new  *
+ * card is markup, never new CSS.                                          *
+ *                                                                        *
+ *   .ground            the little landscape (sky + sun + two hills)       *
+ *   .ground--*         a mood: dawn / meadow / tide / dusk / mist         *
+ *   .scene             the frame: clipping, rim light, isolation          *
+ *   .pane / .layer     what floats on it, with real shadow depth          *
+ *                                                                        *
+ * The landscape is written ONCE; a mood only re-declares six variables.   *
+ * ====================================================================== */
+
+.ground {
+  --sky-top: #4694dc;
+  --sky-mid: #7db8e8;
+  --sky-low: #d5e9f6;
+  --hill-near: #9ccb9c;
+  --hill-far: #b9d9ae;
+  --sun: rgba(255, 255, 255, 0.92);
+  --sun-x: 74%;
+  --sun-y: 14%;
+
+  position: relative;
+  isolation: isolate;
+  background-color: var(--sky-mid);
+  /* declared explicitly: a surface that already had its own `background`
+     shorthand (the studio stage does) would otherwise lend its size list to
+     these five layers and band the haze into stripes */
+  background-repeat: no-repeat;
+  background-position: 0 0;
+  background-size: auto;
+  background-image:
+    /* sun bloom */
+    radial-gradient(30% 40% at var(--sun-x) var(--sun-y), var(--sun), transparent 66%),
+    /* the haze that sits on every real horizon */
+    linear-gradient(to bottom, transparent 52%, rgba(255, 255, 255, 0.26) 66%, transparent 80%),
+    /* two hills, the near one darker and further round the frame. Each holds
+       its colour to ~42% of the ellipse before fading, or it reads as a smudge
+       instead of a ridge at the heights these cards actually get. */
+    radial-gradient(120% 52% at 22% 113%, var(--hill-near) 0%, var(--hill-near) 42%, transparent 78%),
+    radial-gradient(110% 46% at 84% 117%, var(--hill-far) 0%, var(--hill-far) 40%, transparent 76%),
+    linear-gradient(to bottom, var(--sky-top) 0%, var(--sky-mid) 46%, var(--sky-low) 100%);
+}
+
+/* A full-bleed sky is 1000px tall, so the hills drawn for a 200px card sit far
+   below the fold. `.ground--wide` pulls the horizon up into frame and widens
+   the sun; the hero and the pricing break use it. */
+.ground--wide {
+  background-image:
+    radial-gradient(38% 30% at var(--sun-x) var(--sun-y), var(--sun), transparent 68%),
+    linear-gradient(to bottom, transparent 58%, rgba(255, 255, 255, 0.3) 72%, transparent 88%),
+    radial-gradient(90% 34% at 26% 108%, var(--hill-near) 0%, var(--hill-near) 34%, transparent 74%),
+    radial-gradient(80% 30% at 82% 110%, var(--hill-far) 0%, var(--hill-far) 32%, transparent 72%),
+    linear-gradient(to bottom, var(--sky-top) 0%, var(--sky-mid) 58%, var(--sky-low) 100%);
+}
+
+/* the ASCII drizzle + a touch of grain, so a ground never reads as a plain
+   two-stop gradient. Content on a ground must be position:relative to paint
+   above it — same contract the old .nature had. */
+.ground::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image: url("/wallpapers/ascii-grid.svg");
+  background-size: 520px 420px;
+  opacity: 0.24;
+  -webkit-mask-image: linear-gradient(to bottom, black 22%, transparent 92%);
+  mask-image: linear-gradient(to bottom, black 22%, transparent 92%);
+}
+
+/* moods — six variables each, nothing else */
+.ground--dawn {
+  --sky-top: #7fa8d8;
+  --sky-mid: #e9b98d;
+  --sky-low: #f6dcc2;
+  --hill-near: #c08d6e;
+  --hill-far: #dcae8b;
+  --sun: rgba(255, 244, 224, 0.95);
+  --sun-x: 26%;
+  --sun-y: 62%;
+}
+
+.ground--tide {
+  --sky-top: #1f5fa8;
+  --sky-mid: #32ade6;
+  --sky-low: #bfe6f3;
+  --hill-near: #1c6f95;
+  --hill-far: #4bb3cf;
+  --sun: rgba(255, 255, 255, 0.8);
+  --sun-x: 82%;
+  --sun-y: 18%;
+}
+
+.ground--dusk {
+  --sky-top: #2b2a6b;
+  --sky-mid: #5e5ce6;
+  --sky-low: #b9b7f0;
+  --hill-near: #3a3170;
+  --hill-far: #6f63b8;
+  --sun: rgba(255, 236, 214, 0.7);
+  --sun-x: 20%;
+  --sun-y: 78%;
+}
+
+/* the quiet one: content has to win, the ground only tints the air */
+.ground--mist {
+  --sky-top: #cfe0ef;
+  --sky-mid: #e4edf5;
+  --sky-low: #f7fbfd;
+  --hill-near: #bcd6c4;
+  --hill-far: #cfe0e8;
+  --sun: rgba(255, 253, 245, 0.95);
+  --sun-x: 70%;
+  --sun-y: 12%;
+}
+
+.ground--mist::before {
+  opacity: 0.4;
+}
+
+/* the two full-bleed skies. They are moods like any other — they only have to
+   be declared after `.ground`, whose defaults would otherwise win. */
+.hero-sky {
+  --sky-top: #2f7fce;
+  --sky-mid: #62aae7;
+  --sky-low: #cfe6f0;
+  --hill-near: #9ac89b;
+  --hill-far: #b6d9c4;
+  --sun: rgba(255, 255, 255, 0.9);
+  --sun-x: 78%;
+  --sun-y: 16%;
+
+  color: #ffffff;
+}
+
+.sky-day {
+  --sky-top: #4d9be0;
+  --sky-mid: #86bfe9;
+  --sky-low: #d9ecdb;
+  --hill-near: #7fb87f;
+  --hill-far: #a6cfa0;
+  --sun: rgba(255, 255, 255, 0.95);
+  --sun-x: 18%;
+  --sun-y: 20%;
+
+  color: #1d1d1f;
+}
+
+:root[data-theme="dark"] .ground {
+  --sky-top: #060b1a;
+  --sky-mid: #102340;
+  --sky-low: #1d3a52;
+  --hill-near: #17352b;
+  --hill-far: #16304a;
+  --sun: rgba(150, 190, 255, 0.34);
+}
+
+:root[data-theme="dark"] .ground--dawn {
+  --sky-top: #0d0a1c;
+  --sky-mid: #3d2438;
+  --sky-low: #6b4340;
+  --hill-near: #2a1a26;
+  --hill-far: #4a2c34;
+  --sun: rgba(255, 190, 140, 0.4);
+}
+
+:root[data-theme="dark"] .ground--tide {
+  --sky-top: #04141f;
+  --sky-mid: #0d3448;
+  --sky-low: #17566e;
+  --hill-near: #072a3a;
+  --hill-far: #10485e;
+  --sun: rgba(140, 225, 255, 0.3);
+}
+
+:root[data-theme="dark"] .ground--dusk {
+  --sky-top: #0a0820;
+  --sky-mid: #241f52;
+  --sky-low: #3d3878;
+  --hill-near: #171338;
+  --hill-far: #2e2860;
+  --sun: rgba(190, 170, 255, 0.32);
+}
+
+:root[data-theme="dark"] .ground--mist {
+  --sky-top: #0c0c12;
+  --sky-mid: #14141c;
+  --sky-low: #1b1b24;
+  --hill-near: #14201b;
+  --hill-far: #171722;
+  --sun: rgba(255, 255, 255, 0.08);
+}
+
+:root[data-theme="dark"] .hero-sky {
+  --sky-top: #05050c;
+  --sky-mid: #0d1c3a;
+  --sky-low: #34406b;
+  --hill-near: #241d3a;
+  --hill-far: #3a3358;
+  --sun: rgba(224, 150, 120, 0.42);
+  --sun-x: 24%;
+  --sun-y: 74%;
+}
+
+:root[data-theme="dark"] .sky-day {
+  --sky-top: #060b18;
+  --sky-mid: #10263f;
+  --sky-low: #244a55;
+  --hill-near: #12281e;
+  --hill-far: #1b3a44;
+  --sun: rgba(150, 200, 255, 0.28);
+
+  color: #f5f5f7;
+}
+
+:root[data-theme="dark"] .ground::before {
+  opacity: 0.16;
+}
+
+/* the frame around a ground: clip, rim light, own stacking context */
+.scene {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: 16px;
+}
+
+.scene::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.2),
+    inset 0 -30px 46px -30px rgba(10, 26, 52, 0.28);
+}
+
+:root[data-theme="dark"] .scene::after {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.09),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06),
+    inset 0 -30px 46px -30px rgba(0, 0, 0, 0.6);
+}
+
+/* anything that floats on a scene. .pane is the paper surface, .layer only
+   lends depth to something that brings its own background. */
+/* NOTE: no `position` here on purpose. An un-layered rule beats Tailwind's
+   `absolute`/`relative` utilities (the layering trap that once flattened the
+   editor), so placement stays in the markup — every .pane needs its own
+   `relative` or `absolute` to paint above the ground texture. */
+.pane,
+.layer {
+  border-radius: 12px;
+  box-shadow:
+    0 14px 34px rgba(12, 22, 44, 0.22),
+    0 2px 6px rgba(12, 22, 44, 0.12);
+}
+
+.pane {
+  background: rgba(255, 255, 255, 0.97);
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  color: #1d1d1f;
+}
+
+:root[data-theme="dark"] .pane {
+  background: rgba(22, 22, 30, 0.94);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #f5f5f7;
+}
+
+
+/* --------------------------- scene furniture ---------------------------- */
+
+/* a caret that blinks like the one you are looking at */
+.caret {
+  animation: caret-blink 1.1s steps(1, end) infinite;
+}
+
+@keyframes caret-blink {
+  0%, 55% { opacity: 1; }
+  56%, 100% { opacity: 0; }
+}
+
+/* comparison bars grow once their block scrolls in — the width itself is the
+   data, so the animation only reveals it, never invents it */
+.wpm-fill {
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 1.1s cubic-bezier(0.22, 1, 0.36, 1) 0.15s;
+}
+
+.reveal.is-in .wpm-fill {
+  transform: scaleX(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .caret { animation: none; }
+  .wpm-fill { transform: scaleX(1); transition: none; }
 }

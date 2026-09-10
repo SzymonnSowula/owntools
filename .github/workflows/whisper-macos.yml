@@ -1,0 +1,127 @@
+name: whisper.cpp for macOS
+
+# whisper.cpp has never published a macOS binary — every release ships Windows
+# and Linux only (checked up to v1.9.3). The app downloads its engines rather
+# than bundling them, so macOS needs a build from somewhere: this workflow is
+# that somewhere.
+#
+# Run it by hand (Actions → this workflow → Run workflow). It compiles the
+# pinned tag twice — arm64 with Metal, x86_64 without — stitches the two into
+# one universal `whisper-cli`, ad-hoc signs it so Apple Silicon will run it,
+# and publishes `whisper-bin-macos-universal.zip` on its own release tag.
+#
+# It then prints the exact `WHISPER_RUNTIMES.macos` block to paste into
+# packages/feature-dictation/src/models.ts. Until that paste happens the app
+# tells Mac users that whisper has no build here and points them at Parakeet,
+# which is the better dictation engine anyway.
+#
+# Everything about this is deliberate: the app refuses to install an engine
+# whose SHA-256 it does not already know, and that rule does not get an
+# exception because the file happens to be ours.
+
+on:
+  workflow_dispatch:
+    inputs:
+      whisper_ref:
+        description: "whisper.cpp tag to build (must match the pin in models.ts)"
+        required: true
+        default: "b4938"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: universal whisper-cli
+    runs-on: macos-14
+    steps:
+      - name: Check out whisper.cpp
+        uses: actions/checkout@v4
+        with:
+          repository: ggml-org/whisper.cpp
+          ref: ${{ inputs.whisper_ref }}
+          path: whisper.cpp
+
+      # Two separate configure/build runs rather than CMAKE_OSX_ARCHITECTURES
+      # with both: ggml's Metal backend is arm64-only in practice, and a fat
+      # build would have to drop it for everyone.
+      - name: Build arm64 (with Metal)
+        working-directory: whisper.cpp
+        run: |
+          cmake -B build-arm64 \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DGGML_NATIVE=OFF \
+            -DGGML_METAL=ON \
+            -DGGML_METAL_EMBED_LIBRARY=ON \
+            -DWHISPER_BUILD_TESTS=OFF \
+            -DWHISPER_BUILD_SERVER=OFF
+          cmake --build build-arm64 --config Release -j
+          ls -l build-arm64/bin/whisper-cli
+
+      - name: Build x86_64 (Accelerate, no Metal)
+        working-directory: whisper.cpp
+        run: |
+          cmake -B build-x64 \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_OSX_ARCHITECTURES=x86_64 \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DGGML_NATIVE=OFF \
+            -DGGML_METAL=OFF \
+            -DWHISPER_BUILD_TESTS=OFF \
+            -DWHISPER_BUILD_SERVER=OFF
+          cmake --build build-x64 --config Release -j
+          ls -l build-x64/bin/whisper-cli
+
+      - name: Stitch, sign and pack
+        id: pack
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          lipo -create -output out/whisper-cli \
+            whisper.cpp/build-arm64/bin/whisper-cli \
+            whisper.cpp/build-x64/bin/whisper-cli
+          chmod +x out/whisper-cli
+          lipo -info out/whisper-cli
+          # Ad-hoc signature: arm64 refuses to run an unsigned binary at all,
+          # and `lipo` invalidates whatever the linker put there.
+          codesign --force --sign - --timestamp=none out/whisper-cli
+          codesign --verify --verbose out/whisper-cli
+          # Prove it runs before anyone downloads it.
+          ./out/whisper-cli --help | head -3
+          (cd out && zip -9 ../whisper-bin-macos-universal.zip whisper-cli)
+          echo "bytes=$(stat -f%z whisper-bin-macos-universal.zip)" >> "$GITHUB_OUTPUT"
+          echo "sha256=$(shasum -a 256 whisper-bin-macos-universal.zip | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: whisper-macos-${{ inputs.whisper_ref }}
+        run: |
+          set -euo pipefail
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
+            || gh release create "$TAG" --repo "$GITHUB_REPOSITORY" \
+                 --title "whisper.cpp ${{ inputs.whisper_ref }} for macOS (universal)" \
+                 --notes "Built from ggml-org/whisper.cpp@${{ inputs.whisper_ref }} by .github/workflows/whisper-macos.yml. arm64 with Metal, x86_64 with Accelerate, joined with lipo and ad-hoc signed."
+          gh release upload "$TAG" whisper-bin-macos-universal.zip \
+            --repo "$GITHUB_REPOSITORY" --clobber
+
+      - name: Paste this into models.ts
+        run: |
+          cat <<EOF >> "$GITHUB_STEP_SUMMARY"
+          ## WHISPER_RUNTIMES.macos
+
+          \`\`\`ts
+            macos: {
+              engine: "whisper",
+              label: "whisper.cpp ${{ inputs.whisper_ref }} (universal)",
+              url: "https://github.com/$GITHUB_REPOSITORY/releases/download/whisper-macos-${{ inputs.whisper_ref }}/whisper-bin-macos-universal.zip",
+              bytes: ${{ steps.pack.outputs.bytes }},
+              sha256: "${{ steps.pack.outputs.sha256 }}",
+              archive: "whisper/whisper-bin-macos-universal.zip",
+            },
+          \`\`\`
+          EOF

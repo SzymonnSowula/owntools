@@ -58,7 +58,7 @@ function blockLines(block: NbBlock, pages: NotebookPage[], depth = 0): string[] 
 export function workspaceToMarkdown(data: AppData, workspaceName: string): string {
   const out: string[] = [];
   const today = todayIso();
-  out.push(`# ${workspaceName} — shipshape export`);
+  out.push(`# ${workspaceName} — owntools export`);
   out.push(`_exported ${new Date().toISOString()}_`);
 
   out.push("\n## Tasks");
@@ -119,7 +119,7 @@ function slug(name: string): string {
 }
 
 export function exportFileName(workspaceName: string, ext: "md" | "json"): string {
-  return `shipshape-${slug(workspaceName)}-${todayIso()}.${ext}`;
+  return `owntools-${slug(workspaceName)}-${todayIso()}.${ext}`;
 }
 
 /** Save text: native save dialog in the app, anchor download in the browser. */

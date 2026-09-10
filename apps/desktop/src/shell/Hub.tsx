@@ -1,5 +1,7 @@
 import type { ReactElement } from "react";
+import { DICTATION_HOTKEY_LABEL } from "@core/hotkeys";
 import { WinDots, ToolIcons } from "@ui/WinDots";
+import { ToolMark, TOOL_TINT, type ToolMarkName } from "@ui/ToolMark";
 import { BrandMark } from "@ui/BrandMark";
 import { SUITE_NAME } from "@core/branding";
 import { openRecorderOverlay } from "@core/recorderWindow";
@@ -17,8 +19,8 @@ interface ToolCard {
   window: string;
   name: string;
   desc: string;
-  color: string;
-  icon: ReactElement;
+  /** Which app mark the tile paints (`@ui/ToolMark`). */
+  mark: ToolMarkName;
   dots: ReactElement;
   tilt: number;
 }
@@ -29,107 +31,63 @@ const CARDS: ToolCard[] = [
     window: "focus.app",
     name: "focus",
     desc: "A quiet desk: timer, tasks, notebook, habits and a time heatmap.",
-    color: "#0a84ff",
     tilt: -1.1,
+    mark: "focus",
     dots: ToolIcons.focus,
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
-        <circle cx="10" cy="10" r="7" />
-        <path d="M10 6v4l2.6 1.6" />
-      </svg>
-    ),
   },
   {
     tool: "create",
     window: "screeni.app",
     name: "screeni",
     desc: "Screen recordings that follow your cursor. Edit, zoom, export MP4.",
-    color: "#0a84ff",
     tilt: 1.2,
+    mark: "screeni",
     dots: ToolIcons.video,
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
-        <rect x="2.5" y="4" width="15" height="10.5" rx="2" />
-        <path d="M8 8l4 2.2L8 12.4V8z" fill="currentColor" stroke="none" />
-      </svg>
-    ),
   },
   {
     tool: "launch",
     window: "launch.app",
     name: "launch",
     desc: "Paste a URL, get a short video out of it. Rendered on-device.",
-    color: "#0a84ff",
     tilt: -0.9,
+    mark: "launch",
     dots: ToolIcons.launch,
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
-        <path d="M10 14.5c4.5-2 6-6.5 6-10.5-4 0-8.5 1.5-10.5 6L3 12.5l4.5 4.5 2.5-2.5z" />
-        <circle cx="12" cy="8" r="1.4" fill="currentColor" stroke="none" />
-      </svg>
-    ),
   },
   {
     tool: "dictate",
     window: "dictate.app",
     name: "dictate",
-    desc: "Press Ctrl+Shift+Space, speak, press again — on-device Whisper types for you anywhere.",
-    color: "#0a84ff",
+    desc: `Press ${DICTATION_HOTKEY_LABEL}, speak, press again — an on-device model types for you anywhere.`,
     tilt: 0.8,
+    mark: "dictate",
     dots: ToolIcons.dictate,
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
-        <rect x="7.2" y="2.8" width="5.6" height="9" rx="2.8" />
-        <path d="M4.5 9.5a5.5 5.5 0 0011 0M10 15v2.5" />
-      </svg>
-    ),
   },
   {
     tool: "board",
     window: "board.app",
     name: "board",
     desc: "An endless whiteboard: paste screenshots, sketch, think in boxes and arrows.",
-    color: "#0a84ff",
     tilt: -0.7,
+    mark: "board",
     dots: ToolIcons.board,
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
-        <rect x="2.5" y="3" width="8" height="6" rx="1.5" />
-        <circle cx="14.5" cy="14" r="3" />
-        <path d="M6.5 9v3a2 2 0 002 2h3" />
-      </svg>
-    ),
   },
   {
     tool: "disk",
     window: "disk.app",
     name: "disk",
     desc: "See where the space went: a treemap of every file, duplicates, quick wins, snapshots.",
-    color: "#0a84ff",
     tilt: -0.8,
+    mark: "disk",
     dots: ToolIcons.disk,
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
-        <rect x="2.5" y="2.5" width="15" height="15" rx="2.5" />
-        <path d="M10.5 2.5v15M10.5 10.5h7M2.5 12.5h8" />
-      </svg>
-    ),
   },
   {
     tool: "social",
     window: "social.app",
     name: "social",
     desc: "Schedule posts to 30+ networks from a calendar. Agents can drive it over a local API.",
-    color: "#0a84ff",
     tilt: 0.9,
+    mark: "social",
     dots: ToolIcons.social,
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
-        <rect x="2.5" y="4" width="15" height="13" rx="2.5" />
-        <path d="M2.5 8.5h15M6.5 2.5v3M13.5 2.5v3" />
-        <circle cx="12.5" cy="13" r="1.6" fill="currentColor" stroke="none" />
-      </svg>
-    ),
   },
 ];
 
@@ -260,8 +218,13 @@ export function Hub() {
               <span className="wincard-title">{card.window}</span>
             </div>
             <div className="wincard-body">
-              <div className="hub-card-icon" style={{ background: card.color }}>
-                {card.icon}
+              <div
+                className="hub-card-icon"
+                // The tile paints itself; the wrapper only casts its shadow, in the
+                // tool's own colour rather than one blue for all seven.
+                style={{ boxShadow: `0 7px 18px -4px ${TOOL_TINT[card.mark]}66` }}
+              >
+                <ToolMark tool={card.mark} size={38} />
               </div>
               <div className="hub-card-name">{card.name}</div>
               <div className="hub-card-desc">{card.desc}</div>

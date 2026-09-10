@@ -20,7 +20,7 @@ function entry(spoken: string, replacement = "", createdAt = 0): VocabularyEntry
 
 describe("createEntry", () => {
   it("trims and collapses the spoken form and drops one-letter entries", () => {
-    expect(createEntry("  ship   shape ")?.spoken).toBe("ship shape");
+    expect(createEntry("  own   tools ")?.spoken).toBe("own tools");
     expect(createEntry("a")).toBeNull();
     expect(createEntry("   ")).toBeNull();
   });
@@ -87,15 +87,15 @@ describe("sanitizeEntries", () => {
 
 describe("spellingTerms / replacementRules / promptTerms", () => {
   const list = [
-    entry("shipshape"),
-    entry("my email address", "anna@shipshape.app"),
+    entry("owntools"),
+    entry("my email address", "anna@owntools.app"),
     entry("super whisper", "Superwhisper"),
-    entry("my sign-off", "Best regards,\nAnna from shipshape"),
+    entry("my sign-off", "Best regards,\nAnna from owntools"),
     entry("my email", "short@x.dev"),
   ];
 
   it("splits spellings from rules and orders rules longest-first", () => {
-    expect(spellingTerms(list)).toEqual(["shipshape"]);
+    expect(spellingTerms(list)).toEqual(["owntools"]);
     expect(replacementRules(list).map((r) => r.spoken)).toEqual([
       "my email address",
       "super whisper",
@@ -106,7 +106,7 @@ describe("spellingTerms / replacementRules / promptTerms", () => {
 
   it("primes whisper with spellings and word-like replacement targets only", () => {
     // Addresses and multi-line snippets are not words the model should learn.
-    expect(promptTerms(list)).toEqual(["shipshape", "Superwhisper"]);
+    expect(promptTerms(list)).toEqual(["owntools", "Superwhisper"]);
   });
 
   it("deduplicates case-insensitively and caps the list", () => {

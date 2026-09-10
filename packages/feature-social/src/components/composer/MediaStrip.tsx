@@ -13,10 +13,30 @@ import { Popover } from "../primitives";
  * by dropping and pasting files onto the composer.
  */
 
-export function Thumb({ item, className }: { item: MediaItem; className?: string }) {
+/** "1:04 · 12 MB" — what decides whether a network will take the clip. */
+export function describeVideo(item: MediaItem): string {
+  const size = item.bytes >= 1024 * 1024 ? `${(item.bytes / 1024 / 1024).toFixed(item.bytes > 10 * 1024 * 1024 ? 0 : 1)} MB` : `${Math.round(item.bytes / 1024)} KB`;
+  if (!item.duration) return size;
+  const total = Math.round(item.duration);
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")} · ${size}`;
+}
+
+/**
+ * `badge` overlays how long the clip runs and what it weighs — the two facts
+ * that decide whether a network will take it. It needs a positioned parent,
+ * so the network previews (which are mock-ups of a real post) leave it off.
+ */
+export function Thumb({ item, className, badge }: { item: MediaItem; className?: string; badge?: boolean }) {
   const url = useMediaUrl(item.id);
   if (!url) return <div className={`grid place-items-center text-muted ${className ?? ""}`}><ImageIcon className="h-5 w-5" /></div>;
-  if (item.mime.startsWith("video/")) return <video src={url} muted className={className} />;
+  if (item.mime.startsWith("video/")) {
+    return (
+      <>
+        <video src={url} muted className={className} />
+        {badge ? <span className="sc-media-badge">{describeVideo(item)}</span> : null}
+      </>
+    );
+  }
   return <img src={url} alt={item.alt ?? item.name} draggable={false} className={className} />;
 }
 
@@ -112,7 +132,7 @@ export function MediaStrip({
           className="w-[260px] p-3"
           trigger={
             <div className="sc-media-thumb" role="button" tabIndex={0} title="Alt text">
-              <Thumb item={item!} />
+              <Thumb item={item!} badge />
               <button
                 className="x"
                 aria-label="Remove"
@@ -188,7 +208,7 @@ export function MediaStrip({
                       onPickerOpenChange?.(false);
                     }}
                   >
-                    <Thumb item={m} />
+                    <Thumb item={m} badge />
                   </button>
                 );
               })}

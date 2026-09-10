@@ -26,11 +26,11 @@ export const ToolIcons: Record<
   "focus" | "screeni" | "launch" | "dictate" | "video" | "record" | "board" | "social" | "disk",
   ReactElement
 > = {
-  /* clock */
+  /* aperture: ring closing on a point — the app mark at 11 px */
   focus: (
     <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="6" cy="6" r="4.6" />
-      <path d="M6 3.6v2.6l1.8 1.1" />
+      <circle cx="6" cy="6" r="4.4" />
+      <circle cx="6" cy="6" r="1.15" fill="currentColor" stroke="none" />
     </svg>
   ),
   /* play-rectangle */
@@ -40,11 +40,11 @@ export const ToolIcons: Record<
       <path d="M5 4.6l2.6 1.4L5 7.4V4.6z" fill="currentColor" stroke="none" />
     </svg>
   ),
-  /* rocket */
+  /* sail over its wake — not a rocket; the brand sails */
   launch: (
-    <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" xmlns="http://www.w3.org/2000/svg">
-      <path d="M6 8.7c2.7-1.2 3.6-3.9 3.6-6.3-2.4 0-5.1.9-6.3 3.6L1.8 7.5l2.7 2.7L6 8.7z" />
-      <circle cx="7.2" cy="4.8" r="0.9" fill="currentColor" stroke="none" />
+    <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" xmlns="http://www.w3.org/2000/svg">
+      <path d="M8.4 1.4l1.5 5.7-6.5-1.2z" fill="currentColor" stroke="none" />
+      <path d="M2.2 8.2q2.3.7 4.7 1M3.7 10.4q2.1.6 4.2.8" />
     </svg>
   ),
   /* mic */
@@ -62,12 +62,16 @@ export const ToolIcons: Record<
       <path d="M5.3 4.8l1.9 1.2-1.9 1.2V4.8z" fill="currentColor" stroke="none" />
     </svg>
   ),
-  /* box, arrow, circle: a sketch */
+  /* one stroke across a dotted canvas */
   board: (
-    <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" xmlns="http://www.w3.org/2000/svg">
-      <rect x="1.4" y="1.6" width="4.8" height="3.6" rx="0.9" />
-      <circle cx="8.6" cy="8.6" r="2" />
-      <path d="M3.8 5.2v1.9a1.2 1.2 0 001.2 1.2h1.6" />
+    <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" xmlns="http://www.w3.org/2000/svg">
+      <g fill="currentColor" stroke="none" opacity="0.6">
+        <circle cx="2.4" cy="2.4" r="0.8" />
+        <circle cx="9.6" cy="2.4" r="0.8" />
+        <circle cx="2.4" cy="9.6" r="0.8" />
+        <circle cx="9.6" cy="9.6" r="0.8" />
+      </g>
+      <path d="M2.2 9.2q1.4-2.2 3.4-3 2-.8 4.2-3" />
     </svg>
   ),
   /* calendar with a scheduled dot */

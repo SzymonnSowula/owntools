@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Merged into the bundled Info.plist by Tauri, which picks up any Info.plist
+  sitting next to tauri.conf.json.
+
+  Every string below is shown to the user *verbatim* in a macOS permission
+  dialog, so each one says what the app does with the thing it is asking for.
+  A missing key is not a warning: macOS terminates the process the moment it
+  touches the microphone, the camera or a protected folder without one.
+-->
+<plist version="1.0">
+<dict>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>owntools transcribes what you say on this Mac. Nothing is uploaded — the speech model runs locally.</string>
+
+    <key>NSCameraUsageDescription</key>
+    <string>owntools records the camera bubble in your screen recordings. The video stays on this Mac.</string>
+
+    <key>NSAppleEventsUsageDescription</key>
+    <string>owntools asks Finder to move files to the Trash, so anything the disk cleaner removes can be put back.</string>
+
+    <key>NSDesktopFolderUsageDescription</key>
+    <string>owntools measures what is taking up space on this Mac. It reads sizes, never file contents.</string>
+
+    <key>NSDocumentsFolderUsageDescription</key>
+    <string>owntools measures what is taking up space on this Mac. It reads sizes, never file contents.</string>
+
+    <key>NSDownloadsFolderUsageDescription</key>
+    <string>owntools measures what is taking up space on this Mac. It reads sizes, never file contents.</string>
+
+    <key>NSRemovableVolumesUsageDescription</key>
+    <string>owntools can measure an external drive when you point it at one.</string>
+
+    <!--
+      The recorder and dictation windows float above other apps and the tray
+      icon is the app's real home, but the main window is a normal document
+      window: keep the app in the Dock rather than making it an accessory.
+    -->
+    <key>LSUIElement</key>
+    <false/>
+
+    <key>NSHighResolutionCapable</key>
+    <true/>
+
+    <!--
+      Downloaded engines land in Application Support and are executed from
+      there. Setting the quarantine flag on them would ask Gatekeeper to
+      approve a binary the user never chose to download; the pinned SHA-256 in
+      the downloader is what vouches for them instead.
+    -->
+    <key>LSFileQuarantineEnabled</key>
+    <false/>
+</dict>
+</plist>

@@ -179,6 +179,12 @@ interface AppState {
   applyTransitionToAll: (transition: Transition | null) => void;
   applyLookPreset: (look: LookSettings) => void;
   regenerateZooms: () => void;
+  /** Sound effects on or off; `undefined` flips whichever it is. */
+  setSfxEnabled: (enabled?: boolean) => void;
+  /** Takes generated sounds off the timeline by `SfxEvent.id`. */
+  removeSfx: (ids: string[]) => void;
+  /** Puts them back; no ids means every one of them. */
+  restoreSfx: (ids?: string[]) => void;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -367,6 +373,8 @@ export const useAppStore = create<AppState>((set, get) => ({
         { overlays: project.overlays.filter((o) => o.id !== selection.id) },
         true,
       );
+    } else if (selection.type === "sfx") {
+      get().removeSfx([selection.id]);
     }
     set({ selection: null });
   },
@@ -507,6 +515,32 @@ export const useAppStore = create<AppState>((set, get) => ({
     const generated = generateZoomKeyframes(project.cursor, zoomRect(project));
     const manual = project.zooms.filter((z) => z.source === "manual");
     get().updateProject({ zooms: [...manual, ...generated], autoZoom: true }, true);
+  },
+
+  setSfxEnabled: (enabled) => {
+    const { project } = get();
+    if (!project) return;
+    const next = enabled ?? !project.sfx.enabled;
+    if (next === project.sfx.enabled) return;
+    get().updateProject({ sfx: { ...project.sfx, enabled: next } }, true);
+  },
+
+  removeSfx: (ids) => {
+    const { project, selection } = get();
+    if (!project || !ids.length) return;
+    const removed = [...new Set([...(project.sfx.removed ?? []), ...ids])];
+    get().updateProject({ sfx: { ...project.sfx, removed } }, true);
+    // Nothing is left to point at once it stops being planned.
+    if (selection?.type === "sfx" && ids.includes(selection.id)) set({ selection: null });
+  },
+
+  restoreSfx: (ids) => {
+    const { project } = get();
+    if (!project) return;
+    const had = project.sfx.removed ?? [];
+    if (!had.length) return;
+    const removed = ids ? had.filter((id) => !ids.includes(id)) : [];
+    get().updateProject({ sfx: { ...project.sfx, removed } }, true);
   },
 }));
 

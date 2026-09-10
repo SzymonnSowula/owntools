@@ -5,7 +5,7 @@ import { POLICIES_UPDATED } from "@/lib/site";
 export const metadata: Metadata = {
   title: "Privacy",
   description:
-    "What shipshape does with your data: no accounts, no telemetry, everything stays in files on your disk. What the app downloads, what the website sees, how payments work.",
+    "What owntools does with your data: no accounts, no telemetry, everything stays in files on your disk. What the app downloads, what the website sees, how payments work.",
   alternates: { canonical: "/privacy" },
 };
 
@@ -14,7 +14,7 @@ export default function PrivacyPage() {
     <LegalPage
       kicker="legal"
       title="privacy"
-      intro="shipshape is built so that your work never has to leave your machine. That keeps this page short: here is what the app and the website do with your data, in plain words."
+      intro="owntools is built so that your work never has to leave your machine. That keeps this page short: here is what the app and the website do with your data, in plain words."
       updated={POLICIES_UPDATED}
     >
       <h2>the short version</h2>
@@ -39,7 +39,7 @@ export default function PrivacyPage() {
       <h2>the desktop app</h2>
       <p>
         Everything the app makes lives in its data folder on your computer (in AppData, under{" "}
-        <code>app.shipshape.desktop</code>). Nothing in that folder is synced, backed up or read by
+        <code>app.owntools.desktop</code>). Nothing in that folder is synced, backed up or read by
         us. If you uninstall the app, the folder is yours to keep or delete.
       </p>
       <p>The app connects to the internet only when you ask it to do something that needs it:</p>
@@ -58,7 +58,7 @@ export default function PrivacyPage() {
         </li>
         <li>
           <strong>Update checks.</strong> The app may ask our release server whether a newer
-          version exists. That request carries the app version and your platform — nothing about
+          version exists. That request carries the app version and your platform - nothing about
           you or your files.
         </li>
       </ul>
@@ -69,18 +69,18 @@ export default function PrivacyPage() {
 
       <h2>the website</h2>
       <p>
-        shipshape.app has no login and sets no cookies of its own. Your day/night choice is kept in
+        owntools.app has no login and sets no cookies of its own. Your day/night choice is kept in
         your browser’s local storage and is never sent to us.
       </p>
       <ul>
         <li>
           <strong>Analytics.</strong> We may use Plausible, a privacy-friendly analytics service:
-          no cookies, no personal data, no cross-site tracking — only aggregate counts of page views
+          no cookies, no personal data, no cross-site tracking - only aggregate counts of page views
           and referrers. When it is on, its script loads from plausible.io.
         </li>
         <li>
           <strong>The free launch video maker.</strong> When you paste a URL, your browser sends it
-          to our server, which fetches that page and returns its text, colours and images to you —
+          to our server, which fetches that page and returns its text, colours and images to you -
           browsers cannot read other sites directly, so we have to. The URL and the page are
           processed in memory and not stored. The video itself is rendered in your browser and is
           never uploaded.
@@ -101,7 +101,7 @@ export default function PrivacyPage() {
       <p>
         From each order we receive what is needed to deliver and support your key: your email
         address and the order details (product, amount, country). We use them to send you the key,
-        to answer your support requests and to process refunds — and for nothing else. No
+        to answer your support requests and to process refunds - and for nothing else. No
         newsletters unless you ask for one, no sharing with anyone.
       </p>
 
@@ -110,7 +110,7 @@ export default function PrivacyPage() {
         Because the app keeps no account, most of what would be “your data” is already in your
         hands: it is on your disk. What we hold is the purchase record described above. You can ask
         us to show it, correct it or delete it (once any legal retention period for invoices has
-        passed) — write to the contact below. If you are in the EU, you also have the right to
+        passed) - write to the contact below. If you are in the EU, you also have the right to
         complain to your local data protection authority.
       </p>
 

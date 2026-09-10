@@ -1,11 +1,11 @@
 # social — local-first scheduler that agents can drive
 
-`packages/feature-social` is the sixth shipshape tool: a calendar that
+`packages/feature-social` is the sixth owntools tool: a calendar that
 schedules posts to social networks **from the user's machine**, a composer
 with per-network tabs and previews, a runner that publishes from the tray,
 and a local HTTP + MCP server so AI agents (Claude Code, Cursor, Codex,
 OpenClaw, Hermes, ChatGPT through a tunnel) can plan and queue posts that
-the person reviews in the calendar. There is no shipshape cloud anywhere in
+the person reviews in the calendar. There is no owntools cloud anywhere in
 the path: every post goes straight from the desktop app to the network.
 
 Inspired by Postiz (AGPL) for the UX shape; nothing was copied.
@@ -15,7 +15,10 @@ Inspired by Postiz (AGPL) for the UX shape; nothing was copied.
 ```
 src/
   types.ts          data model (the on-disk contract; Rust reads the same JSON)
-  networks.ts       catalogue: 38 networks, limits, auth kind, availability
+  networks.ts       catalogue: 38 networks, limits, auth kind, availability;
+                    `networksMirror()` is what the runtime writes to networks.json
+  connect.ts        paste-to-connect: text in → which network + prefilled fields
+  guides.ts         numbered setup steps per network (links, redirect URL, effort)
   model.ts          ids, defaults, tolerant parsers, tag palette
   storage.ts        <AppData>/social (Tauri fs) ⇄ IndexedDB (pnpm dev) adapter
   store.ts          zustand store; every mutation is read-modify-write on disk
@@ -54,6 +57,7 @@ in `shell/shellStore.ts` (`Tool = … | "social"`), `App.tsx` (lazy
 | `media.json` + `media/<id>.<ext>` | library index (`id, file, name, mime, bytes, width, height, duration, alt, createdAt`) + the bytes |
 | `avatars/<channelId>.<ext>` | channel avatars downloaded at connect time |
 | `settings.json` | calendar prefs, `agent: { enabled, port, token }`, `ai: { provider, baseUrl, model, apiKey }`, `unsplashKey` |
+| `networks.json` | mirror of `networks.ts` (id, name, limits) written by the runtime so the Rust agent server answers with the same numbers the composer enforces |
 
 `Post` (camelCase, ISO-8601 strings with offset):
 
@@ -79,12 +83,38 @@ In the browser preview (`pnpm dev`) the same paths key an IndexedDB store,
 network calls are simulated (`settings.simulate` is forced on), and a
 “demo” button in the rail loads sample data.
 
+## Connecting an account
+
+Connecting is where people give up, so there are two ways in and neither
+asks "which network is this token from?" first.
+
+**Paste anything** (`connect.ts`, pure + tested). The box at the top of the
+Add-channel dialog takes whatever is on the clipboard and works out both the
+network and the fields: a Discord/Slack/Mattermost webhook URL, a Telegram
+bot token (plus the `@channel` or `-100…` id sitting next to it), a Bluesky
+app password with the handle, `@you@instance`, a profile link on a host we
+know, a Mastodon-shaped `https://instance/@user`. `exact` means the
+credential itself was in the paste; `hint` means it only opens the right
+form with a head start.
+
+**Guided setup** (`guides.ts`). Each network's connect form shows numbered
+steps instead of one dense note: how long it takes ("about a minute" vs
+"about 10 minutes, most of it on their website"), what you end up pasting, a
+button that opens the exact page, and copy chips for the values their form
+wants — the loopback redirect URL and the scopes. Adding a network = one
+`GUIDES` entry.
+
+**Telegram** no longer asks anyone to hunt for a numeric chat id:
+`discoverChats(token)` reads the bot's recent updates (adding a bot to a
+channel produces a `my_chat_member` update) and "Find my chats" lists them
+to pick from.
+
 ## Providers
 
 | network | status | connect | publish |
 | --- | --- | --- | --- |
-| Bluesky | live | handle + app password (createSession) | uploadBlob + createRecord with facets (links, `@handle.tld` mentions resolved to DIDs, #tags); threads as replies |
-| Mastodon (any instance) | live | register app (`/api/v1/apps`, oob redirect) → browser → paste code → token | `/api/v2/media` + `/api/v1/statuses` (visibility pref, Idempotency-Key); threads as replies; instance char limit read from `/api/v2/instance` |
+| Bluesky | live | handle + app password (createSession) | uploadBlob + createRecord with facets (links, `@handle.tld` mentions resolved to DIDs, #tags); threads as replies; **video** through the video service (`getServiceAuth` → `app.bsky.video.uploadVideo` → job polling → `app.bsky.embed.video`), 50 MB / 3 min |
+| Mastodon (any instance) | live | register app (`/api/v1/apps`, oob redirect) → browser → paste code → token | `/api/v2/media` + `/api/v1/statuses` (visibility pref, Idempotency-Key); an upload is **polled until the instance finishes processing it** (206 → 200), which is what makes video work; threads as replies; instance char limit read from `/api/v2/instance` |
 | Telegram | live | bot token + chat id/@username (getMe, getChat) | sendMessage / sendPhoto / sendVideo / sendMediaGroup; parse mode pref |
 | Discord | live | channel webhook URL (GET webhook for name/avatar) | webhook `?wait=true`, files as attachments |
 | Slack / Mattermost | live | incoming webhook URL | text only (images dropped with a warning) |
@@ -106,10 +136,26 @@ Bluesky 300 graphemes, Mastodon 500 (URLs 23; instance override), Threads
 4096 (1024 with media), Discord 2000, Slack 4000, Dev.to / Medium unlimited.
 Per-channel override in preferences.
 
+## Video
+
+An AT Protocol post carries images *or* a video, never both, and every
+network has its own ceiling — so `networks.ts` carries `videoBytes` and
+`videoSeconds` next to the image limits and `limits.ts` checks the attached
+file against them before anything is scheduled (`limits.test.ts`). Bluesky
+was silently dropping video before this: the embed only ever looked at
+`image/*`.
+
+A recording does not have to travel through the desktop to become a post.
+screeni's export dialog has **Post it → Send to social**: it renders the
+cut, hands the bytes over through `@core/handoff` (a module-level slot plus
+a DOM event — same window, no file written), the shell switches tools, and
+`SocialView` puts the clip in the media library and opens the composer with
+it attached. `packages/core/src/handoff.test.ts` covers the contract.
+
 ## Runner
 
 `runtime.ts` starts with the app (App.tsx effect), so posts go out while
-shipshape sits in the tray. Every 30 s (and after every `social-changed`)
+owntools sits in the tray. Every 30 s (and after every `social-changed`)
 `scheduler.tick()`:
 
 1. hands stale `publishing` posts (> 5 min) back to the queue;
@@ -142,18 +188,48 @@ REST: `GET /channels` · `GET /posts?status&from&to&limit` · `GET /posts/{id}`
 · `POST /posts` (`text`, `channelIds`, `scheduledAt`, `title`, `tags`,
 `media`, `thread`, `overrides`, `repeat`, `status`) · `PATCH /posts/{id}`
 (same fields + `version`) · `DELETE /posts/{id}` · `POST /posts/{id}/publish`
-(marks due now; the app publishes; 202) · `GET /media` · `POST /media`
+(marks due now; the app publishes; 202) · `POST /posts/now` (create +
+publish in one call) · `GET /media` · `POST /media`
 (JSON `{name, base64, mime?, alt?}`, multipart `file`, or raw bytes +
-`X-File-Name`) · `GET /tags`.
+`X-File-Name`) · `POST /media/path` (`{ path, name?, alt? }` — a file
+already on this machine) · `GET /tags` · `GET /networks` · `POST /check`
+· `GET /slots?count&from&spacingMinutes` · `GET /guide` (Markdown).
 
 MCP: `POST /mcp` (Streamable HTTP, JSON responses, no SSE; `GET` → 405).
 Methods: `initialize` (2025-06-18 / 2025-03-26 / 2024-11-05), `ping`,
-`tools/list`, `tools/call`, `resources/list`, `prompts/list`. Tools:
-`list_channels`, `list_posts`, `get_post`, `create_post`, `update_post`,
-`delete_post`, `publish_post`, `list_media`, `upload_media`, `list_tags`.
+`tools/list`, `tools/call`, `resources/list`, `resources/read`,
+`prompts/list`, `prompts/get`. Tools: `list_channels`, `list_networks`,
+`check_post`, `suggest_times`, `create_post`, `post_now`, `list_posts`,
+`get_post`, `update_post`, `delete_post`, `publish_post`,
+`add_media_from_path`, `upload_media`, `list_media`, `list_tags`.
+
+The five newer ones are what turn "an API exists" into something an agent
+gets right first time (`plan.rs`, unit-tested):
+
+- `check_post` — the composer's own validation, before anything is written:
+  per-network character count (X weights and URL-as-23 included), media
+  limits, missing title, disabled or stub channels.
+- `suggest_times` — free slots from the person's preferred hour, spaced,
+  skipping what the calendar already holds. Agents otherwise invent times.
+- `list_networks` — what each network takes, read from `networks.json`.
+- `add_media_from_path` — a path instead of base64, so a video can be
+  attached at all.
+- `post_now` — create + publish in one call.
+
+`resources/read` serves `owntools://social/guide`: the workflow, the traps
+and the connected channels as Markdown (also `GET /guide`). `prompts/list`
+offers three ready jobs (plan a week, post this video, look after the
+queue).
+
+**One-click setup** (`setup.rs`, `social_agent_install`): the Agents page
+writes the MCP entry straight into Claude Code (`~/.claude.json`), Cursor
+(`~/.cursor/mcp.json`), Windsurf (`~/.codeium/windsurf/mcp_config.json`) or
+Codex (`~/.codex/config.toml`). Each merge keeps everything else in the file,
+writes atomically, refuses a file it cannot parse, and is confirmed in a
+dialog first — it is another program's configuration.
 
 Setup snippets (Agents page): Claude Code
-`claude mcp add --transport http shipshape-social http://127.0.0.1:7474/mcp --header "Authorization: Bearer <token>"`,
+`claude mcp add --transport http owntools-social http://127.0.0.1:7474/mcp --header "Authorization: Bearer <token>"`,
 Cursor / OpenClaw / Hermes `mcpServers` JSON, Codex `config.toml`, ChatGPT
 (needs a public HTTPS URL — tunnel note), plain curl.
 
@@ -164,5 +240,9 @@ for the matching state (5 min timeout).
 
 ## Tests
 
-`pnpm vitest run packages/feature-social` — limits, facets, unicode,
-recurrence, time, model parsers, scheduler (due/missed/settle/backoff/repeat).
+`pnpm vitest run packages/feature-social` — limits (including video size and
+length), facets, unicode, recurrence, time, model parsers, scheduler
+(due/missed/settle/backoff/repeat) and the paste detector. `cargo test
+social::` covers the Rust half: character measuring against the same rules as
+`limits.ts`, `check_post`, slot suggestion, media from a path, and the config
+merges behind one-click agent setup.

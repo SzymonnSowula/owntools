@@ -132,8 +132,8 @@ function escapeRegExp(s: string): string {
 
 /**
  * Every spelling of a term whisper is likely to produce: the term itself, plus
- * the same word broken at one point ("shipshape" heard as "ship shape" or
- * "ship-shape"). One break only — more than that and the pattern starts
+ * the same word broken at one point ("owntools" heard as "own tools" or
+ * "own-tools"). One break only — more than that and the pattern starts
  * matching things that were never the word.
  */
 function termVariants(word: string): string[] {
@@ -147,7 +147,7 @@ function termVariants(word: string): string[] {
   return variants;
 }
 
-/** Rewrites known terms to their canonical spelling ("ship shape" → "shipshape"). */
+/** Rewrites known terms to their canonical spelling ("own tools" → "owntools"). */
 export function applyVocabulary(text: string, vocabulary: string[]): string {
   let out = text;
   for (const term of vocabulary) {

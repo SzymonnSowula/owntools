@@ -635,7 +635,7 @@ export const Watermark: React.FC<{ brand: BrandKit; layout: Layout }> = ({ brand
           letterSpacing: "-0.01em",
         }}
       >
-        made with shipshape
+        made with owntools
       </span>
     </div>
   </AbsoluteFill>

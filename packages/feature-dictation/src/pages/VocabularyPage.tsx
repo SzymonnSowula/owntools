@@ -16,7 +16,7 @@ import {
 
 /** Spellings to offer on an empty list — harmless, and they show the idea. */
 const STARTERS: { spoken: string; replacement?: string }[] = [
-  { spoken: "shipshape" },
+  { spoken: "owntools" },
   { spoken: "Claude Code" },
   { spoken: "Tauri" },
   { spoken: "super whisper", replacement: "Superwhisper" },
@@ -173,7 +173,7 @@ export function VocabularyPage() {
               id="dt-replacement"
               className="dt-textarea"
               rows={2}
-              placeholder="anna@shipshape.app"
+              placeholder="anna@owntools.app"
               value={replacement}
               spellCheck={false}
               onChange={(e) => setReplacement(e.target.value)}
@@ -207,7 +207,7 @@ export function VocabularyPage() {
                 id="dt-import"
                 className="dt-textarea"
                 rows={4}
-                placeholder={"Kubernetes\nmy email address -> anna@shipshape.app"}
+                placeholder={"Kubernetes\nmy email address -> anna@owntools.app"}
                 value={importText}
                 spellCheck={false}
                 onChange={(e) => setImportText(e.target.value)}

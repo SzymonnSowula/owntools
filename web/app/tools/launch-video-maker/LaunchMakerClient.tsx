@@ -25,7 +25,7 @@ import {
   type LaunchInput,
   type LaunchIntel,
   type StyleId,
-} from "@shipshape/launch-engine";
+} from "@owntools/launch-engine";
 
 type Stage = "input" | "pipeline" | "studio";
 
@@ -221,7 +221,7 @@ export default function LaunchMakerClient() {
           </div>
           <div className="p-6 sm:p-8">
             <p className="text-sm text-muted">
-              paste your product&apos;s URL — we read the page, build a brand kit, write a
+              paste your product&apos;s URL - we read the page, build a brand kit, write a
               30-second script and cut the video. all in your browser.
             </p>
             <div className="mt-4 flex gap-2">
@@ -248,7 +248,7 @@ export default function LaunchMakerClient() {
           </div>
         </div>
         <p className="mt-4 text-center text-xs text-muted">
-          nothing is uploaded — the page is fetched once, the video renders on your device.
+          nothing is uploaded - the page is fetched once, the video renders on your device.
         </p>
       </div>
     );
@@ -488,7 +488,7 @@ export default function LaunchMakerClient() {
         <div className="mt-5 rounded-[12px] border border-line bg-card px-3 py-2.5 text-xs text-muted">
           every cut runs exactly{" "}
           <span className="font-semibold text-ink">{input.seconds} seconds</span>. the free
-          web version adds a &quot;made with shipshape&quot; badge —{" "}
+          web version adds a &quot;made with owntools&quot; badge —{" "}
           <Link className="font-semibold text-accent underline" href="/#pricing">the desktop app</Link>{" "}
           removes it with a Pro key.
         </div>

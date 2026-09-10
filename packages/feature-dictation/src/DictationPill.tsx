@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { isTauri } from "@core/env";
+import { microphoneHelp } from "@core/hotkeys";
 import { logInfo } from "@core/errors";
 import { showMainWindow } from "@core/recorderWindow";
 import {
@@ -10,6 +11,7 @@ import {
   dictationTarget,
   getDictationSettings,
   openDictationMic,
+  warmUpDictation,
   typeText,
   type EngineStatus,
 } from "./engine";
@@ -297,6 +299,10 @@ export function DictationPill() {
         rec.start(200);
         setState("listening");
         logInfo("dictation", "listening");
+        // Load the speech model *while* the take is being spoken. It is
+        // the single biggest thing between pressing the hotkey and
+        // reading the words: cold, the model load alone is ~4.5 s.
+        void warmUpDictation();
         await setEscapeHotkey(true);
       } catch (err) {
         stopMeter();
@@ -305,7 +311,7 @@ export function DictationPill() {
         void setEscapeHotkey(false);
         logInfo("dictation", `microphone failed: ${err instanceof Error ? err.message : String(err)}`);
         setState("error");
-        setMessage("Microphone unavailable — check the permission in Windows settings.");
+        setMessage(microphoneHelp());
         later(() => {
           setState("idle");
           void hideSelf();

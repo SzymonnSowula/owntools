@@ -15,7 +15,8 @@ import {
 import { saveProjectAsset } from "../lib/projectIo";
 import { transcribeCaptions, whisperReady } from "../lib/transcribe";
 import { isJumpCut } from "../lib/segments";
-import { SFX_PACKS, sfxPack, type SfxSoundId } from "../lib/sfx/packs";
+import { formatTime } from "../lib/time";
+import { SFX_PACKS, SFX_SOUND_LABELS, sfxPack, type SfxSoundId } from "../lib/sfx/packs";
 import { sfxCounts, sfxPlanFor } from "../lib/sfx/plan";
 import { sfxPreview } from "../lib/sfx/player";
 import { DEFAULT_TRANSITION, MAX_TRANSITION, MIN_TRANSITION, TRANSITION_KINDS } from "../lib/transitions";
@@ -83,6 +84,7 @@ export function Inspector() {
     if (!selection) return;
     if (selection.type === "zoom") setTab("zoom");
     else if (selection.type === "segment") setTab("cuts");
+    else if (selection.type === "sfx") setTab("audio");
     else setTab("text");
   }, [selection]);
 
@@ -843,9 +845,70 @@ function SoundEffectsSection({
           <p className="mt-1.5 text-[11px] leading-relaxed text-muted">
             A click on the left of the frame sounds from the left. Needs the recorded area (Cursor tab).
           </p>
+          <SelectedSound project={project} />
+          <RemovedSounds project={project} />
         </>
       ) : null}
     </Section>
+  );
+}
+
+/**
+ * What is selected on the Sounds row, and the two things worth doing to it.
+ * The row itself is the quick way — this is where you land when you clicked a
+ * tick and want to know what you actually caught before removing it.
+ */
+function SelectedSound({ project }: { project: Project }) {
+  const selection = useAppStore((s) => s.selection);
+  const removeSfx = useAppStore((s) => s.removeSfx);
+  const setTimelineTime = useAppStore((s) => s.setTimelineTime);
+  const event = selection?.type === "sfx" ? sfxPlanFor(project).find((e) => e.id === selection.id) : undefined;
+  if (!event) {
+    return (
+      <p className="mt-3 rounded-[10px] border border-dashed border-line px-2.5 py-2 text-[11px] leading-relaxed text-muted">
+        Click a tick on the timeline's Sounds row to pick one sound out — Del takes it off, Ctrl+Z puts it back.
+      </p>
+    );
+  }
+  return (
+    <div className="mt-3 rounded-[10px] border border-line bg-paper px-2.5 py-2">
+      <div className="flex items-center justify-between gap-2">
+        <p className="truncate text-xs font-semibold text-ink">{SFX_SOUND_LABELS[event.sound]}</p>
+        <span className="shrink-0 text-[11px] text-muted">{formatTime(event.t, true)}</span>
+      </div>
+      <div className="mt-1.5 flex gap-1">
+        <button className="btn btn-ghost !h-7 flex-1 text-[11px]" onClick={() => sfxPreview().audition(sfxPack(project.sfx.pack), event.sound, 0.5)}>
+          Hear
+        </button>
+        <button className="btn btn-ghost !h-7 flex-1 text-[11px]" onClick={() => setTimelineTime(event.t)}>
+          Go to
+        </button>
+        <button className="btn btn-ghost !h-7 flex-1 text-[11px] text-red" onClick={() => removeSfx([event.id])}>
+          Remove
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Removals are a note on the project, so they can always be taken back. There
+ * is deliberately no "remove them all" here: that would leave the layer switched
+ * on with nothing to hear, which is the switch above wearing a disguise.
+ */
+function RemovedSounds({ project }: { project: Project }) {
+  const restoreSfx = useAppStore((s) => s.restoreSfx);
+  const gone = project.sfx.removed ?? [];
+  if (!gone.length) return null;
+  return (
+    <div className="mt-2 flex items-center justify-between gap-2 rounded-[10px] border border-line px-2.5 py-1.5">
+      <span className="text-[11px] text-muted">
+        {gone.length} removed {gone.length === 1 ? "sound" : "sounds"}
+      </span>
+      <button className="btn btn-ghost !h-7 text-[11px]" onClick={() => restoreSfx()}>
+        Restore
+      </button>
+    </div>
   );
 }
 

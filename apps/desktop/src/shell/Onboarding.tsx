@@ -6,11 +6,11 @@ import { BrandMark } from "@ui/BrandMark";
 import { THEMES } from "@feature-focus/lib/themes";
 import { useAppStore } from "@feature-focus/store/useAppStore";
 import {
-  DEFAULT_MODEL_FILE,
+  defaultInstallModel,
   dictationStatus,
   ENGINE,
   formatBytes,
-  modelByFile,
+  runtimeFor,
 } from "@feature-dictation/engine";
 import {
   installPercent,
@@ -20,7 +20,7 @@ import {
   type InstallSession,
 } from "@feature-dictation/install";
 
-const FLAG = "shipshape-onboarded";
+const FLAG = "owntools-onboarded";
 
 /** brand → five tools → theme → your data, your call → shortcuts */
 const STEPS = [0, 1, 2, 3, 4] as const;
@@ -43,12 +43,20 @@ function markOnboarded() {
 }
 
 /** whisper.cpp plus the recommended model — what "Install engine now" fetches. */
-const ENGINE_DOWNLOAD_BYTES = ENGINE.bytes + (modelByFile(DEFAULT_MODEL_FILE)?.bytes ?? 0);
+/**
+ * How big the one-time speech download is, for the platform we are on:
+ * whisper plus its model on Windows, Parakeet plus its model on a Mac
+ * (whisper has no macOS build — see docs/macos.md).
+ */
+const DEFAULT_SPEECH_MODEL = defaultInstallModel();
+const ENGINE_DOWNLOAD_BYTES =
+  (runtimeFor(DEFAULT_SPEECH_MODEL.engine)?.bytes ?? ENGINE.bytes) +
+  DEFAULT_SPEECH_MODEL.bytes;
 
 const TOOL_ROWS = [
   {
     name: "dictate",
-    desc: `Press ${DICTATION_HOTKEY_LABEL}, speak, press again — on-device Whisper types anywhere. Needs a one-time ${formatBytes(ENGINE_DOWNLOAD_BYTES)} download (engine + model).`,
+    desc: `Press ${DICTATION_HOTKEY_LABEL}, speak, press again — an on-device model types anywhere. Needs a one-time ${formatBytes(ENGINE_DOWNLOAD_BYTES)} download (engine + model).`,
   },
   { name: "screeni", desc: "Screen recordings that auto-zoom on your cursor. Edit & export MP4." },
   { name: "focus", desc: "A quiet desk: timer, tasks, notebook, habits, heatmap." },
@@ -154,7 +162,7 @@ function EngineSetup() {
           {label}
         </button>
         <span className="onb-engine-hint">
-          whisper.cpp + the recommended model, {formatBytes(ENGINE_DOWNLOAD_BYTES)} once — resumes if
+          {DEFAULT_SPEECH_MODEL.family} + its engine, {formatBytes(ENGINE_DOWNLOAD_BYTES)} once — resumes if
           interrupted.
         </span>
       </div>

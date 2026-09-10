@@ -2,6 +2,7 @@ import "./social.css";
 import { BarChart3, Bot, Calendar, Image as ImageIcon, Plug, Settings } from "lucide-react";
 import { useEffect, type ReactElement } from "react";
 import { isTauri } from "@core/env";
+import { onHandoff, takeHandoff } from "@core/handoff";
 import { AgentsPage } from "./components/AgentsPage";
 import { AnalyticsPage } from "./components/AnalyticsPage";
 import { CatchUpSheet } from "./components/CatchUpSheet";
@@ -59,6 +60,37 @@ export default function SocialView() {
   useEffect(() => {
     void startSocialRuntime();
   }, []);
+
+  // Something handed over from another tool — today that is a finished
+  // recording from screeni. It lands in the media library and opens the
+  // composer with the clip already attached.
+  useEffect(() => {
+    const take = () => {
+      const item = takeHandoff("social");
+      if (!item?.file) return;
+      void (async () => {
+        try {
+          // The store may still be loading when a handoff lands right after a
+          // cold start; the runtime promise is already deduplicated.
+          await startSocialRuntime();
+          const added = await useSocialStore.getState().addMedia(item.file!);
+          openComposer(null, {
+            content: { text: item.text ?? "", media: [{ id: added.id }], thread: [] },
+            scheduledAt: toIso(nextDefaultSlot()),
+          });
+          useSocialStore.getState().toast({
+            kind: "success",
+            title: `${item.file!.name} is ready to post`,
+            body: item.from ? `Handed over from ${item.from}.` : undefined,
+          });
+        } catch (err) {
+          useSocialStore.getState().toast({ kind: "error", title: "Could not take that file", body: err instanceof Error ? err.message : String(err) });
+        }
+      })();
+    };
+    take();
+    return onHandoff("social", take);
+  }, [openComposer]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

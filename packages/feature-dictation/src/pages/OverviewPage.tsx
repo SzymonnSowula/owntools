@@ -1,7 +1,7 @@
 import { BookA, Copy, Keyboard, Mic, RotateCcw, Square } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { isTauri } from "@core/env";
-import { DICTATION_HOTKEY_LABEL } from "@core/hotkeys";
+import { DICTATION_HOTKEY_LABEL, microphoneHelp } from "@core/hotkeys";
 import { Alert, Card, copyToClipboard, Kbd, PageHead } from "../components";
 import {
   clearDictationContext,
@@ -10,7 +10,12 @@ import {
   getDictationContext,
   openDictationMic,
   PARAKEET_V3_ID,
+  accessibilityStatus,
+  lastDictationTiming,
+  requestAccessibility,
   resolveActiveModel,
+  type AccessibilityStatus,
+  type DictationTiming,
   type EngineStatus,
 } from "../engine";
 import { VendorMark } from "../VendorMark";
@@ -30,6 +35,7 @@ const QUALITY_LABEL = { fast: "fast", balanced: "balanced", accurate: "accurate"
 function useTestRecorder() {
   const [state, setState] = useState<TestState>("idle");
   const [result, setResult] = useState("");
+  const [timing, setTiming] = useState<DictationTiming | null>(null);
   const [level, setLevel] = useState(0);
   const [contextTail, setContextTail] = useState(() => getDictationContext());
   const rec = useRef<MediaRecorder | null>(null);
@@ -81,6 +87,7 @@ function useTestRecorder() {
       return;
     }
     setResult("");
+    setTiming(null);
     try {
       const mic = await openDictationMic();
       const recorder = createDictationRecorder(mic);
@@ -98,6 +105,7 @@ function useTestRecorder() {
           .catch((err) => setResult(`Error: ${err instanceof Error ? err.message : err}`))
           .finally(() => {
             setContextTail(getDictationContext());
+            setTiming(lastDictationTiming());
             setState("idle");
           });
       };
@@ -105,7 +113,7 @@ function useTestRecorder() {
       recorder.start(200);
       setState("recording");
     } catch {
-      setResult("Microphone unavailable — check the permission in Windows settings.");
+      setResult(microphoneHelp());
     }
   }
 
@@ -114,7 +122,7 @@ function useTestRecorder() {
     setContextTail("");
   }
 
-  return { state, result, level, contextTail, toggle, forgetContext };
+  return { state, result, timing, level, contextTail, toggle, forgetContext };
 }
 
 export function OverviewPage({
@@ -158,6 +166,21 @@ export function OverviewPage({
       : ready
         ? "Ready to dictate"
         : "Not set up yet";
+  // macOS only: whether the app may type into other applications. Read once
+  // when the page mounts, and again from the button below — macOS gives no
+  // notification when the user flips the switch in System Settings, and
+  // polling for it would be a timer running forever for one banner.
+  const [access, setAccess] = useState<AccessibilityStatus>("not-needed");
+  useEffect(() => {
+    let live = true;
+    void accessibilityStatus().then((s) => {
+      if (live) setAccess(s);
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
+
   const dotClass = install.installing ? "busy" : ready && native ? "" : "off";
 
   return (
@@ -167,10 +190,23 @@ export function OverviewPage({
         sub={
           <>
             Press <Kbd>{DICTATION_HOTKEY_LABEL}</Kbd> in any app, speak, press again — the words are typed
-            where you were working. On-device whisper; speech never leaves this computer.
+            where you were working. The model runs on this computer; speech never leaves it.
           </>
         }
       />
+
+      {access === "denied" ? (
+        <Alert kind="warn" icon={<Keyboard />}>
+          macOS has not let owntools type into other apps yet, so a take will land on the
+          clipboard instead of in the window you were working in.{" "}
+          <button
+            className="dt-btn ghost sm"
+            onClick={() => void requestAccessibility().then(setAccess)}
+          >
+            Open Accessibility settings
+          </button>
+        </Alert>
+      ) : null}
 
       {hotkeyOk === false ? (
         <Alert kind="warn" icon={<Keyboard />}>
@@ -300,6 +336,16 @@ export function OverviewPage({
           </div>
           {test.result ? (
             <div className={`dt-result${test.result.startsWith("(") ? " muted" : ""}`}>{test.result}</div>
+          ) : null}
+          {test.timing ? (
+            <p className="dt-note" style={{ marginTop: 10 }}>
+              {Math.round(test.timing.audioMs / 100) / 10}s of speech transcribed in{" "}
+              <strong>{test.timing.ms} ms</strong>
+              {test.timing.warm
+                ? ""
+                : " — the model had to load first; the next take skips that"}
+              .
+            </p>
           ) : null}
           {test.contextTail ? (
             <p className="dt-note" style={{ marginTop: 10 }}>

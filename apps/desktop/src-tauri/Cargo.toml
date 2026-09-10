@@ -1,12 +1,12 @@
 [package]
-name = "shipshape"
+name = "owntools"
 version = "0.2.0"
-description = "Local-first studio for people who ship"
-authors = ["shipshape"]
+description = "Local-first desktop studio - your voice, your screen, your files, all on your device"
+authors = ["owntools"]
 edition = "2021"
 
 [lib]
-name = "shipshape_lib"
+name = "owntools_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
@@ -55,6 +55,12 @@ base64 = "0.22"
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-updater = "2"
 
+# macOS needs the private transparent-background API for the dictation
+# pill (a transparent, undecorated, non-activating window). It rules out
+# a Mac App Store build, which is fine: we ship a notarized .dmg.
+[target.'cfg(target_os = "macos")'.dependencies]
+tauri = { version = "2", features = ["macos-private-api"] }
+
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.61", features = [
   "Win32_Foundation",
@@ -65,6 +71,7 @@ windows = { version = "0.61", features = [
   "Win32_System_LibraryLoader",
   "Win32_Storage_FileSystem",
   "Win32_UI_Shell",
+  "Win32_System_Com",
 ] }
 # disk: installed apps come from the registry's Uninstall keys.
 winreg = "0.55"

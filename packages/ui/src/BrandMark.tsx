@@ -1,7 +1,7 @@
 import { useId } from "react";
 
 /**
- * The shipshape mark — sail + hull, same geometry as the landing page.
+ * The owntools mark — sail + hull, same geometry as the landing page.
  * `filled` paints the rounded-square badge (icons, splash); the bare glyph
  * inherits `currentColor` and is what the titlebar / crumbs use.
  */

@@ -24,7 +24,7 @@ export const discord: Provider = {
   id: "discord",
   fields: [
     { key: "webhook", label: "Webhook URL", placeholder: "https://discord.com/api/webhooks/…", secret: true },
-    { key: "name", label: "Name shown in shipshape", placeholder: "#announcements", optional: true },
+    { key: "name", label: "Name shown in owntools", placeholder: "#announcements", optional: true },
   ],
   async connect(values) {
     const url = assertWebhook(values.webhook ?? "", /^https:\/\/(discord\.com|discordapp\.com|ptb\.discord\.com|canary\.discord\.com)\/api\/webhooks\//i, "Discord");
@@ -73,7 +73,7 @@ function textOnlyWebhook(id: "slack" | "mattermost", host: RegExp, name: string,
     id,
     fields: [
       { key: "webhook", label: "Incoming webhook URL", placeholder, secret: true },
-      { key: "name", label: "Name shown in shipshape", placeholder: "#general", optional: true },
+      { key: "name", label: "Name shown in owntools", placeholder: "#general", optional: true },
     ],
     async connect(values) {
       const url = assertWebhook(values.webhook ?? "", host, name);

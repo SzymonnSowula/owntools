@@ -10,6 +10,9 @@ const engine = vi.hoisted(() => ({
 
 vi.mock("./engine", () => ({
   DEFAULT_MODEL_FILE: "ggml-large-v3-turbo-q5_0.bin",
+  // Which model is the sensible default is a per-platform question in the
+  // real module (whisper has no macOS build); here it is just an id.
+  defaultInstallModel: () => ({ id: "ggml-large-v3-turbo-q5_0.bin" }),
   installDictation: engine.installDictation,
   cancelInstall: engine.cancelInstall,
   isInstallCancelled: (err: unknown) => err instanceof Error && err.name === "InstallCancelled",

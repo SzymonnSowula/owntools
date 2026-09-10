@@ -284,7 +284,7 @@ mod tests {
 
     #[test]
     fn finds_identical_files_and_skips_same_size_different_content() {
-        let base = std::env::temp_dir().join(format!("shipshape-dupes-{}", std::process::id()));
+        let base = std::env::temp_dir().join(format!("owntools-dupes-{}", std::process::id()));
         let _ = fs::remove_dir_all(&base);
         fs::create_dir_all(base.join("x")).unwrap();
         let big: Vec<u8> = (0..200_000u32).map(|i| (i % 251) as u8).collect();

@@ -54,7 +54,7 @@ export function CatchUpSheet() {
       description="Posts that were due while the app was closed."
       footer={
         <>
-          <span className="text-[12px] text-muted">Their time passed while shipshape was closed. Nothing was sent.</span>
+          <span className="text-[12px] text-muted">Their time passed while owntools was closed. Nothing was sent.</span>
           <div className="ml-auto flex gap-2">
             <button className="sc-btn" onClick={() => void Promise.all(catchUp.map(skip))}>
               Skip all

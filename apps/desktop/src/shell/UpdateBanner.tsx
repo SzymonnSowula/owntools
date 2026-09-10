@@ -46,7 +46,7 @@ export function UpdateBanner() {
       {progress === null ? (
         <>
           <span>
-            shipshape {update.version} is ready
+            owntools {update.version} is ready
             {failed ? " — the update failed, try again" : ""}
           </span>
           <button className="update-btn primary" onClick={() => void install()}>

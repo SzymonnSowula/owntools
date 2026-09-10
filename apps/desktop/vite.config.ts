@@ -30,7 +30,7 @@ const skipCjk = (src: string) => !src.includes("Xiaolai");
 
 function excalidrawAssets(): Plugin {
   return {
-    name: "shipshape:excalidraw-assets",
+    name: "owntools:excalidraw-assets",
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
         const url = req.url ?? "";
@@ -71,7 +71,7 @@ const PDFJS_MIME: Record<string, string> = {
 
 function pdfjsAssets(): Plugin {
   return {
-    name: "shipshape:pdfjs-assets",
+    name: "owntools:pdfjs-assets",
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
         const url = req.url ?? "";
@@ -152,7 +152,7 @@ async function relay(req: IncomingMessage, res: ServerResponse): Promise<void> {
 
 function devProxy(): Plugin {
   return {
-    name: "shipshape:dev-proxy",
+    name: "owntools:dev-proxy",
     apply: "serve",
     configureServer(server) {
       server.middlewares.use("/__proxy", (req, res) => {

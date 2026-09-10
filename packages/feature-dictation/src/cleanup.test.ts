@@ -77,12 +77,12 @@ describe("cleanTranscript", () => {
   });
 
   it("rewrites vocabulary to its canonical spelling, including the one-break variant", () => {
-    const vocabulary = ["shipshape", "Tauri"];
-    expect(cleanTranscript("ship shape is built with tauri", { vocabulary })).toBe(
-      "shipshape is built with Tauri",
+    const vocabulary = ["owntools", "Tauri"];
+    expect(cleanTranscript("own tools is built with tauri", { vocabulary })).toBe(
+      "owntools is built with Tauri",
     );
-    expect(cleanTranscript("Ship-shape, Shipshape and SHIPSHAPE", { vocabulary })).toBe(
-      "shipshape, shipshape and shipshape",
+    expect(cleanTranscript("Own-tools, Owntools and OWNTOOLS", { vocabulary })).toBe(
+      "owntools, owntools and owntools",
     );
   });
 
@@ -95,21 +95,21 @@ describe("cleanTranscript", () => {
   it("cleans a realistic take end to end", () => {
     const raw = [
       "[BLANK_AUDIO]",
-      "So the ship shape launch is ready , I think.",
+      "So the own tools launch is ready , I think.",
       "(muzyka)",
       "I think. I think. I think.",
       "Napisy stworzone przez społeczność Amara.org",
       "",
     ].join("\n");
-    expect(cleanTranscript(raw, { vocabulary: ["shipshape"], sentenceCase: true })).toBe(
-      "So the shipshape launch is ready, I think. I think.",
+    expect(cleanTranscript(raw, { vocabulary: ["owntools"], sentenceCase: true })).toBe(
+      "So the owntools launch is ready, I think. I think.",
     );
   });
 });
 
 describe("applyVocabulary", () => {
   it("leaves words that merely contain a term alone", () => {
-    expect(applyVocabulary("shipshaped hulls", ["shipshape"])).toBe("shipshaped hulls");
+    expect(applyVocabulary("whispered a word", ["whisper"])).toBe("whispered a word");
   });
 
   it("matches multi-word terms as a whole and ignores entries shorter than two characters", () => {
@@ -120,7 +120,7 @@ describe("applyVocabulary", () => {
   });
 
   it("is a no-op without vocabulary", () => {
-    expect(applyVocabulary("ship shape", [])).toBe("ship shape");
+    expect(applyVocabulary("own tools", [])).toBe("own tools");
   });
 });
 
@@ -149,22 +149,22 @@ describe("joinDictation", () => {
 
 describe("applyReplacements", () => {
   const rules = [
-    { spoken: "my email address", replacement: "anna@shipshape.app" },
+    { spoken: "my email address", replacement: "anna@owntools.app" },
     { spoken: "super whisper", replacement: "Superwhisper" },
     { spoken: "my sign-off", replacement: "Best regards,\nAnna" },
   ];
 
   it("swaps the spoken phrase for the text, keeping the punctuation around it", () => {
     expect(applyReplacements("You can reach me at my email address.", rules)).toBe(
-      "You can reach me at anna@shipshape.app.",
+      "You can reach me at anna@owntools.app.",
     );
     expect(applyReplacements("My Email Address, then a comma", rules)).toBe(
-      "anna@shipshape.app, then a comma",
+      "anna@owntools.app, then a comma",
     );
   });
 
   it("tolerates whisper's own spellings: hyphens and broken words", () => {
-    expect(applyReplacements("send it to my e-mail address", rules)).toBe("send it to anna@shipshape.app");
+    expect(applyReplacements("send it to my e-mail address", rules)).toBe("send it to anna@owntools.app");
     expect(applyReplacements("I use superwhisper and Super-Whisper", rules)).toBe(
       "I use Superwhisper and Superwhisper",
     );
@@ -209,21 +209,21 @@ describe("removeFillers", () => {
 
 describe("cleanTranscript with the vocabulary", () => {
   it("applies spellings, sentence case and replacements in that order", () => {
-    const text = cleanTranscript("my email address is not ship shape", {
-      vocabulary: ["shipshape"],
-      replacements: [{ spoken: "my email address", replacement: "anna@shipshape.app" }],
+    const text = cleanTranscript("my email address is not own tools", {
+      vocabulary: ["owntools"],
+      replacements: [{ spoken: "my email address", replacement: "anna@owntools.app" }],
       sentenceCase: true,
     });
-    expect(text).toBe("anna@shipshape.app is not shipshape");
+    expect(text).toBe("anna@owntools.app is not owntools");
   });
 
   it("still applies the vocabulary with hallucination cleanup off", () => {
     expect(
-      cleanTranscript("[BLANK_AUDIO] ship shape. ship shape.", {
+      cleanTranscript("[BLANK_AUDIO] own tools. own tools.", {
         hallucinations: false,
-        vocabulary: ["shipshape"],
+        vocabulary: ["owntools"],
       }),
-    ).toBe("[BLANK_AUDIO] shipshape. shipshape.");
+    ).toBe("[BLANK_AUDIO] owntools. owntools.");
   });
 
   it("removes fillers before capitalising", () => {

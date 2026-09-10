@@ -1,5 +1,6 @@
 import "./dictate.css";
-import { BookA, Cpu, History, Home, Mic, SlidersHorizontal } from "lucide-react";
+import { BookA, Cpu, History, Home, SlidersHorizontal } from "lucide-react";
+import { ToolMark } from "@ui/ToolMark";
 import { useEffect, useState, type ReactElement } from "react";
 import { isTauri } from "@core/env";
 import { DICTATION_HOTKEY_LABEL } from "@core/hotkeys";
@@ -76,7 +77,7 @@ export default function DictateView() {
       <aside className="dt-side">
         <div className="dt-side-brand">
           <span className="dt-side-icon" aria-hidden>
-            <Mic />
+            <ToolMark tool="dictate" size={32} />
           </span>
           <div>
             <div className="dt-side-name">dictate</div>

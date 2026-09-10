@@ -5,7 +5,7 @@ use serde::Serialize;
 use tauri::{AppHandle, Manager};
 
 /// Log file stem; tauri-plugin-log appends `.log`.
-pub const LOG_FILE_STEM: &str = "shipshape";
+pub const LOG_FILE_STEM: &str = "owntools";
 
 fn log_path(app: &AppHandle) -> Result<std::path::PathBuf, String> {
     Ok(app

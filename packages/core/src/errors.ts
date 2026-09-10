@@ -14,7 +14,7 @@ export function describeError(detail: unknown): string {
 }
 
 /**
- * Writes to the app log file (tauri-plugin-log → <AppData>/logs/shipshape.log)
+ * Writes to the app log file (tauri-plugin-log → <AppData>/logs/owntools.log)
  * in the desktop app and to the console everywhere. Never throws.
  */
 export function logError(scope: string, kind: string, detail: unknown): void {

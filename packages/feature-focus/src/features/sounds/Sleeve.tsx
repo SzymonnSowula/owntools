@@ -139,7 +139,7 @@ export function SleeveArtwork({
             {title.toLowerCase()}
           </text>
           <text x="8" y="95.5" fill={art.ink} fillOpacity="0.55" fontSize="4.4" letterSpacing="1.4">
-            {side.toUpperCase()} · SHIPSHAPE
+            {side.toUpperCase()} · OWNTOOLS
           </text>
         </>
       )}

@@ -20,6 +20,64 @@ export async function configureAgent(patch: { port?: number; enabled?: boolean }
   return invoke<AgentInfo>("social_agent_configure", { port: patch.port ?? null, enabled: patch.enabled ?? null });
 }
 
+/** An agent on this machine and whether our server is already in its config. */
+export interface AgentTarget {
+  id: string;
+  detected: boolean;
+  installed: boolean;
+  path: string;
+}
+
+export interface InstallOutcome {
+  target: string;
+  path: string;
+  action: "created" | "updated";
+  note: string;
+}
+
+/** Names and one-liners for the agents we can configure without copy-paste. */
+export const INSTALLABLE: { id: string; name: string; what: string }[] = [
+  { id: "claude-code", name: "Claude Code", what: "~/.claude.json — every session, every project." },
+  { id: "cursor", name: "Cursor", what: "~/.cursor/mcp.json — the global server list." },
+  { id: "windsurf", name: "Windsurf", what: "~/.codeium/windsurf/mcp_config.json." },
+  { id: "codex", name: "Codex CLI", what: "~/.codex/config.toml — under [mcp_servers]." },
+];
+
+export async function agentTargets(): Promise<AgentTarget[]> {
+  if (!isTauri()) return [];
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<AgentTarget[]>("social_agent_targets");
+}
+
+/** Writes the MCP entry into that agent's config. Ask the person first. */
+export async function installAgent(target: string): Promise<InstallOutcome> {
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<InstallOutcome>("social_agent_install", { target });
+}
+
+/**
+ * What to say to the agent once it is connected. People stare at a working
+ * MCP server without knowing what to ask it — this is the first sentence.
+ */
+export const STARTER_PROMPTS: { title: string; prompt: string }[] = [
+  {
+    title: "Post something now",
+    prompt: "Using the owntools-social tools: list my channels, write a short post about what I shipped today, run check_post on it, then post_now to the channels that fit.",
+  },
+  {
+    title: "Plan a week",
+    prompt: "Using the owntools-social tools: take 5 free slots from suggest_times and schedule a week of posts about <topic>. Check each one with check_post first and show me the drafts before you create them.",
+  },
+  {
+    title: "Post a video",
+    prompt: "Using the owntools-social tools: add_media_from_path for <path to the clip>, write a caption for each channel that takes video, check_post, then schedule it at the next free slot.",
+  },
+  {
+    title: "Look after the queue",
+    prompt: "Using the owntools-social tools: list everything scheduled from now on, check each post against its networks, and tell me what would fail to publish.",
+  },
+];
+
 export function maskToken(token: string): string {
   if (!token) return "—";
   if (token.length <= 10) return "•".repeat(token.length);
@@ -43,7 +101,7 @@ export function agentSnippets(info: Pick<AgentInfo, "port" | "token">): AgentSni
   const mcp = `${base}/mcp`;
   const tok = info.token || "<token>";
   const json = JSON.stringify(
-    { mcpServers: { "shipshape-social": { type: "http", url: mcp, headers: { Authorization: `Bearer ${tok}` } } } },
+    { mcpServers: { "owntools-social": { type: "http", url: mcp, headers: { Authorization: `Bearer ${tok}` } } } },
     null,
     2,
   );
@@ -53,7 +111,7 @@ export function agentSnippets(info: Pick<AgentInfo, "port" | "token">): AgentSni
       name: "Claude Code",
       note: "One command; the server shows up as tools in every session.",
       lang: "shell",
-      code: `claude mcp add --transport http shipshape-social ${mcp} --header "Authorization: Bearer ${tok}"`,
+      code: `claude mcp add --transport http owntools-social ${mcp} --header "Authorization: Bearer ${tok}"`,
     },
     {
       id: "cursor",
@@ -67,7 +125,7 @@ export function agentSnippets(info: Pick<AgentInfo, "port" | "token">): AgentSni
       name: "Codex CLI",
       note: "Append to ~/.codex/config.toml; the token comes from an environment variable.",
       lang: "toml",
-      code: `[mcp_servers.shipshape-social]\nurl = "${mcp}"\nbearer_token_env_var = "SHIPSHAPE_SOCIAL_TOKEN"\n\n# then: export SHIPSHAPE_SOCIAL_TOKEN=${tok}`,
+      code: `[mcp_servers.owntools-social]\nurl = "${mcp}"\nbearer_token_env_var = "OWNTOOLS_SOCIAL_TOKEN"\n\n# then: export OWNTOOLS_SOCIAL_TOKEN=${tok}`,
     },
     {
       id: "openclaw",
@@ -117,19 +175,30 @@ export const REST_ROUTES: { method: string; path: string; what: string }[] = [
   { method: "GET", path: "/media", what: "Media library." },
   { method: "POST", path: "/media", what: "Upload: JSON {name, base64} or multipart file." },
   { method: "GET", path: "/tags", what: "Tags." },
+  { method: "POST", path: "/posts/now", what: "Create and publish in one call." },
+  { method: "GET", path: "/networks", what: "Networks with their limits and how many channels use them." },
+  { method: "POST", path: "/check", what: "Check text + channelIds before creating anything." },
+  { method: "GET", path: "/slots", what: "Free times: ?count=&from=&spacingMinutes=." },
+  { method: "POST", path: "/media/path", what: "Add a file already on this machine: { path, alt? }." },
+  { method: "GET", path: "/guide", what: "This whole workflow as Markdown." },
   { method: "POST", path: "/mcp", what: "MCP over Streamable HTTP (JSON-RPC)." },
 ];
 
 export const MCP_TOOLS: { name: string; what: string }[] = [
   { name: "list_channels", what: "Connected channels, their network and character limit." },
-  { name: "list_posts", what: "Posts, optionally by status or date range." },
-  { name: "get_post", what: "One post with results." },
+  { name: "list_networks", what: "Every network and what it takes — characters, images, video size and length." },
+  { name: "check_post", what: "Would this text go out? Per-network count and blocking issues, before writing anything." },
+  { name: "suggest_times", what: "Free slots from the preferred hour, spaced out, skipping what is taken." },
   { name: "create_post", what: "Draft or schedule a post on one or more channels." },
+  { name: "post_now", what: "Write and publish in one call — for “post this”." },
+  { name: "list_posts", what: "Posts, optionally by status or date range." },
+  { name: "get_post", what: "One post with its per-channel results and URLs." },
   { name: "update_post", what: "Change text, time, channels, tags or per-channel overrides." },
   { name: "delete_post", what: "Remove a post." },
-  { name: "publish_post", what: "Publish a post right away." },
+  { name: "publish_post", what: "Publish a post that is already on the calendar." },
+  { name: "add_media_from_path", what: "Take a file from disk into the library — how a video gets attached." },
+  { name: "upload_media", what: "Add a small image from base64." },
   { name: "list_media", what: "Images and videos in the library." },
-  { name: "upload_media", what: "Add an image (base64) to the library." },
   { name: "list_tags", what: "Tags for the calendar." },
 ];
 

@@ -17,6 +17,7 @@ use serde_json::{json, Value};
 use tauri::Emitter;
 use tower_http::cors::CorsLayer;
 
+use super::plan;
 use super::store::{self, ApiError, PostFilter};
 use super::{SocialState, CHANGED_EVENT, OAUTH_EVENT};
 
@@ -44,8 +45,14 @@ pub fn router(state: Shared) -> Router {
         .route("/posts", get(posts_list).post(posts_create))
         .route("/posts/{id}", get(post_get).patch(post_patch).delete(post_delete))
         .route("/posts/{id}/publish", post(post_publish))
+        .route("/posts/now", post(posts_now))
         .route("/media", get(media_list).post(media_create))
+        .route("/media/path", post(media_from_path))
         .route("/tags", get(tags))
+        .route("/networks", get(networks))
+        .route("/check", post(check))
+        .route("/slots", get(slots))
+        .route("/guide", get(guide))
         .route("/mcp", post(mcp_post).get(mcp_get).delete(mcp_delete))
         .layer(middleware::from_fn_with_state(state.clone(), auth))
         .layer(CorsLayer::permissive())
@@ -63,7 +70,7 @@ async fn auth(State(state): State<Shared>, req: Request, next: Next) -> Response
     if !state.enabled.load(Ordering::Relaxed) {
         return (
             StatusCode::FORBIDDEN,
-            Json(json!({ "error": "the agent API is paused — turn it on in shipshape → social → Agents" })),
+            Json(json!({ "error": "the agent API is paused — turn it on in owntools → social → Agents" })),
         )
             .into_response();
     }
@@ -77,8 +84,8 @@ async fn auth(State(state): State<Shared>, req: Request, next: Next) -> Response
         Some(t) if state.token_matches(t) => next.run(req).await,
         _ => (
             StatusCode::UNAUTHORIZED,
-            [(header::WWW_AUTHENTICATE, "Bearer realm=\"shipshape social\"")],
-            Json(json!({ "error": "missing or wrong bearer token — copy it from shipshape → social → Agents" })),
+            [(header::WWW_AUTHENTICATE, "Bearer realm=\"owntools social\"")],
+            Json(json!({ "error": "missing or wrong bearer token — copy it from owntools → social → Agents" })),
         )
             .into_response(),
     }
@@ -87,7 +94,7 @@ async fn auth(State(state): State<Shared>, req: Request, next: Next) -> Response
 async fn health(State(state): State<Shared>) -> Json<Value> {
     Json(json!({
         "ok": true,
-        "name": "shipshape-social",
+        "name": "owntools-social",
         "version": state.app.package_info().version.to_string(),
         "enabled": state.enabled.load(Ordering::Relaxed),
         "mcp": "/mcp",
@@ -114,12 +121,12 @@ async fn oauth_callback(State(state): State<Shared>, Query(q): Query<OAuthQuery>
         }),
     );
     let (title, body) = if ok {
-        ("signed in", "You can close this tab and go back to shipshape.")
+        ("signed in", "You can close this tab and go back to owntools.")
     } else {
-        ("sign-in was not completed", "Go back to shipshape and try again.")
+        ("sign-in was not completed", "Go back to owntools and try again.")
     };
     Html(format!(
-        r#"<!doctype html><html lang="en"><head><meta charset="utf-8"><title>shipshape · {title}</title>
+        r#"<!doctype html><html lang="en"><head><meta charset="utf-8"><title>owntools · {title}</title>
 <style>body{{margin:0;min-height:100vh;display:grid;place-items:center;font-family:Inter,system-ui,sans-serif;background:#f5f5f7;color:#1d1d1f}}
 .card{{background:#fff;border:1px solid rgba(29,29,31,.12);border-radius:16px;padding:32px 36px;box-shadow:0 18px 44px rgba(17,17,17,.12);text-align:center;max-width:420px}}
 h1{{font-size:22px;margin:0 0 8px;letter-spacing:-.03em}} p{{margin:0;color:#6e6e73}}</style></head>
@@ -182,6 +189,54 @@ async fn post_publish(State(state): State<Shared>, Path(id): Path<String>) -> Re
         StatusCode::ACCEPTED,
         Json(json!({ "accepted": true, "post": post, "note": "the app publishes within ~30 s; poll GET /posts/{id} for results" })),
     ))
+}
+
+/// Write and publish in one call — what "post this" means over plain HTTP.
+async fn posts_now(State(state): State<Shared>, Json(mut body): Json<Value>) -> Result<(StatusCode, Json<Value>), ApiError> {
+    if let Some(obj) = body.as_object_mut() {
+        obj.insert("status".into(), json!("scheduled"));
+        obj.insert("scheduledAt".into(), json!(store::local_now_iso()));
+    }
+    let created = store::create_post(&state.root, &body)?;
+    let id = created.get("id").and_then(Value::as_str).unwrap_or_default().to_string();
+    let post = store::publish_now(&state.root, &id)?;
+    emit_changed(&state, "post", Some(&id), "publish");
+    Ok((
+        StatusCode::ACCEPTED,
+        Json(json!({ "accepted": true, "post": post, "note": "publishing now; poll GET /posts/{id} for results" })),
+    ))
+}
+
+/// `{ path, name?, alt? }` — a file already on this machine, no base64.
+async fn media_from_path(State(state): State<Shared>, Json(body): Json<Value>) -> Result<(StatusCode, Json<Value>), ApiError> {
+    let path = body.get("path").and_then(Value::as_str).ok_or_else(|| ApiError::bad("`path` is required"))?;
+    let item = plan::add_media_from_path(&state.root, path, body.get("alt").and_then(Value::as_str), body.get("name").and_then(Value::as_str))?;
+    emit_changed(&state, "media", item.get("id").and_then(Value::as_str), "create");
+    Ok((StatusCode::CREATED, Json(item)))
+}
+
+async fn networks(State(state): State<Shared>) -> Json<Value> {
+    Json(plan::networks_summary(&state.root))
+}
+
+async fn check(State(state): State<Shared>, Json(body): Json<Value>) -> Result<Json<Value>, ApiError> {
+    plan::check_post(&state.root, &body).map(Json)
+}
+
+#[derive(Deserialize)]
+struct SlotQuery {
+    count: Option<usize>,
+    from: Option<String>,
+    #[serde(rename = "spacingMinutes", alias = "spacing_minutes")]
+    spacing_minutes: Option<i64>,
+}
+
+async fn slots(State(state): State<Shared>, Query(q): Query<SlotQuery>) -> Result<Json<Value>, ApiError> {
+    plan::suggest_slots(&state.root, q.count.unwrap_or(3), q.from.as_deref(), q.spacing_minutes.unwrap_or(60)).map(Json)
+}
+
+async fn guide(State(state): State<Shared>) -> impl IntoResponse {
+    ([(header::CONTENT_TYPE, "text/markdown; charset=utf-8")], plan::guide(&state.root))
 }
 
 async fn media_list(State(state): State<Shared>) -> Json<Value> {

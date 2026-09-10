@@ -6,7 +6,7 @@ const channel = (patch: Partial<Channel> = {}): Channel => ({
   id: "c1",
   provider: "x",
   handle: "@ship",
-  displayName: "shipshape",
+  displayName: "owntools",
   avatar: null,
   collection: "Personal",
   disabled: false,
@@ -32,8 +32,8 @@ const byId = (id: string) => media[id];
 
 describe("measure", () => {
   it("counts a URL as 23 on X and Mastodon, and emoji as 2 on X", () => {
-    expect(measure("x", "https://shipshape.app/a/very/long/path/that/goes/on")).toBe(23);
-    expect(measure("mastodon", "look https://shipshape.app/a/very/long/path")).toBe(5 + 23);
+    expect(measure("x", "https://owntools.app/a/very/long/path/that/goes/on")).toBe(23);
+    expect(measure("mastodon", "look https://owntools.app/a/very/long/path")).toBe(5 + 23);
     expect(measure("x", "🚀")).toBe(2);
     expect(measure("x", "abc")).toBe(3);
     expect(measure("linkedin", "🚀")).toBe(1);
@@ -41,7 +41,7 @@ describe("measure", () => {
 
   it("counts graphemes on Bluesky", () => {
     expect(measure("bluesky", "👨‍👩‍👧")).toBe(1);
-    expect(measure("bluesky", "https://shipshape.app")).toBe(21);
+    expect(measure("bluesky", "https://owntools.app")).toBe(20);
   });
 });
 
@@ -55,9 +55,9 @@ describe("validateForChannel", () => {
   });
 
   it("respects a per-channel limit override and the signature", () => {
-    const ch = channel({ provider: "mastodon", preferences: { charLimit: 5000, signature: "— via shipshape" } });
+    const ch = channel({ provider: "mastodon", preferences: { charLimit: 5000, signature: "— via owntools" } });
     expect(validateForChannel(content({ text: "x".repeat(600) }), ch, byId)).toEqual([]);
-    expect(applySignature("hi", ch)).toBe("hi\n\n— via shipshape");
+    expect(applySignature("hi", ch)).toBe("hi\n\n— via owntools");
   });
 
   it("checks media counts, sizes and title requirements", () => {
@@ -106,5 +106,27 @@ describe("resolveContent + truncate", () => {
     expect(cut).toBe("one two…");
     expect(measure("x", cut)).toBeLessThanOrEqual(12);
     expect(truncateToLimit("x", "short", 280)).toBe("short");
+  });
+});
+
+describe("video limits", () => {
+  const big: MediaItem = { id: "big", file: "media/big.mp4", name: "big.mp4", mime: "video/mp4", bytes: 60 * 1024 * 1024, duration: 30, createdAt: "" };
+  const long: MediaItem = { id: "long", file: "media/long.mp4", name: "long.mp4", mime: "video/mp4", bytes: 4_000_000, duration: 240, createdAt: "" };
+  const lookup = (id: string) => ({ ...media, big, long })[id];
+  const bsky = channel({ provider: "bluesky" });
+
+  it("flags a video over the network's size limit", () => {
+    const issues = validateForChannel(content({ text: "look", media: [{ id: "big" }] }), bsky, lookup);
+    expect(issues.map((i) => i.message).join(" ")).toContain("takes up to 50 MB of video");
+  });
+
+  it("flags a video longer than the network allows", () => {
+    const issues = validateForChannel(content({ text: "look", media: [{ id: "long" }] }), bsky, lookup);
+    expect(issues.map((i) => i.message).join(" ")).toContain("allows 180 s");
+  });
+
+  it("lets a video that fits through", () => {
+    const ok: MediaItem = { ...big, id: "ok", bytes: 8_000_000, duration: 20 };
+    expect(validateForChannel(content({ text: "look", media: [{ id: "ok" }] }), bsky, (id) => (id === "ok" ? ok : undefined))).toEqual([]);
   });
 });

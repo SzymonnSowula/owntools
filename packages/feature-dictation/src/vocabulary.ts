@@ -3,12 +3,12 @@
  *
  * One list, two kinds of entry, told apart by whether `replacement` is set:
  *
- *   - a **spelling**: `spoken` alone ("shipshape", "Rzeszów", "Claude Code").
+ *   - a **spelling**: `spoken` alone ("owntools", "Rzeszów", "Claude Code").
  *     The word goes into whisper's prompt so it is recognised in the first
  *     place, and every spelling whisper produces for it afterwards is rewritten
  *     to exactly this one.
  *   - a **replacement**: `spoken` → `replacement` ("my email address" →
- *     "anna@shipshape.app", "super whisper" → "Superwhisper"). Whatever is said
+ *     "anna@owntools.app", "super whisper" → "Superwhisper"). Whatever is said
  *     is typed as the replacement — a long address, a sign-off, a fixed
  *     spelling of a brand.
  *

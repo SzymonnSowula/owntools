@@ -9,6 +9,8 @@ mod hotkeys;
 mod importer;
 mod input_track;
 mod launcher;
+#[cfg(target_os = "macos")]
+mod mac;
 mod migrate;
 mod parakeet;
 mod permissions;
@@ -19,6 +21,7 @@ mod shield;
 mod social;
 #[cfg(windows)]
 mod usage;
+mod ws;
 
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
@@ -62,7 +65,41 @@ fn reveal(window: &WebviewWindow) {
     let _ = window.unminimize();
     let _ = window.show();
     let _ = window.set_skip_taskbar(false);
+    rescue_offscreen(window);
     let _ = window.set_focus();
+}
+
+/// Brings a window back when it is parked outside every monitor.
+///
+/// Windows keeps a minimised window at (-32000, -32000) sized to its caption.
+/// Hide it while it sits there and it can come back "visible and not iconic" at
+/// those coordinates — `show()` and `unminimize()` are then both no-ops (tao
+/// returns early when the state already matches), so the tray item, the
+/// shortcut and the single-instance handler all "do nothing", permanently. A
+/// second monitor that gets unplugged strands a window the same way. Seen for
+/// real after a long cleanup froze the app (2026-09-08).
+fn rescue_offscreen(window: &WebviewWindow) {
+    let (Ok(pos), Ok(size)) = (window.outer_position(), window.outer_size()) else {
+        return;
+    };
+    let monitors = window.available_monitors().unwrap_or_default();
+    // Reachable = enough of the window overlaps a monitor to see and grab it.
+    let reachable = monitors.iter().any(|m| {
+        let (mp, ms) = (m.position(), m.size());
+        let overlap_x = (pos.x + size.width as i32).min(mp.x + ms.width as i32) - pos.x.max(mp.x);
+        let overlap_y = (pos.y + size.height as i32).min(mp.y + ms.height as i32) - pos.y.max(mp.y);
+        overlap_x >= 120 && overlap_y >= 40
+    });
+    if reachable {
+        return;
+    }
+    // The minimise placeholder also shrinks the window to its caption, so give
+    // it a usable size back before centring — `center()` works off the size.
+    if size.width < 640 || size.height < 480 {
+        let _ = window.set_size(tauri::PhysicalSize::new(1280u32, 800u32));
+    }
+    let _ = window.center();
+    log::info!("window '{}' was off-screen at ({}, {}); brought back", window.label(), pos.x, pos.y);
 }
 
 /// Hide to the tray. Only used for an explicit close: minimising keeps the
@@ -147,8 +184,13 @@ pub fn run() {
             dictation::whisper_transcribe,
             parakeet::parakeet_install_runtime,
             parakeet::parakeet_transcribe,
+            parakeet::parakeet_warmup,
+            parakeet::parakeet_shutdown,
             parakeet::parakeet_remove_model,
             dictation::type_text,
+            dictation::mark_executable,
+            permissions::accessibility_status,
+            permissions::accessibility_request,
             dictation::dictation_target,
             downloader::download_file,
             downloader::download_cancel,
@@ -161,6 +203,8 @@ pub fn run() {
             social::social_agent_info,
             social::social_agent_regenerate_token,
             social::social_agent_configure,
+            social::social_agent_targets,
+            social::social_agent_install,
             shield::capture_shield,
             disk::disk_volumes,
             disk::disk_home,
@@ -194,7 +238,7 @@ pub fn run() {
             disk::disk_snapshot_open
         ])
         .setup(move |app| {
-            log::info!("shipshape {} starting", app.package_info().version);
+            log::info!("owntools {} starting", app.package_info().version);
             for note in &migration_notes {
                 log::info!("{note}");
             }
@@ -253,7 +297,7 @@ pub fn run() {
                 .icon(icon)
                 .menu(&menu)
                 .show_menu_on_left_click(false)
-                .tooltip("shipshape")
+                .tooltip("owntools")
                 .on_menu_event(|app, event| match event.id().as_ref() {
                     "show" => show_main(app),
                     "start-session" => {
@@ -267,6 +311,10 @@ pub fn run() {
                         if let Some(overlay) = app.get_webview_window("recorder") {
                             let _ = overlay.show();
                             let _ = overlay.set_focus();
+                            // The page is live from start-up in a hidden window
+                            // and is told nothing when the window appears, so
+                            // say it: the camera preview waits on this.
+                            let _ = app.emit("recorder-visibility", true);
                         }
                     }
                     "quick-note" => {
@@ -307,6 +355,13 @@ pub fn run() {
                 }
             }
         })
-        .run(tauri::generate_context!())
-        .expect("error while running shipshape");
+        .build(tauri::generate_context!())
+        .expect("error while building owntools")
+        .run(|_app, event| {
+            // The resident speech recognizer is a child process; nothing
+            // else reaps it, so a normal quit has to.
+            if let tauri::RunEvent::Exit = event {
+                parakeet::shutdown();
+            }
+        });
 }

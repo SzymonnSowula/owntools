@@ -2010,6 +2010,223 @@ button.sc-chip:hover {
 .sc-pill.sim { background: color-mix(in srgb, var(--sc-amber) 18%, transparent); color: color-mix(in srgb, var(--sc-amber) 65%, var(--color-ink)); }
 
 /* ------------------------------------------------------------------ */
+/* Paste-to-connect + setup steps (Add channel)                         */
+/* ------------------------------------------------------------------ */
+
+.sc-paste {
+  border: 1px solid color-mix(in srgb, var(--color-accent) 30%, var(--color-line));
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--color-accent) 5%, var(--color-card));
+  padding: 12px;
+}
+
+.sc-paste-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12.5px;
+  font-weight: 650;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.sc-paste-hint {
+  font-weight: 400;
+  font-size: 11.5px;
+  color: var(--color-muted);
+}
+
+.sc-paste-input {
+  resize: none;
+  font-family: "SF Mono", Consolas, "Cascadia Code", Menlo, monospace;
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+.sc-paste-hit {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin-top: 8px;
+  padding: 9px 11px;
+  border-radius: 11px;
+  border: 1px solid color-mix(in srgb, var(--color-accent) 40%, transparent);
+  background: var(--color-card);
+  text-align: left;
+  transition: transform 0.12s, box-shadow 0.12s;
+}
+
+.sc-paste-hit:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--sc-shadow);
+}
+
+.sc-paste-hit-text {
+  display: flex;
+  flex-direction: column;
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.sc-paste-hit-text span {
+  color: var(--color-muted);
+  font-size: 11.5px;
+}
+
+.sc-media-badge {
+  position: absolute;
+  left: 4px;
+  bottom: 4px;
+  padding: 1px 5px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.62);
+  color: #fff;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  pointer-events: none;
+}
+
+.sc-paste-hit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.sc-paste-miss {
+  margin-top: 8px;
+  font-size: 11.5px;
+  color: var(--color-muted);
+}
+
+.sc-net-time {
+  margin-left: auto;
+  font-size: 10.5px;
+  color: var(--color-muted);
+  white-space: nowrap;
+}
+
+.sc-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 18px;
+  padding: 14px 14px 14px 12px;
+  border: 1px solid var(--color-line);
+  border-radius: 14px;
+  background: var(--color-paper);
+}
+
+.sc-steps li {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.sc-step-n {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin-top: 1px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  color: var(--color-accent);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.sc-step-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.sc-copy-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  max-width: 100%;
+  padding: 4px 9px;
+  border-radius: 8px;
+  border: 1px solid var(--color-line);
+  background: var(--color-card);
+  font-size: 11px;
+}
+
+.sc-copy-chip:hover {
+  border-color: color-mix(in srgb, var(--color-ink) 25%, transparent);
+}
+
+.sc-copy-chip svg {
+  width: 12px;
+  height: 12px;
+  color: var(--color-muted);
+  flex: none;
+}
+
+.sc-copy-chip-label {
+  color: var(--color-muted);
+  flex: none;
+}
+
+.sc-copy-chip code {
+  font-family: "SF Mono", Consolas, "Cascadia Code", Menlo, monospace;
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sc-chat-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.sc-chat {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 10px;
+  border: 1px solid var(--color-line);
+  border-radius: 10px;
+  background: var(--color-card);
+  font-size: 12px;
+  text-align: left;
+}
+
+.sc-chat:hover {
+  border-color: var(--color-accent);
+}
+
+
+.sc-agent-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 11px;
+  border: 1px solid var(--color-line);
+  border-radius: 11px;
+  background: var(--color-paper);
+}
+
+.sc-agent-row > :last-child {
+  margin-left: auto;
+  flex: none;
+}
+
+/* ------------------------------------------------------------------ */
 /* Code blocks (Agents page)                                            */
 /* ------------------------------------------------------------------ */
 

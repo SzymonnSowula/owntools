@@ -11,7 +11,7 @@
   "dependencies": {
     "@remotion/player": "^4.0.519",
     "@remotion/web-renderer": "^4.0.519",
-    "@shipshape/launch-engine": "workspace:*",
+    "@owntools/launch-engine": "workspace:*",
     "aws4fetch": "^1.0.20",
     "lucide-react": "^1.38.0",
     "mediabunny": "^1.55.4",

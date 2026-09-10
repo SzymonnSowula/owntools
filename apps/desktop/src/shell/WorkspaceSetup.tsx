@@ -359,7 +359,7 @@ export function WorkspaceSetup() {
             ))}
           </div>
 
-          <div className="rit-label">and in shipshape</div>
+          <div className="rit-label">and in owntools</div>
           <div className="rit-options">
             <label className="rit-option">
               <input

@@ -1643,12 +1643,63 @@
 }
 
 .dk-notice {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
   font-size: 12.5px;
-  padding: 4px 10px;
+  padding: 4px 6px 4px 10px;
   border-radius: 8px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.dk-notice-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  border-radius: 5px;
+  color: inherit;
+  opacity: 0.65;
+  cursor: pointer;
+}
+
+.dk-notice-close:hover {
+  opacity: 1;
+  background: color-mix(in srgb, currentColor 14%, transparent);
+}
+
+/* The cleanup runs for minutes on a big folder: say so, and say where it is. */
+.dk-trashing {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 8px 12px;
+  font-size: 12.5px;
+  border-bottom: 1px solid var(--dk-line);
+}
+
+.dk-trashing-path {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dk-spin {
+  flex: 0 0 auto;
+  animation: dk-spin 0.9s linear infinite;
+}
+
+@keyframes dk-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .dk-notice.ok {

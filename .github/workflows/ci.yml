@@ -35,8 +35,19 @@ jobs:
           NEXT_TELEMETRY_DISABLED: "1"
 
   rust:
-    name: cargo check (windows)
-    runs-on: windows-latest
+    name: cargo check + test (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # Both platforms always run: the point of the macOS leg is to catch the
+      # `#[cfg(target_os = "macos")]` arms, which nothing on a Windows machine
+      # ever compiles.
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            name: windows
+          - os: macos-14
+            name: macos
     steps:
       - uses: actions/checkout@v4
 
@@ -45,10 +56,16 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: apps/desktop/src-tauri
+          key: ${{ matrix.name }}
 
       # tauri-build looks for the frontend output folder; an empty one is enough
       # for a type check, and it saves running the whole web build here.
-      - run: New-Item -ItemType Directory -Force apps/desktop/dist | Out-Null
+      - name: Placeholder frontend output
+        run: mkdir -p apps/desktop/dist
+        shell: bash
 
-      - run: cargo check
+      - run: cargo check --all-targets
+        working-directory: apps/desktop/src-tauri
+
+      - run: cargo test
         working-directory: apps/desktop/src-tauri

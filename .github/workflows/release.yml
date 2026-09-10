@@ -1,9 +1,17 @@
 name: Release
 
-# Pushing a `v*` tag (or running this by hand) builds the Windows NSIS installer,
-# signs the updater artifact with the Tauri key, and uploads installer + `.sig`
-# + `latest.json` to a DRAFT GitHub release named after the version in
-# apps/desktop/src-tauri/tauri.conf.json. Runbook: docs/release.md.
+# Pushing a `v*` tag (or running this by hand) builds the installers, signs the
+# updater artifacts with the Tauri key, and uploads them to a DRAFT GitHub
+# release named after the version in apps/desktop/src-tauri/tauri.conf.json.
+#
+#   windows → NSIS `…_x64-setup.exe` + `.sig`
+#   macos   → universal `.dmg` and `.app.tar.gz` + `.sig`
+#
+# The macOS job runs after the Windows one on purpose: `latest.json` is a single
+# release asset that tauri-action merges platform by platform, and two jobs
+# writing it at once would lose one of them.
+#
+# Runbook: docs/release.md. macOS specifics: docs/macos.md.
 
 on:
   push:
@@ -73,7 +81,7 @@ jobs:
           projectPath: apps/desktop
           tauriScript: pnpm tauri
           tagName: v__VERSION__
-          releaseName: "shipshape v__VERSION__"
+          releaseName: "owntools v__VERSION__"
           releaseDraft: true
           prerelease: false
           includeUpdaterJson: true
@@ -90,7 +98,82 @@ jobs:
           projectPath: apps/desktop
           tauriScript: pnpm tauri
           tagName: v__VERSION__
-          releaseName: "shipshape v__VERSION__"
+          releaseName: "owntools v__VERSION__"
           releaseDraft: true
           prerelease: false
           includeUpdaterJson: true
+
+  macos:
+    name: macos universal (dmg + app)
+    runs-on: macos-14
+    needs: windows
+    env:
+      # An Apple Developer ID certificate is what turns "macOS says this app is
+      # damaged" into a normal double-click. Without it the build still runs and
+      # produces an unsigned .dmg — see docs/macos.md for what users then face.
+      HAS_APPLE_CERT: ${{ secrets.APPLE_CERTIFICATE != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          # A universal binary is two real builds stitched together, so both
+          # targets have to be installed even though the runner is arm64.
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
+          key: macos-universal
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build universal app + attach to the draft release (signed & notarized)
+        if: env.HAS_APPLE_CERT == 'true'
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          # Code signing: a base64 .p12 plus its password, and the identity to
+          # sign with ("Developer ID Application: Name (TEAMID)").
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          # Notarization: an app-specific password, not the Apple ID password.
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        with:
+          projectPath: apps/desktop
+          tauriScript: pnpm tauri
+          tagName: v__VERSION__
+          releaseName: "owntools v__VERSION__"
+          releaseDraft: true
+          prerelease: false
+          includeUpdaterJson: true
+          args: --target universal-apple-darwin
+
+      - name: Build universal app + attach to the draft release (unsigned)
+        if: env.HAS_APPLE_CERT != 'true'
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          projectPath: apps/desktop
+          tauriScript: pnpm tauri
+          tagName: v__VERSION__
+          releaseName: "owntools v__VERSION__"
+          releaseDraft: true
+          prerelease: false
+          includeUpdaterJson: true
+          args: --target universal-apple-darwin

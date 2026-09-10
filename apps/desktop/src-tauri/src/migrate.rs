@@ -1,21 +1,27 @@
 //! One-time moves of the app's data folders.
 //!
-//! The app was called "suite" before it was shipshape, and its bundle
-//! identifier — the name of every data folder the OS gives it — stayed
-//! `app.suite.desktop` long after the rename. `migrate_identifier` renames
-//! those folders to the current identifier the first time a build with the
-//! new identifier starts, *before* any plugin opens a file in the new place,
-//! so settings, whisper models, recordings, the WebView2 profile (localStorage)
-//! and the log all carry over. A rename on the same volume is instant, however
-//! large the folder.
+//! The app has shipped under three names — suite, then shipshape, now
+//! owntools — and the bundle identifier is the name of every data folder the
+//! OS gives it. `migrate_identifier` renames those folders to the current
+//! identifier the first time a build with the new identifier starts, *before*
+//! any plugin opens a file in the new place, so settings, whisper models,
+//! recordings, the WebView2 profile (localStorage) and the log all carry over.
+//! A rename on the same volume is instant, however large the folder.
+//!
+//! Every past identifier has to stay in `LEGACY_IDENTIFIERS` forever: a machine
+//! that skipped a release still holds its data under whichever name it last ran,
+//! and dropping an entry here orphans that install silently.
 //!
 //! `migrate_layout` does the same for folders inside AppData that were named
 //! after a tool's old name (`screeni` → `recordings`).
 
 use std::path::{Path, PathBuf};
 
-pub const OLD_IDENTIFIER: &str = "app.suite.desktop";
-pub const IDENTIFIER: &str = "app.shipshape.desktop";
+/// Newest first: the first folder found wins, so a machine carrying both a
+/// stale `app.suite.desktop` and a real `app.shipshape.desktop` keeps the
+/// newer one and leaves the stale folder untouched.
+pub const LEGACY_IDENTIFIERS: &[&str] = &["app.shipshape.desktop", "app.suite.desktop"];
+pub const IDENTIFIER: &str = "app.owntools.desktop";
 
 /// Every base folder the OS resolves per identifier. Roaming + Local on
 /// Windows, Application Support / Caches / Logs on macOS, the XDG trio on Linux.
@@ -69,11 +75,14 @@ fn rename_dir(old: &Path, new: &Path, notes: &mut Vec<String>) {
 /// once the log plugin exists.
 pub fn migrate_identifier() -> Vec<String> {
     let mut notes = Vec::new();
-    if OLD_IDENTIFIER == IDENTIFIER {
-        return notes;
-    }
     for base in base_dirs() {
-        rename_dir(&base.join(OLD_IDENTIFIER), &base.join(IDENTIFIER), &mut notes);
+        let new = base.join(IDENTIFIER);
+        for old in LEGACY_IDENTIFIERS {
+            if *old == IDENTIFIER {
+                continue;
+            }
+            rename_dir(&base.join(old), &new, &mut notes);
+        }
     }
     notes
 }
@@ -87,4 +96,71 @@ pub fn migrate_layout(app_data: &Path) -> Vec<String> {
         rename_dir(&app_data.join(old), &app_data.join(new), &mut notes);
     }
     notes
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn scratch(tag: &str) -> PathBuf {
+        let base = std::env::temp_dir().join(format!(
+            "owntools-migrate-{tag}-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&base);
+        std::fs::create_dir_all(&base).unwrap();
+        base
+    }
+
+    fn migrate_into(base: &Path) -> Vec<String> {
+        let mut notes = Vec::new();
+        let new = base.join(IDENTIFIER);
+        for old in LEGACY_IDENTIFIERS {
+            rename_dir(&base.join(old), &new, &mut notes);
+        }
+        notes
+    }
+
+    /// The name we ship under must never also sit in the legacy list, or the
+    /// migration would try to rename a folder onto itself.
+    #[test]
+    fn current_identifier_is_not_listed_as_legacy() {
+        assert!(!LEGACY_IDENTIFIERS.contains(&IDENTIFIER));
+        assert!(LEGACY_IDENTIFIERS.len() >= 2);
+    }
+
+    /// A machine that ran every release holds several old folders. The newest
+    /// one has to win, and the staler one must be left where it is rather than
+    /// merged in or deleted.
+    #[test]
+    fn newest_legacy_folder_wins() {
+        let base = scratch("newest");
+        for id in LEGACY_IDENTIFIERS {
+            std::fs::create_dir_all(base.join(id)).unwrap();
+            std::fs::write(base.join(id).join("marker.txt"), id.as_bytes()).unwrap();
+        }
+
+        migrate_into(&base);
+
+        let moved = std::fs::read_to_string(base.join(IDENTIFIER).join("marker.txt")).unwrap();
+        assert_eq!(moved, LEGACY_IDENTIFIERS[0]);
+        assert!(base.join(LEGACY_IDENTIFIERS[1]).is_dir());
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    /// Someone who skipped a release only has the oldest folder, and it still
+    /// has to be picked up.
+    #[test]
+    fn oldest_legacy_folder_still_migrates() {
+        let base = scratch("oldest");
+        let oldest = LEGACY_IDENTIFIERS[LEGACY_IDENTIFIERS.len() - 1];
+        std::fs::create_dir_all(base.join(oldest)).unwrap();
+        std::fs::write(base.join(oldest).join("marker.txt"), b"old").unwrap();
+
+        migrate_into(&base);
+
+        assert!(base.join(IDENTIFIER).join("marker.txt").is_file());
+        assert!(!base.join(oldest).exists());
+        let _ = std::fs::remove_dir_all(&base);
+    }
 }

@@ -29,7 +29,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { cfg, meta } = share;
   const poster = meta.poster ? await publicUrl(cfg, objectKey(meta.id, "poster.jpg")) : undefined;
   const video = await publicUrl(cfg, objectKey(meta.id, `video.${meta.ext}`));
-  const description = `${formatDuration(meta.duration)} screen recording, shared from shipshape.`;
+  const description = `${formatDuration(meta.duration)} screen recording, shared from owntools.`;
   return {
     title: meta.name,
     description,
@@ -40,7 +40,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       url: viewUrl(meta.id),
       title: meta.name,
       description,
-      siteName: "shipshape",
+      siteName: "owntools",
       images: poster ? [{ url: poster, width: meta.width || 1280, height: meta.height || 720 }] : undefined,
       videos: [{ url: video, type: meta.contentType, width: meta.width || 1920, height: meta.height || 1080 }],
     },
@@ -74,7 +74,7 @@ export default async function SharePage({ params }: Props) {
       <header className="sticky top-0 z-30 border-b border-line/70 bg-paper/80 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-3">
           <Link href="/" className="display text-[17px] font-bold tracking-[-0.03em]">
-            shipshape
+            owntools
           </Link>
           <div className="flex items-center gap-3">
             <ThemeToggle />
@@ -117,7 +117,7 @@ export default async function SharePage({ params }: Props) {
             <span className="text-sm text-muted">
               Made with{" "}
               <Link href="/" className="font-semibold text-ink underline decoration-line underline-offset-4 hover:decoration-ink">
-                shipshape
+                owntools
               </Link>
               , a screen recorder that runs on your own machine.
             </span>

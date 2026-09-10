@@ -29,6 +29,15 @@ export interface NetworkLimits {
   videos: number;
   /** Max bytes per image. */
   imageBytes?: number;
+  /**
+   * Max bytes per video. Only set where the platform fixes it (Bluesky 50 MB,
+   * Telegram's bot API 50 MB, X 512 MB) — on Mastodon and Discord the ceiling
+   * is instance or server configuration, and blocking a post on a guess is
+   * worse than letting the network answer.
+   */
+  videoBytes?: number;
+  /** Max length of a video, in seconds. */
+  videoSeconds?: number;
   /** Title length for article networks. */
   title?: number;
   /** Max hashtags, when the network enforces one. */
@@ -68,7 +77,7 @@ export const NETWORKS: NetworkDef[] = [
     color: "#000000",
     availability: "byo",
     auth: "oauth-pkce",
-    limits: { chars: 280, images: 4, videos: 1, imageBytes: 5 * 1024 * 1024 },
+    limits: { chars: 280, images: 4, videos: 1, imageBytes: 5 * 1024 * 1024, videoBytes: 512 * 1024 * 1024, videoSeconds: 140 },
     threads: true,
     unicodeStyling: true,
     titleRequired: false,
@@ -83,7 +92,7 @@ export const NETWORKS: NetworkDef[] = [
     color: "#0085ff",
     availability: "live",
     auth: "app-password",
-    limits: { chars: 300, images: 4, videos: 1, imageBytes: 1000 * 1000 },
+    limits: { chars: 300, images: 4, videos: 1, imageBytes: 1000 * 1000, videoBytes: 50 * 1024 * 1024, videoSeconds: 180 },
     threads: true,
     unicodeStyling: true,
     titleRequired: false,
@@ -110,7 +119,7 @@ export const NETWORKS: NetworkDef[] = [
     color: "#000000",
     availability: "byo",
     auth: "oauth-pkce",
-    limits: { chars: 500, images: 10, videos: 1 },
+    limits: { chars: 500, images: 10, videos: 1, videoBytes: 1024 * 1024 * 1024, videoSeconds: 300 },
     threads: true,
     unicodeStyling: true,
     titleRequired: false,
@@ -124,7 +133,7 @@ export const NETWORKS: NetworkDef[] = [
     color: "#e4405f",
     availability: "byo",
     auth: "oauth-pkce",
-    limits: { chars: 2200, images: 10, videos: 1, hashtags: 30 },
+    limits: { chars: 2200, images: 10, videos: 1, hashtags: 30, videoBytes: 100 * 1024 * 1024, videoSeconds: 90 },
     threads: false,
     unicodeStyling: true,
     titleRequired: false,
@@ -233,7 +242,7 @@ export const NETWORKS: NetworkDef[] = [
     color: "#26a5e4",
     availability: "live",
     auth: "bot-token",
-    limits: { chars: 4096, charsWithMedia: 1024, images: 10, videos: 10 },
+    limits: { chars: 4096, charsWithMedia: 1024, images: 10, videos: 10, videoBytes: 50 * 1024 * 1024 },
     threads: false,
     unicodeStyling: true,
     titleRequired: false,
@@ -601,6 +610,37 @@ export const AVAILABILITY_LABEL: Record<NetworkAvailability, string> = {
   byo: "bring your own app",
   soon: "coming soon",
 };
+
+/**
+ * The catalogue as the Rust agent server reads it. `networks.ts` stays the
+ * one source of truth: the runtime mirrors this into
+ * `<AppData>/social/networks.json` so `check_post` and `list_networks` answer
+ * with the same limits the composer enforces, instead of a second table in
+ * Rust that would drift the first time a network changes its mind.
+ */
+export function networksMirror(): { version: number; networks: Record<string, unknown>[] } {
+  return {
+    version: 1,
+    networks: NETWORKS.map((n) => ({
+      id: n.id,
+      name: n.name,
+      availability: n.availability,
+      auth: n.auth,
+      blurb: n.blurb,
+      threads: n.threads,
+      titleRequired: n.titleRequired,
+      chars: Number.isFinite(n.limits.chars) ? n.limits.chars : 0,
+      ...(n.limits.charsWithMedia ? { charsWithMedia: n.limits.charsWithMedia } : {}),
+      images: n.limits.images,
+      videos: n.limits.videos,
+      ...(n.limits.imageBytes ? { imageBytes: n.limits.imageBytes } : {}),
+      ...(n.limits.videoBytes ? { videoBytes: n.limits.videoBytes } : {}),
+      ...(n.limits.videoSeconds ? { videoSeconds: n.limits.videoSeconds } : {}),
+      ...(n.limits.title ? { title: n.limits.title } : {}),
+      ...(n.limits.hashtags ? { hashtags: n.limits.hashtags } : {}),
+    })),
+  };
+}
 
 export function countByAvailability(): Record<NetworkAvailability, number> {
   const out: Record<NetworkAvailability, number> = { live: 0, byo: 0, soon: 0 };

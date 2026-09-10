@@ -164,7 +164,7 @@ pub async fn download_file(app: AppHandle, request: DownloadRequest) -> Result<S
     }
 
     let client = reqwest::Client::builder()
-        .user_agent(concat!("shipshape/", env!("CARGO_PKG_VERSION")))
+        .user_agent(concat!("owntools/", env!("CARGO_PKG_VERSION")))
         .build()
         .map_err(|e| e.to_string())?;
     let mut req = client.get(&request.url);

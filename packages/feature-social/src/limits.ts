@@ -166,6 +166,22 @@ export function validateForChannel(
       }
     }
   }
+  for (const m of videos) {
+    const item = mediaById(m.id);
+    if (!item) continue;
+    if (net.limits.videoBytes && item.bytes > net.limits.videoBytes) {
+      issues.push({
+        level: "error",
+        message: `${item.name} is ${(item.bytes / 1024 / 1024).toFixed(1)} MB; ${net.name} takes up to ${Math.round(net.limits.videoBytes / 1024 / 1024)} MB of video.`,
+      });
+    }
+    if (net.limits.videoSeconds && item.duration && item.duration > net.limits.videoSeconds) {
+      issues.push({
+        level: "error",
+        message: `${item.name} runs ${Math.round(item.duration)} s; ${net.name} allows ${net.limits.videoSeconds} s.`,
+      });
+    }
+  }
   if (net.limits.hashtags) {
     const tags = findFacets(text).filter((f) => f.kind === "tag").length;
     if (tags > net.limits.hashtags) {

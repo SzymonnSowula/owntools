@@ -13,7 +13,7 @@ export const runtime = "nodejs";
 const HTML_LIMIT = 2_000_000; // 2 MB of HTML is plenty
 const IMAGE_LIMIT = 10_000_000;
 const ICON_LIMIT = 1_500_000;
-const UA = "Mozilla/5.0 (compatible; shipshape-launch/1.0; +https://shipshape.app)";
+const UA = "Mozilla/5.0 (compatible; owntools-launch/1.0; +https://owntools.app)";
 
 function decodeEntities(s: string): string {
   return s

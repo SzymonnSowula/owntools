@@ -19,6 +19,7 @@ import type {
   SnapshotMeta,
   TopFilesQuery,
   TrashOutcome,
+  TrashProgress,
   TreeNode,
   VolumeInfo,
 } from "./types";
@@ -95,6 +96,7 @@ export const tauriBackend: DiskBackend = {
   snapshotDiff: (id, against) => invoke<SnapshotDiff>("disk_snapshot_diff", { id, against }),
   snapshotOpen: (id) => invoke<ScanSummary>("disk_snapshot_open", { id }),
 
+  onTrashProgress: (cb) => subscribe<TrashProgress>("disk-trash-progress", cb),
   onScanProgress: (cb) => subscribe<ScanProgress>("disk-scan-progress", cb),
   onScanDone: (cb) => subscribe<ScanDone>("disk-scan-done", cb),
   onDupesProgress: (cb) => subscribe<DupesProgress>("disk-dupes-progress", cb),

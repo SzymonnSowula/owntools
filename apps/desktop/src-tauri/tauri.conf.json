@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "shipshape",
+  "productName": "owntools",
   "version": "0.2.0",
-  "identifier": "app.shipshape.desktop",
+  "identifier": "app.owntools.desktop",
   "build": {
     "beforeDevCommand": "pnpm dev",
     "devUrl": "http://localhost:1430",
@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "shipshape",
+        "title": "owntools",
         "width": 1280,
         "height": 800,
         "minWidth": 960,
@@ -30,10 +30,10 @@
       },
       {
         "label": "recorder",
-        "title": "shipshape recorder",
+        "title": "owntools recorder",
         "url": "overlay.html",
         "width": 460,
-        "height": 620,
+        "height": 700,
         "resizable": false,
         "maximizable": false,
         "minimizable": false,
@@ -45,7 +45,7 @@
       },
       {
         "label": "dictation",
-        "title": "shipshape dictation",
+        "title": "owntools dictation",
         "url": "dictation.html",
         "width": 320,
         "height": 76,
@@ -106,7 +106,7 @@
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDc1RDU4RjI1NTBBNTkxODMKUldTRGthVlFKWS9WZFREZDV1UlNGb1ZEc2JRQS9GMmJXK2IvUXJtbnp5WHcyc09iZlZzWER5RlUK",
       "endpoints": [
-        "https://github.com/SzymonnSowula/shipshape/releases/latest/download/latest.json"
+        "https://github.com/SzymonnSowula/owntools/releases/latest/download/latest.json"
       ],
       "windows": {
         "installMode": "passive"

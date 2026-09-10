@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { CursorSample, InputTrack, Project, Segment, ZoomClip } from "../../types";
 import { normalizeProject } from "../defaults";
-import { planSfx, sfxCounts, sfxPlanFor, timelineTimeOf } from "./plan";
+import { planSfx, planWithRemoved, sfxCounts, sfxPlanFor, timelineTimeOf } from "./plan";
 
 const RECT = { x: 0, y: 0, width: 1920, height: 1080 };
 
@@ -161,7 +161,10 @@ describe("planSfx · typing", () => {
       }),
     });
     const events = planSfx(p).filter((e) => e.kind === "key");
-    expect(events.map((e) => e.sound)).toEqual(["key", "keySpace", "keyEnter", "keyBackspace", "key"]);
+    const ordinary = ["key", "key2", "key3"];
+    expect(ordinary).toContain(events[0].sound);
+    expect(events.slice(1, 4).map((e) => e.sound)).toEqual(["keySpace", "keyEnter", "keyBackspace"]);
+    expect(ordinary).toContain(events[4].sound);
     // A modifier is softer than a letter.
     expect(events[4].gain).toBeLessThan(events[0].gain);
     for (const e of events) {
@@ -169,6 +172,20 @@ describe("planSfx · typing", () => {
       expect(e.rate).toBeLessThan(1.05);
     }
     expect(planSfx(project({ cursor: track([{ at: 1 }]) })).filter((e) => e.kind === "key")).toHaveLength(0);
+  });
+
+  it("rotates the three recorded keys so a sentence is not one sample on repeat", () => {
+    const keys = Array.from({ length: 40 }, (_, i) => ({ t: 1 + i * 0.12, kind: "key" as const }));
+    const sounds = planSfx(project({ inputs: inputs({ keys }) }))
+      .filter((e) => e.kind === "key")
+      .map((e) => e.sound);
+    expect(sounds).toHaveLength(40);
+    expect(new Set(sounds)).toEqual(new Set(["key", "key2", "key3"]));
+    // Seeded, so the same take always types the same way.
+    const again = planSfx(project({ inputs: inputs({ keys }) }))
+      .filter((e) => e.kind === "key")
+      .map((e) => e.sound);
+    expect(again).toEqual(sounds);
   });
 
   it("thins a burst faster than any typist", () => {
@@ -280,5 +297,61 @@ describe("planSfx · the whole plan", () => {
 
   it("is empty for an empty timeline", () => {
     expect(planSfx(project({ segments: [] }))).toEqual([]);
+  });
+});
+
+describe("planSfx · removing one sound", () => {
+  const take = () =>
+    project({
+      inputs: inputs({
+        buttons: [
+          { t: 3, button: "left", down: true, x: 400, y: 400 },
+          { t: 3.1, button: "left", down: false, x: 400, y: 400 },
+        ],
+        keys: [
+          { t: 6, kind: "key" },
+          { t: 6.2, kind: "key" },
+        ],
+      }),
+      zooms: [{ id: "z1", start: 9, end: 13, scale: 1.8, x: 0.5, y: 0.5, easing: "ease-in-out", followCursor: true }],
+    });
+
+  it("gives every sound an id that survives a cut somewhere else", () => {
+    const before = planSfx(take()).map((e) => e.id);
+    expect(new Set(before).size).toBe(before.length);
+    // Trimming the tail changes every timeline position but nothing about where
+    // the sounds came from, so the ids a removal points at have to hold.
+    const after = planSfx(project({
+      ...take(),
+      segments: [{ id: "s", start: 0, end: 16 }],
+    })).map((e) => e.id);
+    expect(after).toEqual(before);
+  });
+
+  it("drops exactly the ids on the removed list", () => {
+    const p = take();
+    const all = planSfx(p);
+    const victim = all.find((e) => e.kind === "key");
+    expect(victim).toBeDefined();
+    const trimmed = planSfx(project({ ...p, sfx: { ...p.sfx, removed: [victim!.id] } }));
+    expect(trimmed).toHaveLength(all.length - 1);
+    expect(trimmed.map((e) => e.id)).not.toContain(victim!.id);
+    // Everything else is untouched — same sound, same moment, same gain.
+    expect(trimmed).toEqual(all.filter((e) => e.id !== victim!.id));
+  });
+
+  it("keeps the whole plan available so a removal can be taken back", () => {
+    const p = take();
+    const gone = planSfx(p).map((e) => e.id);
+    const emptied = project({ ...p, sfx: { ...p.sfx, removed: gone } });
+    expect(planSfx(emptied)).toHaveLength(0);
+    expect(planWithRemoved(emptied).map((e) => e.id)).toEqual(gone);
+  });
+
+  it("ignores an id that no longer matches anything", () => {
+    const p = take();
+    const all = planSfx(p);
+    const stale = project({ ...p, sfx: { ...p.sfx, removed: ["zi_gone_zoom", "k999999"] } });
+    expect(planSfx(stale)).toEqual(all);
   });
 });

@@ -30,7 +30,7 @@ const LIVE: Partial<Record<NetworkId, Provider>> = {
 };
 
 function stubFields(net: NetworkDef): ConnectField[] {
-  const name: ConnectField = { key: "name", label: "Name shown in shipshape", placeholder: `my ${net.name} account` };
+  const name: ConnectField = { key: "name", label: "Name shown in owntools", placeholder: `my ${net.name} account` };
   switch (net.auth) {
     case "oauth-pkce":
       return [

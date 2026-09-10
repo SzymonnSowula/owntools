@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Entitlements for the hardened runtime. Referenced from
+  tauri.macos.conf.json; the codesign step applies them to the .app.
+
+  Deliberately NOT here:
+    com.apple.security.app-sandbox — the disk analyzer reads the whole volume
+      and the recorder writes wherever the user points it. A sandboxed build is
+      a Mac App Store build, which is a separate decision (see docs/macos.md).
+    com.apple.security.cs.allow-unsigned-executable-memory — WebKit's JIT runs
+      in its own process with its own entitlements; the host app needs none.
+-->
+<plist version="1.0">
+<dict>
+    <!-- Dictation, voice notes and the recorder's microphone track. -->
+    <key>com.apple.security.device.audio-input</key>
+    <true/>
+
+    <!-- The camera bubble in a screen recording. -->
+    <key>com.apple.security.device.camera</key>
+    <true/>
+
+    <!--
+      disk's "move to Trash" asks Finder to do it, so the deletion is undoable.
+      Apple events to another application need this plus the user's consent
+      (NSAppleEventsUsageDescription in Info.plist explains the ask).
+    -->
+    <key>com.apple.security.automation.apple-events</key>
+    <true/>
+
+    <!--
+      The speech engines are downloaded, not bundled: sherpa-onnx ships its
+      recognizers as executables plus dylibs in a sibling folder, and we set
+      DYLD_LIBRARY_PATH when spawning them. The hardened runtime strips DYLD_*
+      unless this is granted, and refuses third-party libraries unless library
+      validation is off.
+    -->
+    <key>com.apple.security.cs.allow-dyld-environment-variables</key>
+    <true/>
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+</dict>
+</plist>

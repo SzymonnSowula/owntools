@@ -367,7 +367,7 @@ pub fn disk_find(state: State<'_, DiskState>, path: String) -> Result<Option<u32
     with_arena(&state, |a| a.find_path(&path))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn disk_search(state: State<'_, DiskState>, query: String, limit: Option<usize>) -> Result<Vec<NodeInfo>, String> {
     with_arena(&state, |a| a.search(&query, limit.unwrap_or(200).clamp(1, 2000)))
 }
@@ -395,7 +395,7 @@ pub fn disk_breakdown(state: State<'_, DiskState>, id: u32) -> Result<Breakdown,
     with_arena(&state, |a| a.breakdown(id))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn disk_quick_wins(state: State<'_, DiskState>) -> Result<Vec<quickwins::QuickWin>, String> {
     with_arena(&state, quickwins::quick_wins)
 }
@@ -412,8 +412,25 @@ pub fn disk_open(path: String) -> Result<(), String> {
     sys::open(&path)
 }
 
+/// How far the Recycle Bin move has got. `path` is the item being moved right
+/// now, empty on the final tick.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TrashProgress {
+    pub done: usize,
+    pub total: usize,
+    pub path: String,
+}
+
+/// Moves the given nodes to the Recycle Bin and folds them out of the arena.
+///
+/// **Async on purpose.** A synchronous command runs on the main thread, and the
+/// shell empties a folder file by file: 15 items / 19.6 GB took minutes here and
+/// froze all three windows, the tray and the single-instance handler with it —
+/// the app looked dead while the delete was in fact working. The shell work now
+/// runs on a blocking worker and reports `disk-trash-progress` as it goes.
 #[tauri::command]
-pub fn disk_trash(state: State<'_, DiskState>, ids: Vec<u32>) -> Result<TrashOutcome, String> {
+pub async fn disk_trash(app: AppHandle, state: State<'_, DiskState>, ids: Vec<u32>) -> Result<TrashOutcome, String> {
     let targets: Vec<(u32, String, u64)> = with_arena(&state, |a| {
         ids.iter()
             .filter_map(|&id| a.get(id).filter(|n| !n.removed()).map(|n| (id, a.path_of(id), n.size)))
@@ -423,7 +440,19 @@ pub fn disk_trash(state: State<'_, DiskState>, ids: Vec<u32>) -> Result<TrashOut
         return Ok(TrashOutcome { removed: Vec::new(), freed: 0, failed: Vec::new() });
     }
     let paths: Vec<String> = targets.iter().map(|t| t.1.clone()).collect();
-    let failures = sys::trash(&paths);
+    let total = paths.len();
+    let worker_paths = paths.clone();
+    let progress_app = app.clone();
+    let failures = tauri::async_runtime::spawn_blocking(move || {
+        sys::trash_with_progress(&worker_paths, |done, path| {
+            let _ = progress_app.emit(
+                "disk-trash-progress",
+                TrashProgress { done, total, path: path.to_string() },
+            );
+        })
+    })
+    .await
+    .map_err(|e| format!("the cleanup worker stopped: {e}"))?;
     let mut outcome = TrashOutcome { removed: Vec::new(), freed: 0, failed: Vec::new() };
     let mut guard = state.arena.write().map_err(|_| "disk state poisoned".to_string())?;
     let arena = guard.as_mut().ok_or_else(|| "nothing scanned yet".to_string())?;
@@ -535,7 +564,7 @@ pub fn disk_dupes_result(state: State<'_, DiskState>) -> Option<dupes::DupesResu
 
 // ---- applications -----------------------------------------------------------------
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn disk_apps(state: State<'_, DiskState>, refresh: Option<bool>) -> Vec<apps::AppInfo> {
     let mut list = {
         let mut cache = state.apps_cache.lock().ok();
@@ -591,7 +620,7 @@ pub fn disk_monitor_read() -> volumes::MonitorData {
 
 // ---- snapshots ---------------------------------------------------------------------
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn disk_snapshot_save(app: AppHandle, state: State<'_, DiskState>, name: Option<String>) -> Result<snapshot::SnapshotMeta, String> {
     let dir = app_data(&app)?;
     with_arena(&state, |a| snapshot::save(&dir, a, name.as_deref().unwrap_or("")))?
@@ -609,7 +638,7 @@ pub fn disk_snapshot_delete(app: AppHandle, id: String) -> Result<(), String> {
 
 /// Compare snapshot `id` (before) with snapshot `against` or, without one,
 /// the current scan (after).
-#[tauri::command]
+#[tauri::command(async)]
 pub fn disk_snapshot_diff(
     app: AppHandle,
     state: State<'_, DiskState>,
@@ -662,7 +691,7 @@ pub fn disk_snapshot_diff(
 }
 
 /// Loads a snapshot as the current tree (folders + files ≥ 1 MiB).
-#[tauri::command]
+#[tauri::command(async)]
 pub fn disk_snapshot_open(app: AppHandle, state: State<'_, DiskState>, id: String) -> Result<ScanSummary, String> {
     let dir = app_data(&app)?;
     let snap = snapshot::load(&dir, &id)?;

@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import type { Project } from "../types";
 import { useAppStore } from "../store/appStore";
 import {
   AutoCutGlyph,
@@ -10,6 +11,8 @@ import {
   PauseGlyph,
   PlayGlyph,
   RedoGlyph,
+  SoundGlyph,
+  SoundOffGlyph,
   SplitGlyph,
   TextGlyph,
   TrashGlyph,
@@ -18,6 +21,7 @@ import {
   ZoomOutGlyph,
 } from "./icons";
 import { PresetsMenu } from "./PresetsMenu";
+import { sfxCounts, sfxPlanFor } from "../lib/sfx/plan";
 
 /**
  * The editor's toolbar. Icons with their shortcut in the tooltip, grouped by
@@ -47,6 +51,7 @@ export function Toolbar({
   const deleteSelection = useAppStore((s) => s.deleteSelection);
   const selection = useAppStore((s) => s.selection);
   const addZoom = useAppStore((s) => s.addZoom);
+  const setSfxEnabled = useAppStore((s) => s.setSfxEnabled);
   const addCaption = useAppStore((s) => s.addCaption);
   const addText = useAppStore((s) => s.addText);
   const undo = useAppStore((s) => s.undo);
@@ -97,6 +102,15 @@ export function Toolbar({
       <Tool icon={<ZoomOutGlyph />} title="Zoom back out (Shift+Z)" onClick={() => addZoom("out")} />
 
       <Divider />
+      <Tool
+        icon={project.sfx.enabled ? <SoundGlyph /> : <SoundOffGlyph />}
+        label="Sound"
+        title={sfxTitle(project)}
+        active={project.sfx.enabled}
+        onClick={() => setSfxEnabled()}
+      />
+
+      <Divider />
       <Tool icon={<CaptionGlyph />} label="Caption" title="Add a caption (K)" onClick={addCaption} />
       <Tool icon={<TextGlyph />} label="Text" title="Add a text overlay (T)" onClick={addText} />
       <Tool icon={<ImageGlyph />} label="Image" title="Add an image or logo (I)" onClick={onAddImage} />
@@ -126,6 +140,26 @@ export function Toolbar({
       <TimeReadout />
     </div>
   );
+}
+
+/** What the Sound button promises, counted off the same plan the export mixes. */
+function sfxTitle(project: Project): string {
+  const { click, key, zoom, transition } = sfxCounts(sfxPlanFor(project));
+  const total = click + key + zoom + transition;
+  if (!project.sfx.enabled) {
+    return total
+      ? `Sound effects are off — turn them on to hear ${total} ${total === 1 ? "sound" : "sounds"} (clicks, keys, zooms). Levels in Audio.`
+      : "Sound effects are off. This take has no clicks or zooms to sound yet.";
+  }
+  const parts = [
+    click ? `${click} click${click === 1 ? "" : "s"}` : "",
+    key ? `${key} key${key === 1 ? "" : "s"}` : "",
+    zoom ? `${zoom} zoom${zoom === 1 ? "" : "s"}` : "",
+    transition ? `${transition} transition${transition === 1 ? "" : "s"}` : "",
+  ].filter(Boolean);
+  return parts.length
+    ? `Sound effects on: ${parts.join(", ")}. Levels and pack in Audio; click to switch off.`
+    : "Sound effects on — nothing to sound in this take yet. Levels and pack in Audio.";
 }
 
 function Divider() {

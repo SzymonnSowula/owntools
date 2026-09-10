@@ -25,7 +25,7 @@ export interface BoardIndex {
 
 /** scene.json: the elements plus the slice of appState worth keeping. Images live next to it, one file each. */
 export interface StoredScene {
-  type: "shipshape-board";
+  type: "owntools-board";
   version: 1;
   savedAt: number;
   elements: ExcalidrawElement[];
@@ -211,7 +211,7 @@ export function toStoredScene(
   now = Date.now(),
 ): StoredScene {
   return {
-    type: "shipshape-board",
+    type: "owntools-board",
     version: 1,
     savedAt: now,
     elements: liveElements(elements),
@@ -226,7 +226,7 @@ export function parseStoredScene(raw: string | null | undefined): StoredScene | 
     const data = JSON.parse(raw) as Partial<StoredScene> | null;
     if (!data || !Array.isArray(data.elements)) return null;
     return {
-      type: "shipshape-board",
+      type: "owntools-board",
       version: 1,
       savedAt: num(data.savedAt),
       elements: data.elements.filter(

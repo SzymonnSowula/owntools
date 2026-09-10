@@ -14,7 +14,7 @@ const TABS: readonly HubTabDef<Tab>[] = [
 export function SoundsHub() {
   // The key changed with the tab set — an old "ambient" value would no longer
   // match anything and would silently fall back to the first tab anyway.
-  const [tab, setTab] = useHubTab<Tab>("shipshape-hub-sounds-v2", ["records", "mixer", "piano"]);
+  const [tab, setTab] = useHubTab<Tab>("owntools-hub-sounds-v2", ["records", "mixer", "piano"]);
   return (
     <>
       <HubTabs tabs={TABS} active={tab} onSelect={setTab} />

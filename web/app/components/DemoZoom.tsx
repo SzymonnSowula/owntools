@@ -24,10 +24,10 @@ function SiteShot() {
           <svg width="9" height="9" viewBox="0 0 12 12" aria-hidden>
             <path d="M6 0.8L10.4 7.6H1.6L6 0.8ZM2 9H10L8.6 11.2H3.4L2 9Z" fill="currentColor" />
           </svg>
-          shipshape
+          owntools
         </span>
         <span className="hidden h-1 w-20 rounded bg-black/10 sm:block" />
-        <span className="rounded-full bg-accent px-2 py-0.5 text-[8px] font-bold text-white">get shipshape</span>
+        <span className="rounded-full bg-accent px-2 py-0.5 text-[8px] font-bold text-white">get owntools</span>
       </div>
 
       {/* hero copy */}
@@ -38,7 +38,7 @@ function SiteShot() {
           your device.
         </p>
         <p className="mt-2 text-[10px] text-white/90 sm:text-xs" style={{ textShadow: "0 1px 8px rgba(10,30,60,0.4)" }}>
-          dictate, transcribe, record, take notes — all on your own machine
+          dictate, transcribe, record, take notes - all on your own machine
         </p>
         <div className="mt-3 flex justify-center gap-2">
           <span className="rounded-full bg-white px-3 py-1 text-[9px] font-bold text-[#0b0b0d] shadow sm:text-[10px]">
@@ -181,7 +181,7 @@ export function DemoZoom() {
         role="button"
         tabIndex={0}
         onKeyDown={(e) => e.key === "Enter" && openDemo()}
-        aria-label="play the shipshape demo"
+        aria-label="play the owntools demo"
       >
         <div className="wincard-bar">
           <WinDots icon={ToolIcons.video} />
@@ -223,7 +223,7 @@ export function DemoZoom() {
           >
             <div className="wincard-bar">
               <WinDots icon={ToolIcons.video} />
-              <span className="wincard-title">shipshape-launch.mp4 · recorded with screeni · rendered offline</span>
+              <span className="wincard-title">owntools-launch.mp4 · recorded with screeni · rendered offline</span>
               <button
                 className="ml-auto flex h-6 w-6 items-center justify-center rounded-full text-[#6e6e73] transition hover:bg-black/10 hover:text-[#1d1d1f]"
                 onClick={closeDemo}
@@ -240,7 +240,7 @@ export function DemoZoom() {
               {/* launch-style intro card, loops with the zoom */}
               <div className="demo-intro dotted">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#6e6e73]">introducing</p>
-                <p className="display mt-2 text-5xl text-[#1d1d1f] md:text-7xl">shipshape</p>
+                <p className="display mt-2 text-5xl text-[#1d1d1f] md:text-7xl">owntools</p>
                 <span className="mt-4 inline-block h-1.5 w-14 rounded-full bg-accent" />
               </div>
               {/* recording chrome */}
@@ -248,7 +248,7 @@ export function DemoZoom() {
                 <span className="rec-dot h-2 w-2 rounded-full bg-[#ff453a]" /> REC · auto-zoom on
               </span>
               <span className="absolute bottom-4 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-full bg-black/55 px-3.5 py-1.5 text-[11px] font-medium text-white/90 backdrop-blur-sm">
-                every click gets a cinematic zoom — no editing
+                every click gets a cinematic zoom - no editing
               </span>
             </div>
           </div>

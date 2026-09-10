@@ -77,6 +77,63 @@ async function uploadBlob(pds: string, jwt: string, media: LoadedMedia): Promise
   return data.blob;
 }
 
+const VIDEO_SERVICE = "https://video.bsky.app";
+/** Bluesky's own limits (2026-09): 50 MB and three minutes per video. */
+export const VIDEO_MAX_BYTES = 50 * 1024 * 1024;
+export const VIDEO_MAX_SECONDS = 180;
+
+interface VideoJob {
+  jobId: string;
+  state: string;
+  blob?: BlobRef;
+  error?: string;
+  message?: string;
+}
+
+/**
+ * Video does not go through `uploadBlob`: it is handed to Bluesky's video
+ * service with a short-lived service token, transcoded there, and only then
+ * does a blob exist to embed. The job is polled until it finishes, so a
+ * publish of a 30-second clip takes a few seconds longer than a text post.
+ * Docs: https://docs.bsky.app/blog/videos
+ */
+async function uploadVideo(pds: string, s: Session, media: LoadedMedia): Promise<BlobRef> {
+  if (media.bytes.length > VIDEO_MAX_BYTES) {
+    throw new ProviderError(`Bluesky takes videos up to 50 MB; this one is ${(media.bytes.length / 1024 / 1024).toFixed(1)} MB.`, false);
+  }
+  const host = new URL(pds).hostname;
+  const auth = await getJson<{ token: string }>(
+    `${xrpc(pds, "com.atproto.server.getServiceAuth")}?aud=${encodeURIComponent(`did:web:${host}`)}&lxm=com.atproto.repo.uploadBlob&exp=${Math.floor(Date.now() / 1000) + 30 * 60}`,
+    bearer(s.accessJwt),
+  );
+  const name = media.item.name.replace(/[^A-Za-z0-9._-]+/g, "_") || "video.mp4";
+  // Both uploadVideo and getJobStatus answer `{ jobStatus }`; older builds of
+  // the service answered with the job itself, so take either.
+  const started = await jsonOrThrow<{ jobStatus?: VideoJob } & Partial<VideoJob>>(
+    await sfetch(`${VIDEO_SERVICE}/xrpc/app.bsky.video.uploadVideo?did=${encodeURIComponent(s.did)}&name=${encodeURIComponent(name)}`, {
+      method: "POST",
+      headers: { ...bearer(auth.token), "Content-Type": media.item.mime || "video/mp4" },
+      body: media.bytes as BodyInit,
+    }),
+  );
+  let job: VideoJob = started.jobStatus ?? (started as VideoJob);
+  if (!job?.jobId && !job?.blob) throw new ProviderError("Bluesky's video service did not start a job.", true);
+  const deadline = Date.now() + 5 * 60_000;
+  while (!job.blob && Date.now() < deadline) {
+    if (job.state === "JOB_STATE_FAILED") {
+      throw new ProviderError(`Bluesky could not process the video: ${job.error ?? job.message ?? "unknown reason"}.`, false);
+    }
+    await new Promise((r) => setTimeout(r, 2000));
+    const status = await getJson<{ jobStatus: VideoJob }>(
+      `${VIDEO_SERVICE}/xrpc/app.bsky.video.getJobStatus?jobId=${encodeURIComponent(job.jobId)}`,
+      bearer(auth.token),
+    );
+    job = status.jobStatus ?? job;
+  }
+  if (!job.blob) throw new ProviderError("Bluesky is still processing the video — try again in a moment.", true);
+  return job.blob;
+}
+
 async function resolveHandle(pds: string, handle: string): Promise<string | null> {
   try {
     const data = await getJson<{ did: string }>(
@@ -119,6 +176,7 @@ async function createPost(
   reply: { root: RecordRef; parent: RecordRef } | null,
 ): Promise<RecordRef> {
   const images = media.filter((m) => m.item.mime.startsWith("image/")).slice(0, 4);
+  const video = media.find((m) => m.item.mime.startsWith("video/"));
   const record: Record<string, unknown> = {
     $type: "app.bsky.feed.post",
     text,
@@ -134,6 +192,14 @@ async function createPost(
       uploaded.push(entry);
     }
     record.embed = { $type: "app.bsky.embed.images", images: uploaded };
+  } else if (video) {
+    // One or the other: an AT Protocol post embeds images or a video, never both.
+    const blob = await uploadVideo(pds, s, video);
+    const embed: Record<string, unknown> = { $type: "app.bsky.embed.video", video: blob };
+    const alt = video.alt ?? video.item.alt;
+    if (alt) embed.alt = alt;
+    if (video.item.width && video.item.height) embed.aspectRatio = { width: video.item.width, height: video.item.height };
+    record.embed = embed;
   }
   if (reply) record.reply = reply;
   try {

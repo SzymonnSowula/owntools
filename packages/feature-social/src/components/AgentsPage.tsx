@@ -1,8 +1,23 @@
 import { confirmDialog } from "@ui/Dialog";
-import { Bot, Check, Copy, Eye, EyeOff, Loader2, RefreshCw, Server } from "lucide-react";
+import { Bot, Check, Copy, Eye, EyeOff, Loader2, Plug, RefreshCw, Server, Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
 import { logError } from "@core/errors";
-import { MCP_TOOLS, REST_ROUTES, agentInfo, agentSnippets, configureAgent, isDesktop, maskToken, regenerateAgentToken, type AgentInfo } from "../agent";
+import {
+  INSTALLABLE,
+  MCP_TOOLS,
+  REST_ROUTES,
+  STARTER_PROMPTS,
+  agentInfo,
+  agentSnippets,
+  agentTargets,
+  configureAgent,
+  installAgent,
+  isDesktop,
+  maskToken,
+  regenerateAgentToken,
+  type AgentInfo,
+  type AgentTarget,
+} from "../agent";
 import { useSocialStore } from "../store";
 import { Switch, copyText } from "./primitives";
 
@@ -42,12 +57,42 @@ export function AgentsPage() {
   const [busy, setBusy] = useState(false);
   const [port, setPort] = useState<string>(() => String(settings.agent.port));
   const [agent, setAgent] = useState("claude-code");
+  const [targets, setTargets] = useState<AgentTarget[]>([]);
+  const [installing, setInstalling] = useState<string | null>(null);
+  const [copiedPrompt, setCopiedPrompt] = useState<string | null>(null);
 
   const refresh = async () => {
     const i = await agentInfo();
     setInfo(i);
     setLoaded(true);
     if (i) setPort(String(i.port));
+    setTargets(await agentTargets().catch(() => []));
+  };
+
+  /**
+   * Writes the MCP entry into that agent's own config. It is another
+   * program's settings file, so it is confirmed first and the path is on
+   * screen before and after.
+   */
+  const install = async (id: string, name: string, path: string, already: boolean) => {
+    const ok = await confirmDialog({
+      title: `Add owntools to ${name}`,
+      message: `${already ? "Update" : "Add"} the owntools-social server in\n${path || "the agent's config file"}\n\nNothing else in that file is touched. ${name} can then read and schedule your posts.`,
+      okLabel: already ? "Update" : "Add it",
+      cancelLabel: "Cancel",
+    });
+    if (!ok) return;
+    setInstalling(id);
+    try {
+      const out = await installAgent(id);
+      toast({ kind: "success", title: `${name} is connected`, body: out.note });
+      setTargets(await agentTargets().catch(() => []));
+    } catch (err) {
+      logError("social", `install agent ${id}`, err);
+      toast({ kind: "error", title: `Could not set up ${name}`, body: err instanceof Error ? err.message : String(err) });
+    } finally {
+      setInstalling(null);
+    }
   };
   useEffect(() => {
     void refresh();
@@ -60,7 +105,7 @@ export function AgentsPage() {
 
   const rotate = async () => {
     if (
-      !(await confirmDialog({ title: "New token", message: "Generate a new token? Every agent configured with the old one stops working until you update it.", kind: "warning", okLabel: "Generate", cancelLabel: "Keep current" }))
+      !(await confirmDialog({ title: "New token", message: "Generate a new token? Every agent configured with the old one stops working until you update it — for the ones listed under “Connect an agent”, that is one press of Update.", kind: "warning", okLabel: "Generate", cancelLabel: "Keep current" }))
     )
       return;
     setBusy(true);
@@ -182,8 +227,75 @@ export function AgentsPage() {
 
           <div className="flex flex-col gap-5">
             <div className="sc-card">
+              <div className="sc-card-head">
+                <Plug className="h-4 w-4 text-muted" />
+                <span className="sc-card-title">Connect an agent</span>
+                <span className="ml-auto text-[11.5px] text-muted">writes the server into its config</span>
+              </div>
+              <div className="sc-card-body flex flex-col gap-2">
+                {!desktop ? (
+                  <p className="text-[12.5px] leading-5 text-muted">Available in the desktop app — it is the one that can see your agents' config files.</p>
+                ) : null}
+                {INSTALLABLE.map((a) => {
+                  const t = targets.find((x) => x.id === a.id);
+                  return (
+                    <div key={a.id} className="sc-agent-row">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 text-[13px] font-semibold">
+                          {a.name}
+                          {t?.installed ? <span className="sc-pill live">connected</span> : t?.detected ? <span className="sc-pill byo">found</span> : null}
+                        </div>
+                        <div className="truncate text-[11.5px] text-muted">{t?.path || a.what}</div>
+                      </div>
+                      <button
+                        className={`sc-btn sm ${t?.installed ? "" : "primary"}`}
+                        disabled={!desktop || installing !== null || !effective.token}
+                        onClick={() => void install(a.id, a.name, t?.path ?? "", Boolean(t?.installed))}
+                      >
+                        {installing === a.id ? <Loader2 className="animate-spin" /> : null}
+                        {t?.installed ? "Update" : "Add"}
+                      </button>
+                    </div>
+                  );
+                })}
+                <p className="text-[11.5px] leading-5 text-muted">
+                  Anything else — ChatGPT, OpenClaw, Hermes, your own script — copies in from the block below.
+                </p>
+              </div>
+            </div>
+
+            <div className="sc-card">
+              <div className="sc-card-head">
+                <Sparkles className="h-4 w-4 text-accent" />
+                <span className="sc-card-title">What to ask it</span>
+              </div>
+              <ul className="divide-y divide-line">
+                {STARTER_PROMPTS.map((p) => (
+                  <li key={p.title} className="flex items-start gap-3 px-4 py-2.5">
+                    <div className="min-w-0">
+                      <div className="text-[12.5px] font-semibold">{p.title}</div>
+                      <div className="text-[11.5px] leading-[1.45] text-muted">{p.prompt}</div>
+                    </div>
+                    <button
+                      className="sc-icon-btn ml-auto shrink-0"
+                      aria-label={`Copy: ${p.title}`}
+                      onClick={() => {
+                        void copyText(p.prompt).then(() => {
+                          setCopiedPrompt(p.title);
+                          setTimeout(() => setCopiedPrompt(null), 1400);
+                        });
+                      }}
+                    >
+                      {copiedPrompt === p.title ? <Check /> : <Copy />}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="sc-card">
               <div className="sc-card-head flex-wrap">
-                <span className="sc-card-title">Set up an agent</span>
+                <span className="sc-card-title">Copy it in by hand</span>
                 <div className="ml-auto flex flex-wrap gap-1">
                   {snippets.map((s) => (
                     <button key={s.id} className={`sc-chip${s.id === current.id ? " on" : ""}`} onClick={() => setAgent(s.id)}>

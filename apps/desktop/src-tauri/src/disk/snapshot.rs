@@ -483,7 +483,7 @@ mod tests {
 
     #[test]
     fn save_load_round_trip_and_reopen() {
-        let base = std::env::temp_dir().join(format!("shipshape-snap-{}", std::process::id()));
+        let base = std::env::temp_dir().join(format!("owntools-snap-{}", std::process::id()));
         let _ = fs::remove_dir_all(&base);
         let arena = sample();
         let meta = save(&base, &arena, "").unwrap();

@@ -228,7 +228,7 @@ pub async fn whisper_transcribe(
     static CALLS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
     let call = CALLS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     let out_base = std::env::temp_dir().join(format!(
-        "shipshape-whisper-{}-{call}",
+        "owntools-whisper-{}-{call}",
         std::process::id()
     ));
     let out_base_str = out_base.to_string_lossy().to_string();
@@ -327,8 +327,9 @@ pub async fn whisper_transcribe(
     result
 }
 
-/// Types text into the currently focused application (Windows: SendInput with
-/// KEYEVENTF_UNICODE). No-op elsewhere for now.
+/// Types text into the currently focused application: `SendInput` with
+/// `KEYEVENTF_UNICODE` on Windows, a `CGEvent` carrying a unicode string on
+/// macOS (which needs the Accessibility permission — see `mac.rs`).
 #[tauri::command]
 pub fn type_text(text: String) -> Result<(), String> {
     #[cfg(windows)]
@@ -366,11 +367,45 @@ pub fn type_text(text: String) -> Result<(), String> {
         }
         Ok(())
     }
-    #[cfg(not(windows))]
+    #[cfg(target_os = "macos")]
+    {
+        crate::mac::type_text(&text)
+    }
+    #[cfg(not(any(windows, target_os = "macos")))]
     {
         let _ = text;
         Err("Typing into other apps is not implemented on this platform yet.".into())
     }
+}
+
+/// Marks a file inside AppData executable.
+///
+/// The whisper archive is unpacked in the webview (it is a small zip and
+/// fflate is already there), and `writeFile` creates 0644 — which on macOS
+/// and Linux means the recognizer we just installed cannot be run. Windows
+/// has no such bit, so this is a no-op there.
+#[tauri::command]
+pub fn mark_executable(app: AppHandle, path: String) -> Result<(), String> {
+    // Paths come from the frontend: relative, inside AppData, no climbing out.
+    let relative = std::path::Path::new(&path);
+    if relative.is_absolute() || path.contains("..") || path.contains(':') {
+        return Err("Not a path inside the app's data folder.".into());
+    }
+    let full = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| e.to_string())?
+        .join(relative);
+    if !full.is_file() {
+        return Err(format!("{} is not a file", full.display()));
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&full, std::fs::Permissions::from_mode(0o755))
+            .map_err(|e| e.to_string())?;
+    }
+    Ok(())
 }
 
 /// Where the next transcript goes. `"main"` when the app's own main window is

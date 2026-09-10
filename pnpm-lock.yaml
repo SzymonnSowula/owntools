@@ -343,7 +343,7 @@ importers:
       '@remotion/web-renderer':
         specifier: ^4.0.519
         version: 4.0.519(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
-      '@shipshape/launch-engine':
+      '@owntools/launch-engine':
         specifier: workspace:*
         version: link:../packages/feature-launch
       aws4fetch:

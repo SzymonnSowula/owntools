@@ -10,7 +10,9 @@
 //! which lives in the tray — does the publishing.
 
 pub mod mcp;
+pub mod plan;
 pub mod server;
+pub mod setup;
 pub mod store;
 
 use std::path::PathBuf;
@@ -171,6 +173,22 @@ pub fn social_agent_regenerate_token() -> Result<AgentInfo, String> {
     agent.token = token;
     store::save_agent_settings(&s.root, &agent)?;
     Ok(s.info())
+}
+
+/// Which agents are installed on this machine and whether our server is
+/// already in their config.
+#[tauri::command]
+pub fn social_agent_targets() -> Vec<setup::TargetInfo> {
+    setup::targets()
+}
+
+/// Writes the MCP entry into that agent's own config file. The UI confirms
+/// first — this touches another program's settings.
+#[tauri::command]
+pub fn social_agent_install(target: String) -> Result<setup::InstallOutcome, String> {
+    let s = state().ok_or_else(|| "agent server not started".to_string())?;
+    let info = s.info();
+    setup::install(&target, &format!("{}/mcp", info.url), &info.token)
 }
 
 #[tauri::command]

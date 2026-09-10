@@ -1,6 +1,6 @@
 import { confirmDialog } from "@ui/Dialog";
 import * as Tabs from "@radix-ui/react-tabs";
-import { AlertTriangle, Check, ChevronDown, Globe, Info, Loader2, Plus, Repeat, RotateCcw, Tag as TagIcon, Trash2, X } from "lucide-react";
+import { AlertTriangle, Check, ChevronDown, Globe, Info, Loader2, Plus, Repeat, RotateCcw, Send, Tag as TagIcon, Trash2, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { logError } from "@core/errors";
 import { aiConfigured, runAiTask, type AiTask } from "../../ai";
@@ -14,7 +14,7 @@ import { fromIso, toIso } from "../../time";
 import type { Channel, ChannelOverride, MediaRef, Post, PostContent, ThreadPart } from "../../types";
 import { useUi } from "../../ui";
 import { Avatar } from "../Avatar";
-import { Dialog, Menu, Popover } from "../primitives";
+import { Dialog, Popover } from "../primitives";
 import { DateTimePicker } from "./DateTimePicker";
 import { Editor } from "./Editor";
 import { MediaStrip, mimeFromName } from "./MediaStrip";
@@ -478,23 +478,21 @@ export function PostModal() {
                 Save
               </button>
             ) : (
-              <div className="sc-split">
+              <>
+                {/* Publishing by hand is half of what this tool is for, so it
+                    is a button of its own rather than an item behind a caret. */}
+                <button
+                  className="sc-btn"
+                  onClick={() => void postNow()}
+                  disabled={busy !== null}
+                  title={settings.simulate ? "Simulated in the browser preview" : "Publish straight away"}
+                >
+                  {busy === "now" ? <Loader2 className="animate-spin" /> : <Send />} Post now
+                </button>
                 <button className="sc-btn primary" onClick={() => void schedule()} disabled={busy !== null}>
                   {busy === "schedule" ? <Loader2 className="animate-spin" /> : null} {primaryLabel}
                 </button>
-                <Menu
-                  side="top"
-                  trigger={
-                    <button className="sc-btn primary" aria-label="More publish options" disabled={busy !== null}>
-                      <ChevronDown />
-                    </button>
-                  }
-                  items={[
-                    { key: "schedule", label: draft.scheduledAt ? "Schedule for the chosen time" : "Schedule (pick a time first)", onSelect: () => void schedule() },
-                    { key: "now", label: settings.simulate ? "Post now (simulated in the browser)" : "Post now", onSelect: () => void postNow() },
-                  ]}
-                />
-              </div>
+              </>
             )}
           </div>
         </>

@@ -2,7 +2,13 @@ import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { WinDots, ToolIcons } from "@ui/WinDots";
-import { hideRecorderOverlay, showMainWindow } from "@core/recorderWindow";
+import {
+  hideRecorderOverlay,
+  recordsItself,
+  setRecordsItself,
+  showMainWindow,
+  watchRecorderVisible,
+} from "@core/recorderWindow";
 import { isTauri } from "@core/env";
 import {
   captureWindowRect,
@@ -174,11 +180,14 @@ async function probeTake(take: Take): Promise<{ duration: number; width: number;
 export function RecorderOverlay() {
   const [phase, setPhase] = useState<Phase>("setup");
   const [webcamOn, setWebcamOn] = useState(true);
+  /** Is this window actually on screen? It exists, hidden, from app start-up. */
+  const [shown, setShown] = useState(!isTauri());
   const [micOn, setMicOn] = useState(true);
   const [micNote, setMicNote] = useState<string | null>(null);
   const [micMuted, setMicMuted] = useState(false);
   const [autoZoom, setAutoZoom] = useState(true);
   const [inputTiming, setInputTiming] = useState(true);
+  const [recordSelf, setRecordSelf] = useState(recordsItself);
   const [elapsed, setElapsed] = useState(0);
   const [paused, setPaused] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -224,10 +233,32 @@ export function RecorderOverlay() {
   }, [phase, failure]);
 
   useEffect(() => {
-    if (phase !== "setup" || !webcamOn) {
+    let stop: (() => void) | undefined;
+    let dropped = false;
+    void watchRecorderVisible((visible) => {
+      if (!dropped) setShown(visible);
+    }).then((off) => {
+      if (dropped) off();
+      else stop = off;
+    });
+    return () => {
+      dropped = true;
+      stop?.();
+    };
+  }, []);
+
+  /**
+   * The camera preview. It runs only while the window is on screen: this page
+   * is alive from start-up in a hidden window, so a preview that ignored that
+   * held the webcam - LED and all - for as long as owntools was open.
+   */
+  useEffect(() => {
+    if (phase !== "setup" || !webcamOn || !shown) {
+      // A live take records through this stream; only setup may end it.
       if (phase === "setup") {
         stopStream(camStream.current);
         camStream.current = null;
+        if (webcamPreview.current) webcamPreview.current.srcObject = null;
       }
       return;
     }
@@ -250,7 +281,17 @@ export function RecorderOverlay() {
     return () => {
       cancelled = true;
     };
-  }, [phase, webcamOn]);
+  }, [phase, webcamOn, shown]);
+
+  /**
+   * Puts the overlay away. Hiding is all that happens to this window, so the
+   * page has to know at once - otherwise the return to "setup" re-opens the
+   * camera preview onto a window nobody can see.
+   */
+  async function closeOverlay(): Promise<void> {
+    setShown(false);
+    await hideRecorderOverlay();
+  }
 
   function nowElapsed() {
     return (performance.now() - startedAt.current - pausedMs.current) / 1000;
@@ -576,7 +617,7 @@ export function RecorderOverlay() {
     take.current = null;
     setFailure(null);
     setPhase("setup");
-    await hideRecorderOverlay();
+    await closeOverlay();
   }
 
   /** Stops the recorders and settles the last chunk. Returns the take with its timing filled in. */
@@ -765,7 +806,7 @@ export function RecorderOverlay() {
     setDiskTrouble(false);
     setPhase("setup");
     await emitToMain("recorder-cancelled");
-    await hideRecorderOverlay();
+    await closeOverlay();
   }
 
   if (phase === "live") {
@@ -849,7 +890,7 @@ export function RecorderOverlay() {
   }
 
   return (
-    <div className="flex h-screen flex-col bg-paper px-5 pb-5">
+    <div className="scroll-thin flex min-h-screen flex-col bg-paper px-5 pb-5">
       <div className="drag-region mb-3 flex items-center justify-between pt-3">
         <span className="flex items-center gap-1.5">
           <WinDots icon={ToolIcons.record} />
@@ -892,11 +933,23 @@ export function RecorderOverlay() {
         <span>Click &amp; key timing</span>
         <input type="checkbox" checked={inputTiming} onChange={(e) => setInputTiming(e.target.checked)} />
       </label>
+      <label className="mt-2 flex items-center justify-between rounded-[14px] border border-line bg-card px-3 py-2.5 text-sm">
+        <span>Record owntools itself</span>
+        <input
+          type="checkbox"
+          checked={recordSelf}
+          onChange={(e) => {
+            setRecordSelf(e.target.checked);
+            void setRecordsItself(e.target.checked);
+          }}
+        />
+      </label>
       <p className="mt-2 px-1 text-[11px] text-muted">
         Pick a screen or a window and the editor can draw the pointer, click rings and zooms on it; a
         browser tab has no fixed place on the desktop, so cursor effects stay off for one. Click &amp;
         key timing keeps when you clicked and typed — the sort of key, never which one — for the
-        sound effects in the editor.
+        sound effects in the editor. Recording owntools itself keeps the main window on screen so it
+        is there to pick — this bar stays out of the video either way.
       </p>
 
       {failure ? (

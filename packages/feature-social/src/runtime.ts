@@ -1,7 +1,9 @@
 import { isTauri } from "@core/env";
 import { logError, logInfo } from "@core/errors";
 import { notify } from "@feature-focus/lib/notify";
+import { networksMirror } from "./networks";
 import { missedPosts, startScheduler, tick } from "./scheduler";
+import { PATHS } from "./storage";
 import { SOCIAL_CHANGED_EVENT, useSocialStore } from "./store";
 
 /**
@@ -31,6 +33,7 @@ export function startSocialRuntime(): Promise<void> {
       }
     }
     startScheduler();
+    void mirrorCatalogue();
     if (isTauri()) {
       try {
         const { listen } = await import("@tauri-apps/api/event");
@@ -57,4 +60,21 @@ export function startSocialRuntime(): Promise<void> {
     started = null;
   });
   return started;
+}
+
+/**
+ * Keeps `networks.json` next to the other social files in step with
+ * `networks.ts`, so the agent server can answer questions about limits
+ * without a second copy of the catalogue in Rust. Rewritten only when it
+ * actually differs — this runs on every app start.
+ */
+async function mirrorCatalogue(): Promise<void> {
+  try {
+    const { storage } = useSocialStore.getState();
+    const next = JSON.stringify(networksMirror(), null, 2);
+    if ((await storage.readText(PATHS.networks)) === next) return;
+    await storage.writeText(PATHS.networks, next);
+  } catch (err) {
+    logError("social", "mirror networks.json", err);
+  }
 }

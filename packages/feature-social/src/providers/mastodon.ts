@@ -1,5 +1,5 @@
 import type { ChannelCredentials } from "../types";
-import { HttpError, bearer, fileFromBytes, getJson, postForm, postJson, postMultipart } from "./http";
+import { HttpError, bearer, describeResponse, fileFromBytes, getJson, postForm, postJson, postMultipart, sfetch } from "./http";
 import { ProviderError, retryableStatus, type LoadedMedia, type Provider, type PublishInput } from "./types";
 
 /**
@@ -35,10 +35,10 @@ interface Account {
 
 export async function registerApp(instance: string): Promise<App> {
   return postJson<App>(`${instance}/api/v1/apps`, {
-    client_name: "shipshape social",
+    client_name: "owntools social",
     redirect_uris: OOB,
     scopes: SCOPES,
-    website: "https://shipshape.app",
+    website: "https://owntools.app",
   });
 }
 
@@ -80,14 +80,30 @@ export async function instanceLimit(instance: string): Promise<number> {
   }
 }
 
+/**
+ * An upload answers 202 while the instance is still transcoding, and
+ * attaching an unprocessed video to a status is rejected — so wait for the
+ * attachment to turn 200. Images finish on the first poll; a minute-long
+ * video can take a while, hence the generous ceiling.
+ */
+async function waitForMedia(instance: string, token: string, id: string, timeoutMs: number): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const res = await sfetch(`${instance}/api/v1/media/${id}`, { method: "GET", headers: bearer(token) });
+    if (res.status === 200) return;
+    if (res.status !== 206 && !res.ok) throw new ProviderError(`Mastodon: ${await describeResponse(res)}`, retryableStatus(res.status));
+    await new Promise((r) => setTimeout(r, 1500));
+  }
+  throw new ProviderError("Mastodon is still processing the attachment — try again in a moment.", true);
+}
+
 async function uploadMedia(instance: string, token: string, media: LoadedMedia): Promise<string> {
   const form = new FormData();
   form.append("file", fileFromBytes(media.bytes, media.item.name, media.item.mime));
   const alt = media.alt ?? media.item.alt;
   if (alt) form.append("description", alt);
   const data = await postMultipart<{ id: string }>(`${instance}/api/v2/media`, form, bearer(token));
-  // 202 = still processing; a short wait is enough for images.
-  await new Promise((r) => setTimeout(r, 800));
+  await waitForMedia(instance, token, data.id, media.item.mime.startsWith("video/") ? 5 * 60_000 : 30_000);
   return data.id;
 }
 
@@ -148,7 +164,7 @@ export const mastodon: Provider = {
     if (values.clientId && values.clientSecret) {
       app = { client_id: values.clientId, client_secret: values.clientSecret };
     } else {
-      progress("Registering shipshape on the instance…");
+      progress("Registering owntools on the instance…");
       app = await registerApp(instance);
     }
     if (!values.code?.trim()) throw new NeedsCode(authorizeUrl(instance, app.client_id), app);

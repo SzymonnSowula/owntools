@@ -290,6 +290,13 @@ export interface SfxSettings {
   transitionVolume: number;
   /** Pan clicks and zooms by where they happened in the frame. */
   spatial: boolean;
+  /**
+   * Sounds the user took off the timeline, by `SfxEvent.id`. The plan is
+   * generated, so there is nothing to delete from — a removal is a note that
+   * this one moment stays quiet, and it survives re-planning because the id is
+   * derived from where the sound came from rather than its position in a list.
+   */
+  removed?: string[];
 }
 
 /** Fade from / to black at the ends of the timeline, in seconds. */
@@ -310,6 +317,12 @@ export interface ShareLink {
 
 export interface Project {
   id: string;
+  /**
+   * Which set of defaults this file was written against; see `PROJECT_SCHEMA`.
+   * Absent on anything saved before it existed, which is what makes an old
+   * file's settings distinguishable from a deliberate choice.
+   */
+  schema?: number;
   name: string;
   createdAt: number;
   duration: number;
@@ -374,7 +387,9 @@ export type Selection =
   | { type: "zoom"; id: string }
   | { type: "caption"; id: string }
   | { type: "text"; id: string }
-  | { type: "overlay"; id: string };
+  | { type: "overlay"; id: string }
+  /** One generated sound effect; `id` is an `SfxEvent.id`. */
+  | { type: "sfx"; id: string };
 
 export interface MediaUrls {
   screenUrl: string;

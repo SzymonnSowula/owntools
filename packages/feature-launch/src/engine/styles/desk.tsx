@@ -5,13 +5,13 @@ import { DotField, Glows } from "../primitives";
 import { BASE_MOTION, FONT_BODY, FONT_DISPLAY, FONT_MONO, type LaunchStyleDef } from "../style";
 
 /**
- * open desk — the shipshape house style: paper, a dotted desk, mac windows and
+ * open desk — the owntools house style: paper, a dotted desk, mac windows and
  * lowercase Outfit. Calm springs, nothing shouts.
  */
 export const deskStyle: LaunchStyleDef = {
   id: "desk",
   label: "Open desk",
-  desc: "Paper, dot grid, mac windows — the shipshape house style",
+  desc: "Paper, dot grid, mac windows — the owntools house style",
   tokens: () => ({
     displayFont: FONT_DISPLAY,
     bodyFont: FONT_BODY,

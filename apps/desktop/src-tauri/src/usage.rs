@@ -306,7 +306,7 @@ fn friendly_name(exe: &str, path: &str) -> String {
         "powershell.exe" | "pwsh.exe" => "PowerShell".into(),
         "cmd.exe" => "Command Prompt".into(),
         "notepad.exe" => "Notepad".into(),
-        "focus.exe" | "shipshape.exe" => "shipshape".into(),
+        "focus.exe" | "owntools.exe" => "owntools".into(),
         _ => exe
             .trim_end_matches(".exe")
             .trim_end_matches(".EXE")

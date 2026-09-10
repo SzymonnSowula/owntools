@@ -420,7 +420,7 @@ mod tests {
     use std::fs;
 
     fn temp_tree(tag: &str) -> PathBuf {
-        let base = std::env::temp_dir().join(format!("shipshape-disk-test-{tag}-{}", std::process::id()));
+        let base = std::env::temp_dir().join(format!("owntools-disk-test-{tag}-{}", std::process::id()));
         let _ = fs::remove_dir_all(&base);
         fs::create_dir_all(base.join("a/deep/er")).unwrap();
         fs::create_dir_all(base.join("b")).unwrap();

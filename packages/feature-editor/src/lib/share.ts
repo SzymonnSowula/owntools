@@ -169,13 +169,13 @@ export async function deleteShareLink(link: ShareLink): Promise<void> {
 export function describeShareError(err: unknown): string {
   if (err instanceof ShareError) {
     if (err.code === "sharing_not_configured") {
-      return "Sharing isn't switched on for shipshape.app yet — save the file and send it the usual way for now.";
+      return "Sharing isn't switched on for owntools.app yet — save the file and send it the usual way for now.";
     }
     return err.message;
   }
   if (err instanceof Error && err.message) {
     return /fetch|network|ENOTFOUND|ECONN/i.test(err.message)
-      ? "Couldn't reach shipshape.app. Check the connection and try again."
+      ? "Couldn't reach owntools.app. Check the connection and try again."
       : err.message;
   }
   return "Sharing failed.";

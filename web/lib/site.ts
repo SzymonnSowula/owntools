@@ -13,10 +13,17 @@ const env = (value: string | undefined): string | undefined => {
 };
 
 /** Canonical origin of the website (metadataBase, sitemap, robots, JSON-LD). */
-export const siteUrl = env(process.env.NEXT_PUBLIC_SITE_URL) ?? "https://shipshape.app";
+export const siteUrl = env(process.env.NEXT_PUBLIC_SITE_URL) ?? "https://owntools.app";
 
 /** Direct link to the Windows installer. Unset until the first release ships. */
 export const downloadUrl = env(process.env.NEXT_PUBLIC_DOWNLOAD_URL_WINDOWS);
+
+/**
+ * Direct link to the macOS disk image (universal — Apple Silicon and
+ * Intel from one file). Set it and the Mac button becomes a link; leave
+ * it unset and the button says so instead of lying about what exists.
+ */
+export const downloadUrlMac = env(process.env.NEXT_PUBLIC_DOWNLOAD_URL_MACOS);
 
 /** Polar.sh checkout link for the Pro key. Unset until launch day. */
 export const checkoutUrl = env(process.env.NEXT_PUBLIC_CHECKOUT_URL);
@@ -29,7 +36,7 @@ export const xUrl = env(process.env.NEXT_PUBLIC_X_URL);
 
 /** Public source repository. */
 export const repoUrl =
-  env(process.env.NEXT_PUBLIC_REPO_URL) ?? "https://github.com/SzymonnSowula/shipshape";
+  env(process.env.NEXT_PUBLIC_REPO_URL) ?? "https://github.com/SzymonnSowula/owntools";
 
 /** Plausible `data-domain`. Analytics stay off unless this is set. */
 export const plausibleDomain = env(process.env.NEXT_PUBLIC_PLAUSIBLE_DOMAIN);

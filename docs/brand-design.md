@@ -1,9 +1,9 @@
-# shipshape brand design — "open desk"
+# owntools brand design — "open desk"
 
 > Design system v2 (2026-08-31). Fusion of two references: **superwhisper**
 > (premium, cinematic, big typography, tinted feature cards, mega-footer)
 > × **heyclicky** (desktop metaphor, mac windows, sky wallpapers, playful
-> stickers, terminal cards) — rebuilt in the shipshape Apple-blue family.
+> stickers, terminal cards) — rebuilt in the owntools Apple-blue family.
 > Implemented first on the landing (`web/`); this doc is the spec for
 > carrying it into the desktop app (`apps/desktop` + packages).
 
@@ -23,7 +23,7 @@ promise."). Full rules — including who we are allowed to name — in §9.
 
 Two first-class themes with **day as default**. One attribute switches
 everything: `data-theme="dark"` on `<html>` (absence = day). Preference is
-persisted (`localStorage["shipshape-theme"]`) and applied pre-paint.
+persisted (`localStorage["owntools-theme"]`) and applied pre-paint.
 
 Tailwind 4 emits utilities as `var(--color-*)` references, so redefining
 the raw custom properties under `[data-theme="dark"]` re-themes every
@@ -199,7 +199,7 @@ wincard/WinDots language. To align with v2:
   (procedural), `README.md` with specs.
 - Icons: **lucide-react**, 15–17px, stroke, tinted via `currentColor`.
 - Brand glyph: sailboat (sail + hull) — see `WinDots.tsx` BRAND_GLYPH.
-- Watermark stays "made with shipshape".
+- Watermark stays "made with owntools".
 
 ## 9. Voice & positioning
 
@@ -232,7 +232,7 @@ Don't:
 - imply a workflow the reader must already have ("the loop you run").
 
 Fixed points (2026-09-01):
-- name: **shipshape** stays — read it as the idiom ("in good order"), not as
+- name: **owntools** stays — read it as the idiom ("in good order"), not as
   release-engineering;
 - hero: **"your work. your device."** + the verb list beneath it;
 - section label: **"one app, everything you own"**;

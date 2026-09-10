@@ -64,6 +64,41 @@ async function sendMedia<T>(token: string, method: string, field: string, media:
   }
 }
 
+/** A chat the bot can see: what "Find my chats" offers to pick from. */
+export interface TelegramChat {
+  id: string;
+  title: string;
+  type: string;
+  username: string | null;
+}
+
+/**
+ * Chats the bot has been added to, read from its recent updates. Telegram
+ * has no "list my chats" call, but adding a bot to a channel produces a
+ * `my_chat_member` update, and any message in a group produces one too — so
+ * right after the person adds the bot as an admin, this finds it. That
+ * removes the step everyone gets stuck on: hunting for a numeric chat id.
+ */
+export async function discoverChats(token: string): Promise<TelegramChat[]> {
+  const updates = await call<Record<string, unknown>[]>(token.trim(), "getUpdates", { limit: 100, allowed_updates: [] });
+  const seen = new Map<string, TelegramChat>();
+  for (const u of updates) {
+    for (const key of ["my_chat_member", "channel_post", "message", "edited_channel_post", "chat_member"]) {
+      const chat = (u[key] as { chat?: Chat } | undefined)?.chat;
+      if (!chat) continue;
+      const id = String(chat.id);
+      if (seen.has(id)) continue;
+      seen.set(id, {
+        id,
+        title: chat.title || chat.first_name || chat.username || id,
+        type: chat.type,
+        username: chat.username ?? null,
+      });
+    }
+  }
+  return [...seen.values()];
+}
+
 export const telegram: Provider = {
   id: "telegram",
   fields: [

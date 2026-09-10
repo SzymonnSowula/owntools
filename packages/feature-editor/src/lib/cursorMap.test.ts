@@ -51,7 +51,7 @@ function sources(over: Partial<DisplaySources> = {}): DisplaySources {
   return {
     monitors: [MAIN, LEFT],
     windows: [
-      { id: "1001", title: "Chrome — shipshape", ...MAXIMIZED, foreground: true },
+      { id: "1001", title: "Chrome — owntools", ...MAXIMIZED, foreground: true },
       { id: "1002", title: "Notes", x: 100, y: 100, width: 800, height: 600, foreground: false },
     ],
     virtualScreen: VIRTUAL,

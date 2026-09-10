@@ -60,7 +60,7 @@ export function MonitorPage() {
           <h1>
             <Activity size={18} /> Monitor
           </h1>
-          <p>Free space, sampled every {data?.intervalS ?? 20} seconds while shipshape runs.</p>
+          <p>Free space, sampled every {data?.intervalS ?? 20} seconds while owntools runs.</p>
         </div>
         <div className="dk-page-controls">
           <div className="dk-seg small" role="tablist">

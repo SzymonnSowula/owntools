@@ -213,29 +213,17 @@ mod platform {
 #[cfg(target_os = "macos")]
 mod platform {
     use super::{InputEvent, MAX_EVENTS, RATE_HZ};
-    use std::ffi::c_void;
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::Arc;
     use std::time::{Duration, Instant};
 
-    #[repr(C)]
-    struct CGPoint {
-        x: f64,
-        y: f64,
-    }
 
     #[link(name = "CoreGraphics", kind = "framework")]
     unsafe extern "C" {
-        fn CGEventCreate(source: *const c_void) -> *mut c_void;
-        fn CGEventGetLocation(event: *mut c_void) -> CGPoint;
         fn CGEventSourceButtonState(state_id: u32, button: u32) -> bool;
         fn CGEventSourceKeyState(state_id: u32, key: u16) -> bool;
     }
 
-    #[link(name = "CoreFoundation", kind = "framework")]
-    unsafe extern "C" {
-        fn CFRelease(cf: *mut c_void);
-    }
 
     const HID_SYSTEM_STATE: u32 = 1;
     const BUTTONS: [(u32, &str); 3] = [(0, "left"), (1, "right"), (2, "middle")];
@@ -254,16 +242,12 @@ mod platform {
         }
     }
 
+    /// Click positions have to be in the same space as `project.captureRect`,
+    /// i.e. physical pixels — `cursor.rs` already does the points-to-pixels
+    /// conversion per display, so ask it rather than repeating the maths and
+    /// getting it wrong on a Retina screen.
     fn pointer() -> Option<(f64, f64)> {
-        unsafe {
-            let event = CGEventCreate(std::ptr::null());
-            if event.is_null() {
-                return None;
-            }
-            let p = CGEventGetLocation(event);
-            CFRelease(event);
-            Some((p.x, p.y))
-        }
+        crate::cursor::get_cursor().ok().map(|c| (c.x, c.y))
     }
 
     pub fn run(started: Instant, stop: Arc<AtomicBool>) -> Vec<InputEvent> {

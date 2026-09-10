@@ -29,7 +29,7 @@ export interface Wallpaper {
 }
 
 export const WALLPAPER_CATEGORIES: WallpaperCategory[] = [
-  { id: "shipshape", name: "shipshape" },
+  { id: "owntools", name: "owntools" },
   { id: "sky", name: "Sky" },
   { id: "night", name: "Night" },
   { id: "warm", name: "Warm" },
@@ -51,11 +51,11 @@ const legacy = (id: string, category: string): Wallpaper => {
 };
 
 export const WALLPAPERS: Wallpaper[] = [
-  // shipshape — the brand blues.
+  // owntools — the brand blues.
   {
     id: "harbour",
     name: "Harbour",
-    category: "shipshape",
+    category: "owntools",
     kind: "mesh",
     base: "#0b1e3a",
     colors: ["#0a84ff", "#5e5ce6", "#32ade6", "#7dd3fc"],
@@ -63,14 +63,14 @@ export const WALLPAPERS: Wallpaper[] = [
   {
     id: "day",
     name: "Day",
-    category: "shipshape",
+    category: "owntools",
     kind: "linear",
     base: "#f5f5f7",
     colors: ["#f5f5f7", "#e6f0ff", "#dbeafe"],
     angle: 160,
   },
-  { id: "desk", name: "Desk", category: "shipshape", kind: "dots", base: "#f5f5f7", colors: ["#0a84ff"] },
-  { id: "night", name: "Night desk", category: "shipshape", kind: "dots", base: "#1d1d1f", colors: ["#5e5ce6"] },
+  { id: "desk", name: "Desk", category: "owntools", kind: "dots", base: "#f5f5f7", colors: ["#0a84ff"] },
+  { id: "night", name: "Night desk", category: "owntools", kind: "dots", base: "#1d1d1f", colors: ["#5e5ce6"] },
 
   // sky
   legacy("aurora", "sky"),

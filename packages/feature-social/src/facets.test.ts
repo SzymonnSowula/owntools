@@ -3,21 +3,21 @@ import { findFacets, findHashtags, replaceFacets, toByteRange, utf8Length } from
 
 describe("findFacets", () => {
   it("finds links, mentions and tags with positions", () => {
-    const text = "New build at https://shipshape.app/changelog. Thanks @alice.bsky.social #shipshape #v2";
+    const text = "New build at https://owntools.app/changelog. Thanks @alice.bsky.social #owntools #v2";
     const facets = findFacets(text);
     expect(facets.map((f) => [f.kind, f.value])).toEqual([
-      ["link", "https://shipshape.app/changelog"],
+      ["link", "https://owntools.app/changelog"],
       ["mention", "alice.bsky.social"],
-      ["tag", "shipshape"],
+      ["tag", "owntools"],
       ["tag", "v2"],
     ]);
     const link = facets[0]!;
-    expect(text.slice(link.start, link.end)).toBe("https://shipshape.app/changelog");
+    expect(text.slice(link.start, link.end)).toBe("https://owntools.app/changelog");
   });
 
   it("recognises bare domains with a real TLD and leaves versions alone", () => {
-    const facets = findFacets("see shipshape.app/pricing or v1.2 of file.txt");
-    expect(facets.map((f) => f.value)).toEqual(["https://shipshape.app/pricing"]);
+    const facets = findFacets("see owntools.app/pricing or v1.2 of file.txt");
+    expect(facets.map((f) => f.value)).toEqual(["https://owntools.app/pricing"]);
   });
 
   it("does not turn an email into a mention or a numeric anchor into a tag", () => {

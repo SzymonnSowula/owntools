@@ -27,6 +27,14 @@ export interface WhisperAudioOptions {
   padSeconds?: number;
   /** Whisper decodes 30 s windows; sub-second clips decode badly, so pad them out. */
   minSeconds?: number;
+  /**
+   * Drop the quiet head and tail before padding. A dictation take carries
+   * whatever silence sat between the hotkey and the first word, and again
+   * between the last word and the second press — usually a second or two,
+   * which the recognizer then charges for at its real-time factor. Off for
+   * a file being transcribed, where the timings have to stay true.
+   */
+  trimSilence?: boolean;
 }
 
 const AUDIO_DEFAULTS: Required<WhisperAudioOptions> = {
@@ -35,7 +43,52 @@ const AUDIO_DEFAULTS: Required<WhisperAudioOptions> = {
   maxGain: 12,
   padSeconds: 0.25,
   minSeconds: 1.2,
+  trimSilence: false,
 };
+
+/**
+ * Where the speech in a take actually starts and ends.
+ *
+ * The threshold is relative to the take's own peak rather than absolute,
+ * because the same room is quiet on one mic and loud on another, and the
+ * window is 20 ms so a plosive or a short gap between words never counts as
+ * the end. A generous margin is kept on both sides: cutting a syllable to
+ * save 60 ms would be a bad trade.
+ */
+export function speechBounds(
+  pcm: Float32Array,
+  sampleRate: number,
+  marginSeconds = 0.15,
+): { start: number; end: number } {
+  const win = Math.max(1, Math.round(0.02 * sampleRate));
+  let peak = 0;
+  for (let i = 0; i < pcm.length; i++) {
+    const v = Math.abs(pcm[i]);
+    if (v > peak) peak = v;
+  }
+  // Nothing above the noise floor: keep the take as it is and let the
+  // recognizer decide there are no words in it.
+  if (peak < 0.0015) return { start: 0, end: pcm.length };
+  const threshold = peak * 0.06;
+
+  const loud = (from: number) => {
+    let sum = 0;
+    const to = Math.min(pcm.length, from + win);
+    for (let i = from; i < to; i++) sum += Math.abs(pcm[i]);
+    return to > from && sum / (to - from) > threshold;
+  };
+
+  let start = 0;
+  while (start + win < pcm.length && !loud(start)) start += win;
+  let end = pcm.length;
+  while (end - win > start && !loud(end - win)) end -= win;
+
+  const margin = Math.round(marginSeconds * sampleRate);
+  return {
+    start: Math.max(0, start - margin),
+    end: Math.min(pcm.length, end + margin),
+  };
+}
 
 /** Resamples an AudioBuffer to 16 kHz mono, optionally high-passed on the way. */
 export async function toWhisperPcm(
@@ -71,7 +124,17 @@ export function conditionPcm(
   sampleRate: number,
   options: WhisperAudioOptions = {},
 ): Float32Array {
-  const { normalizePeak, maxGain, padSeconds, minSeconds } = { ...AUDIO_DEFAULTS, ...options };
+  const { normalizePeak, maxGain, padSeconds, minSeconds, trimSilence } = {
+    ...AUDIO_DEFAULTS,
+    ...options,
+  };
+
+  if (trimSilence) {
+    const { start, end } = speechBounds(pcm, sampleRate);
+    if (end - start >= Math.round(0.2 * sampleRate) && end - start < pcm.length) {
+      pcm = pcm.subarray(start, end);
+    }
+  }
 
   let sum = 0;
   for (let i = 0; i < pcm.length; i++) sum += pcm[i];

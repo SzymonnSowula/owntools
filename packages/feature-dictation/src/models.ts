@@ -15,6 +15,8 @@
  * download must never end up in AppData under a good name.
  */
 
+import { platformOs } from "@core/env";
+
 export type Engine = "whisper" | "parakeet";
 export type Vendor = "openai" | "nvidia";
 
@@ -69,29 +71,106 @@ export interface DictationModel {
 
 export type ModelTag = "recommended" | "fastest" | "best quality" | "files & subtitles";
 
-/** Pinned whisper.cpp Windows build (release b4938). */
-export const WHISPER_RUNTIME: EngineRuntime = {
-  engine: "whisper",
-  label: "whisper.cpp b4938",
-  url: "https://github.com/ggml-org/whisper.cpp/releases/download/b4938/whisper-bin-x64.zip",
-  bytes: 8361840,
-  sha256: "c2a4b60edb11f7e11a9191ffb50929535527d4d91c9903dbe3e554583bbbc63d",
-  archive: "whisper/whisper-bin-x64.zip",
+/**
+ * The engines are downloaded, not bundled, so every platform needs its own
+ * archive — and the two platforms are not in the same place:
+ *
+ *   **sherpa-onnx** publishes a Windows x64 build and a macOS universal2
+ *     build of the same release, so Parakeet works on both from day one.
+ *   **whisper.cpp** publishes Windows and Linux binaries only — checked
+ *     across v1.8.5–v1.9.3 and the pinned b4938, whose one Apple
+ *     artifact is an `xcframework` (a library, not the CLI). The
+ *     macOS build therefore comes from our own
+ *     `.github/workflows/whisper-macos.yml`, which compiles the pinned tag
+ *     on a macOS runner and prints the three constants to paste in below.
+ *     Until that has been run once, `url` is empty and the app says so
+ *     rather than downloading a Windows .exe onto a Mac.
+ */
+export type RuntimePlatform = "windows" | "macos";
+
+function runtimePlatform(): RuntimePlatform | null {
+  const os = platformOs();
+  return os === "macos" ? "macos" : os === "windows" ? "windows" : null;
+}
+
+/** Pinned whisper.cpp builds, per platform (release b4938). */
+export const WHISPER_RUNTIMES: Record<RuntimePlatform, EngineRuntime> = {
+  windows: {
+    engine: "whisper",
+    label: "whisper.cpp b4938",
+    url: "https://github.com/ggml-org/whisper.cpp/releases/download/b4938/whisper-bin-x64.zip",
+    bytes: 8361840,
+    sha256: "c2a4b60edb11f7e11a9191ffb50929535527d4d91c9903dbe3e554583bbbc63d",
+    archive: "whisper/whisper-bin-x64.zip",
+  },
+  macos: {
+    engine: "whisper",
+    label: "whisper.cpp b4938 (universal)",
+    // Filled in by .github/workflows/whisper-macos.yml — see docs/macos.md.
+    url: "",
+    bytes: 0,
+    sha256: "",
+    archive: "whisper/whisper-bin-macos-universal.zip",
+  },
 };
 
 /**
- * Pinned sherpa-onnx Windows build (release v1.13.7, x64, shared libs,
- * static CRT, no TTS). Only `sherpa-onnx-offline.exe` and the DLLs it loads
- * are kept out of it (see `parakeet.rs`).
+ * Pinned sherpa-onnx builds (release v1.13.7, shared libraries, no TTS).
+ * Only the two recognizers and the libraries they load are unpacked out of
+ * them (see `parakeet.rs`): the one-shot `sherpa-onnx-offline` and the
+ * resident `sherpa-onnx-offline-websocket-server` that keeps the model in
+ * memory between takes.
  */
-export const PARAKEET_RUNTIME: EngineRuntime = {
-  engine: "parakeet",
-  label: "sherpa-onnx v1.13.7",
-  url: "https://github.com/k2-fsa/sherpa-onnx/releases/download/v1.13.7/sherpa-onnx-v1.13.7-win-x64-shared-MT-Release-no-tts.tar.bz2",
-  bytes: 22932067,
-  sha256: "38a0a32c0f55752b887209a099b1c477bf350d5d9d254602a842d0610a8da831",
-  archive: "parakeet/runtime.tar.bz2",
+export const PARAKEET_RUNTIMES: Record<RuntimePlatform, EngineRuntime> = {
+  windows: {
+    engine: "parakeet",
+    label: "sherpa-onnx v1.13.7",
+    url: "https://github.com/k2-fsa/sherpa-onnx/releases/download/v1.13.7/sherpa-onnx-v1.13.7-win-x64-shared-MT-Release-no-tts.tar.bz2",
+    bytes: 22932067,
+    sha256: "38a0a32c0f55752b887209a099b1c477bf350d5d9d254602a842d0610a8da831",
+    archive: "parakeet/runtime.tar.bz2",
+  },
+  macos: {
+    engine: "parakeet",
+    label: "sherpa-onnx v1.13.7 (universal)",
+    url: "https://github.com/k2-fsa/sherpa-onnx/releases/download/v1.13.7/sherpa-onnx-v1.13.7-osx-universal2-shared-no-tts.tar.bz2",
+    bytes: 39057685,
+    sha256: "3e5fee727ec477d931b7707a23f4c40f60d765ea9514c1cef82e1a12a8803b43",
+    archive: "parakeet/runtime.tar.bz2",
+  },
 };
+
+/** The archive for this platform, or `null` where there is not one yet. */
+export function runtimeFor(engine: Engine): EngineRuntime | null {
+  const os = runtimePlatform();
+  if (!os) return null;
+  const runtime = engine === "whisper" ? WHISPER_RUNTIMES[os] : PARAKEET_RUNTIMES[os];
+  return runtime.url ? runtime : null;
+}
+
+/** False when this engine has no build for the platform the app is on. */
+export function engineAvailable(engine: Engine): boolean {
+  return runtimeFor(engine) !== null;
+}
+
+/**
+ * A model can only be installed when its engine can be. Everything that
+ * lists models filters on this, so a Mac never offers a download it cannot
+ * run afterwards.
+ */
+export function modelAvailable(model: DictationModel): boolean {
+  return engineAvailable(model.engine);
+}
+
+/**
+ * The runtime for this platform, with the Windows one as the fallback so
+ * that code reading `.bytes` for a progress bar in a browser preview still
+ * has a number to show.
+ */
+export const WHISPER_RUNTIME: EngineRuntime =
+  WHISPER_RUNTIMES[runtimePlatform() ?? "windows"];
+export const PARAKEET_RUNTIME: EngineRuntime =
+  PARAKEET_RUNTIMES[runtimePlatform() ?? "windows"];
 
 export const RUNTIMES: Record<Engine, EngineRuntime> = {
   whisper: WHISPER_RUNTIME,
@@ -216,6 +295,23 @@ export const MODELS: DictationModel[] = [
 /** Whisper file name the onboarding installs and the transcribe tools fall back to. */
 export const DEFAULT_MODEL_FILE = "ggml-large-v3-turbo-q5_0.bin";
 
+/**
+ * What onboarding and the "install engine" buttons install when nobody
+ * has chosen anything.
+ *
+ * Whisper where whisper runs, because it is the model the transcribe,
+ * subtitle and translate tools also need — one download covers all of
+ * it. On a platform whisper has no build for, the best model that *does*
+ * run there: on macOS that is Parakeet, which is the faster dictation
+ * engine anyway and the only reason the rest of the tools are honest
+ * about being unavailable rather than broken.
+ */
+export function defaultInstallModel(): DictationModel {
+  const whisper = MODELS.find((m) => m.id === DEFAULT_MODEL_FILE);
+  if (whisper && modelAvailable(whisper)) return whisper;
+  return MODELS.find(modelAvailable) ?? MODELS[0];
+}
+
 export function modelById(id: string): DictationModel | undefined {
   return MODELS.find((m) => m.id === id);
 }
@@ -234,6 +330,14 @@ export interface EngineStatus {
   models: string[];
   parakeet: {
     runtime: boolean;
+    /**
+     * The resident recognizer is installed too. An engine unpacked before
+     * it existed has `runtime` without `server`, and every take pays the
+     * ~4.5 s model load again; the Models page offers the update.
+     */
+    server: boolean;
+    /** The model is loaded right now, so the next take is decode-only. */
+    resident: boolean;
     dir: string;
     /** Ids of the complete Parakeet model folders. */
     models: string[];
@@ -245,7 +349,7 @@ export const EMPTY_STATUS: EngineStatus = {
   model: false,
   dir: "",
   models: [],
-  parakeet: { runtime: false, dir: "", models: [] },
+  parakeet: { runtime: false, server: false, resident: false, dir: "", models: [] },
 };
 
 export function runtimeInstalled(status: EngineStatus | null, engine: Engine): boolean {

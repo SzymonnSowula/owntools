@@ -50,6 +50,23 @@ export const AutoCutGlyph = () => (
   </Glyph>
 );
 
+/** Sound effects: a speaker with two waves coming off it. */
+export const SoundGlyph = () => (
+  <Glyph>
+    <path d="M3.4 6.2h1.9L8 3.8v8.4L5.3 9.8H3.4z" />
+    <path d="M10.6 6.1a2.7 2.7 0 0 1 0 3.8" />
+    <path d="M12.5 4.2a5.4 5.4 0 0 1 0 7.6" />
+  </Glyph>
+);
+
+/** The same speaker with the waves struck through: effects are off. */
+export const SoundOffGlyph = () => (
+  <Glyph>
+    <path d="M3.4 6.2h1.9L8 3.8v8.4L5.3 9.8H3.4z" />
+    <path d="m10.6 6.4 3.4 3.2M14 6.4l-3.4 3.2" />
+  </Glyph>
+);
+
 export const ZoomInGlyph = () => (
   <Glyph>
     <circle cx="7" cy="7" r="4.4" />

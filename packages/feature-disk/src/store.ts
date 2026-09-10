@@ -9,10 +9,11 @@ import type {
   ScanProgress,
   ScanSummary,
   TrashOutcome,
+  TrashProgress,
   VolumeInfo,
 } from "./api/types";
 import type { ColorMode } from "./lib/colors";
-import { formatBytes } from "./lib/format";
+import { baseName, formatBytes } from "./lib/format";
 
 /**
  * disk — UI state. The tree itself lives in the backend; this store keeps
@@ -37,7 +38,7 @@ interface Prefs {
   inspectorOpen: boolean;
 }
 
-const PREFS_KEY = "shipshape-disk-prefs";
+const PREFS_KEY = "owntools-disk-prefs";
 
 function loadPrefs(): Prefs {
   const base: Prefs = { view: "treemap", colorMode: "folder", depth: 7, inspectorOpen: true };
@@ -67,6 +68,9 @@ function savePrefs(p: Prefs): void {
 export interface Notice {
   text: string;
   kind: "ok" | "error";
+  /** Stays until the user dismisses it. What actually happened to their files
+   *  must not vanish after four seconds while they are looking elsewhere. */
+  sticky?: boolean;
 }
 
 export interface DiskStore extends Prefs {
@@ -88,6 +92,8 @@ export interface DiskStore extends Prefs {
   quickWins: QuickWin[] | null;
   breakdown: Breakdown | null;
   notice: Notice | null;
+  /** Set while a Recycle Bin move is running, so the UI can say so. */
+  trashing: TrashProgress | null;
 
   init(): Promise<void>;
   setTab(tab: Tab): void;
@@ -111,7 +117,8 @@ export interface DiskStore extends Prefs {
   runCleanup(): Promise<void>;
   trashNow(items: NodeInfo[], what?: string): Promise<TrashOutcome | null>;
   refreshSidebar(): Promise<void>;
-  notify(text: string, kind?: Notice["kind"]): void;
+  notify(text: string, kind?: Notice["kind"], sticky?: boolean): void;
+  dismissNotice(): void;
   reveal(path: string): void;
   open(path: string): void;
   copyPath(path: string): void;
@@ -140,11 +147,15 @@ export const useDiskStore = create<DiskStore>((set, get) => ({
   quickWins: null,
   breakdown: null,
   notice: null,
+  trashing: null,
 
   async init() {
     const api = backend();
     if (!subscribed) {
       subscribed = true;
+      api.onTrashProgress((p) => {
+        set({ trashing: p.done >= p.total ? null : p });
+      });
       api.onScanProgress((p) => {
         const { activeScanId } = get();
         if (activeScanId !== null && p.scanId !== activeScanId) return;
@@ -313,6 +324,7 @@ export const useDiskStore = create<DiskStore>((set, get) => ({
       okLabel: "Move to Recycle Bin",
     });
     if (!ok) return null;
+    set({ trashing: { done: 0, total: items.length, path: items[0]?.path ?? "" }, notice: null });
     try {
       const outcome = await backend().trash(items.map((i) => i.id));
       const removed = new Set(outcome.removed);
@@ -322,19 +334,28 @@ export const useDiskStore = create<DiskStore>((set, get) => ({
         cleanup: s.cleanup.filter((c) => !removed.has(c.id)),
         summary: s.summary ? { ...s.summary, size: Math.max(0, s.summary.size - outcome.freed) } : s.summary,
       }));
+      // A cleanup is the one thing here that changes the user's disk, and it can
+      // run for minutes. Its result stays on screen until they dismiss it.
       if (outcome.failed.length) {
         get().notify(
-          `${outcome.removed.length} moved to the Recycle Bin, ${outcome.failed.length} failed (${outcome.failed[0].error})`,
+          `${outcome.removed.length} moved to the Recycle Bin · ${formatBytes(outcome.freed)} freed · ${outcome.failed.length} could not be moved — ${baseName(outcome.failed[0].path)}: ${outcome.failed[0].error}`,
           "error",
+          true,
         );
       } else {
-        get().notify(`${outcome.removed.length} item${outcome.removed.length === 1 ? "" : "s"} moved to the Recycle Bin · ${formatBytes(outcome.freed)} freed`);
+        get().notify(
+          `${outcome.removed.length} item${outcome.removed.length === 1 ? "" : "s"} moved to the Recycle Bin · ${formatBytes(outcome.freed)} freed. They are in the Recycle Bin until you empty it.`,
+          "ok",
+          true,
+        );
       }
       void get().refreshSidebar();
       return outcome;
     } catch (err) {
-      get().notify(`Could not clean up: ${err instanceof Error ? err.message : String(err)}`, "error");
+      get().notify(`Could not clean up: ${err instanceof Error ? err.message : String(err)}`, "error", true);
       return null;
+    } finally {
+      set({ trashing: null });
     }
   },
 
@@ -349,10 +370,18 @@ export const useDiskStore = create<DiskStore>((set, get) => ({
     set({ quickWins, breakdown, recent, volumes });
   },
 
-  notify(text, kind = "ok") {
-    set({ notice: { text, kind } });
+  notify(text, kind = "ok", sticky = false) {
+    set({ notice: { text, kind, sticky } });
     if (noticeTimer) clearTimeout(noticeTimer);
+    noticeTimer = null;
+    if (sticky) return;
     noticeTimer = setTimeout(() => set({ notice: null }), kind === "error" ? 7000 : 4000);
+  },
+
+  dismissNotice() {
+    if (noticeTimer) clearTimeout(noticeTimer);
+    noticeTimer = null;
+    set({ notice: null });
   },
 
   reveal(path) {

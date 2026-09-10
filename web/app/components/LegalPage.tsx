@@ -35,7 +35,7 @@ export function LegalPage({
       <header className="sticky top-0 z-30 border-b border-line/70 bg-paper/80 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-3">
           <Link href="/" className="display text-[17px] font-bold tracking-[-0.03em]">
-            shipshape
+            owntools
           </Link>
           <div className="flex items-center gap-3">
             <nav className="hidden items-center gap-4 text-sm font-medium text-muted md:flex">
@@ -68,7 +68,7 @@ export function LegalPage({
 
           <footer className="mt-16 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-line pt-6 text-sm text-muted">
             <Link href="/" className="transition hover:text-ink">
-              ← shipshape
+              ← owntools
             </Link>
             {DOCS.map((d) => (
               <Link key={d.href} href={d.href} className="transition hover:text-ink">
@@ -93,7 +93,7 @@ export function ContactLink() {
   if (xUrl) {
     return (
       <>
-        via the account on X —{" "}
+        via the account on X -{" "}
         <a href={xUrl} rel="noreferrer">
           {xUrl.replace(/^https?:\/\//, "")}
         </a>
@@ -110,7 +110,7 @@ export function Operator() {
       <h2 id="contact">operator &amp; contact</h2>
       {legalEntity ? (
         <p>
-          shipshape is operated by <strong>{legalEntity}</strong>
+          owntools is operated by <strong>{legalEntity}</strong>
           {legalAddress ? <>, {legalAddress}</> : null}.
         </p>
       ) : (

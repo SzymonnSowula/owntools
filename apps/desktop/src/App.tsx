@@ -1,6 +1,7 @@
 import { DialogHost } from "@ui/Dialog";
 import { lazy, Suspense, useEffect, useState } from "react";
 import { isTauri } from "@core/env";
+import { OPEN_TOOL_EVENT } from "@core/handoff";
 import { unlockAudio } from "@feature-focus/lib/audio/engine";
 import { VIEWS } from "@feature-focus/types";
 import { useAppStore, type UsageTick } from "@feature-focus/store/useAppStore";
@@ -146,6 +147,15 @@ export default function App() {
           }
         }),
       );
+      // One tool handing its output to another (screeni → social) asks the
+      // shell to switch with a DOM event: same window, no Tauri round trip,
+      // and it works in the browser preview too.
+      const onOpenTool = (e: Event) => {
+        const tool = (e as CustomEvent<{ tool?: string }>).detail?.tool;
+        if (tool && (TOOLS as readonly string[]).includes(tool)) useShellStore.getState().setTool(tool as Tool);
+      };
+      window.addEventListener(OPEN_TOOL_EVENT, onOpenTool);
+      unsubs.push(() => window.removeEventListener(OPEN_TOOL_EVENT, onOpenTool));
       // ...and hands the transcript over when this window is the one in front
       // (focused field, the board, or the clipboard — see feature-dictation/insert.ts).
       unsubs.push(await listenForDictation());

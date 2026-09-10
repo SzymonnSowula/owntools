@@ -29,7 +29,7 @@ import {
 import { DownloadCta } from "./Cta";
 
 /**
- * "the shipshape toolkit" — capabilities browsed by job (capture / media /
+ * "the owntools toolkit" — capabilities browsed by job (capture / media /
  * create / focus), yaps.ai-style layout: numbered tinted cards with mini
  * mockups in a right-bleeding row, counter + arrows strip, and a featured
  * capability banner. Every card carries its own hue (Apple system colors).
@@ -121,7 +121,7 @@ function TranscribeMock() {
         <span className="font-mono text-[10px] font-semibold">field-interview.mp4</span>
         <span className="font-mono text-[9px] text-muted">18:42</span>
       </div>
-      <p className="my-1.5 text-center font-mono text-[8px] uppercase tracking-[0.18em] text-muted">— local engine —</p>
+      <p className="my-1.5 text-center font-mono text-[8px] uppercase tracking-[0.18em] text-muted">- local engine -</p>
       <div className="flex items-center justify-between rounded-lg border border-(--tint)/30 bg-(--tint)/5 px-2.5 py-1.5">
         <div>
           <p className="text-[10px] font-bold">reviewable transcript</p>
@@ -274,7 +274,7 @@ function UrlMock() {
           <ArrowRight size={10} />
         </span>
       </div>
-      <p className="mt-2 text-[10px] font-medium text-muted">name, tagline & colors — detected</p>
+      <p className="mt-2 text-[10px] font-medium text-muted">name, tagline & colors - detected</p>
     </MockShell>
   );
 }
@@ -295,7 +295,7 @@ function TemplatesMock() {
           <span className="absolute right-1.5 top-4 h-4 w-5 rotate-[5deg] rounded-sm border border-line bg-card shadow-sm" />
         </div>
       </div>
-      <p className="mt-2 text-[10px] font-medium text-muted">3 templates, shipshape aesthetic</p>
+      <p className="mt-2 text-[10px] font-medium text-muted">3 templates, owntools aesthetic</p>
     </MockShell>
   );
 }
@@ -325,7 +325,7 @@ function RenderMock() {
       <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-line">
         <div className="h-full w-[72%] rounded-full bg-(--tint)" />
       </div>
-      <p className="mt-1.5 text-[10px] font-medium text-muted">rendering on your machine — no upload</p>
+      <p className="mt-1.5 text-[10px] font-medium text-muted">rendering on your machine - no upload</p>
     </MockShell>
   );
 }
@@ -438,7 +438,7 @@ const TOOLKIT: Record<
       {
         title: "desktop dictation",
         tags: "windows · any app",
-        desc: "Speak — it types wherever your cursor is.",
+        desc: "Speak - it types wherever your cursor is.",
         tint: ORANGE,
         icon: <Mic size={15} />,
         mock: <ListeningMock />,
@@ -462,7 +462,7 @@ const TOOLKIT: Record<
       {
         title: "file transcription",
         tags: "desktop · audio or video",
-        desc: "Drop a file, read it as text — locally.",
+        desc: "Drop a file, read it as text - locally.",
         tint: BLUE,
         icon: <FileAudio size={15} />,
         mock: <TranscribeMock />,
@@ -481,7 +481,7 @@ const TOOLKIT: Record<
       tint: ORANGE,
       title: "desktop dictation",
       tag: "system-wide · whisper on your cpu",
-      desc: "Press your shortcut, speak, press it again — clean text lands in whatever app is in front of you, from a document to a search box. Nothing leaves your machine.",
+      desc: "Press your shortcut, speak, press it again - clean text lands in whatever app is in front of you, from a document to a search box. Nothing leaves your machine.",
       cta: "explore dictation",
     },
   },
@@ -534,7 +534,7 @@ const TOOLKIT: Record<
       tint: INDIGO,
       title: "subtitles",
       tag: "timed output · separate file",
-      desc: "Generate a standalone SRT from any audio or video file, review every line, then publish — captions written by your CPU, not a cloud.",
+      desc: "Generate a standalone SRT from any audio or video file, review every line, then publish - captions written by your CPU, not a cloud.",
       cta: "get the subtitle maker",
     },
   },
@@ -595,7 +595,7 @@ const TOOLKIT: Record<
       tint: INDIGO,
       title: "launch video maker",
       tag: "url → mp4 · free in the browser",
-      desc: "Paste your URL and render a keynote-style launch video in your own colors — try it right now, no sign-up, no upload.",
+      desc: "Paste your URL and render a keynote-style launch video in your own colors - try it right now, no sign-up, no upload.",
       cta: "try it free",
       href: "/tools/launch-video-maker",
     },
@@ -641,7 +641,7 @@ const TOOLKIT: Record<
       tint: BLUE,
       title: "deep-focus desk",
       tag: "fullscreen · tasks · habits · heatmap",
-      desc: "One MIT for the day, a timer that can take over the screen, and an honest map of your hours — a desk that keeps you honest.",
+      desc: "One MIT for the day, a timer that can take over the screen, and an honest map of your hours - a desk that keeps you honest.",
       cta: "explore focus",
     },
   },
@@ -667,7 +667,7 @@ export function Toolkit() {
       <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
         <div className="max-w-xl">
           <p className="kicker flex items-center gap-2 !text-indigo">
-            <span className="h-1.5 w-1.5 rounded-full bg-indigo" /> 02 · the shipshape toolkit
+            <span className="h-1.5 w-1.5 rounded-full bg-indigo" /> 02 · the owntools toolkit
           </p>
           <h2 className="display mt-3 text-4xl md:text-5xl">
             everything you say,
@@ -675,7 +675,7 @@ export function Toolkit() {
             show and share.
           </h2>
           <p className="mt-4 text-muted">
-            Capture it, shape it, share it — and keep every file in your own hands.
+            Capture it, shape it, share it - and keep every file in your own hands.
           </p>
         </div>
         <div className="lg:pb-2 lg:text-right">
@@ -698,8 +698,8 @@ export function Toolkit() {
 
       {/* capability cards — start at the container's left edge, bleed out to
           the right viewport edge and emerge from a fog there */}
-      <div className="relative mt-10" style={{ marginRight: "calc(50% - 50vw)" }}>
-        <div ref={scroller} className="toolkit-row flex snap-x gap-5 overflow-x-auto pb-2 pr-32 md:pr-48">
+      <div className="relative mt-10" style={{ marginRight: "calc(50% - 50vw / var(--zoom))" }}>
+        <div ref={scroller} className="toolkit-row flex snap-x gap-5 overflow-x-auto pr-32 md:pr-48">
           {t.cards.map((card, i) => (
             <div
               key={`${tab}-${card.title}`}

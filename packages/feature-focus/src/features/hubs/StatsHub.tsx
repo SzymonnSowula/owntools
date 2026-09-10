@@ -10,7 +10,7 @@ const TABS: readonly HubTabDef<Tab>[] = [
 ];
 
 export function StatsHub() {
-  const [tab, setTab] = useHubTab<Tab>("shipshape-hub-stats", ["overview", "heatmap"]);
+  const [tab, setTab] = useHubTab<Tab>("owntools-hub-stats", ["overview", "heatmap"]);
   return (
     <>
       <HubTabs tabs={TABS} active={tab} onSelect={setTab} />

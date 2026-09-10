@@ -34,7 +34,11 @@ pub fn shield_overlay(app: &AppHandle) {
             Err(err) => log::warn!("recorder overlay has no window handle: {err}"),
         }
     }
-    #[cfg(not(windows))]
+    #[cfg(target_os = "macos")]
+    {
+        crate::mac::shield_recorder(app);
+    }
+    #[cfg(not(any(windows, target_os = "macos")))]
     {
         let _ = app;
     }

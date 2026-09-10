@@ -79,9 +79,14 @@ export const DEFAULT_AUDIO: AudioSettings = {
 
 export const DEFAULT_FADE: FadeSettings = { in: 0, out: 0 };
 
-/** Off until asked for: a screencast with click sounds is a choice, not a surprise. */
+/**
+ * On: a screen recording that clicks and types is the point of recording the
+ * pointer at all, and one switch in the toolbar takes it back off. The levels
+ * sit under the recording rather than over it — a take with narration keeps its
+ * voice in front.
+ */
 export const DEFAULT_SFX: SfxSettings = {
-  enabled: false,
+  enabled: true,
   pack: "soft",
   volume: 1,
   clicks: true,
@@ -93,6 +98,7 @@ export const DEFAULT_SFX: SfxSettings = {
   transitions: true,
   transitionVolume: 1,
   spatial: true,
+  removed: [],
 };
 
 export const DEFAULT_TEXT: Omit<TextOverlay, "id" | "start" | "end" | "text"> = {
@@ -138,9 +144,34 @@ function list<T>(value: unknown, fix: (item: unknown) => T | null): T[] {
 }
 
 /**
+ * Sound effects shipped switched off, so every project written before schema 1
+ * says `enabled: false` whether or not its owner ever saw the switch. Nothing
+ * else about the settings is touched — a pack, a level or a source someone did
+ * choose survives.
+ */
+function migrateSfx(sfx: SfxSettings, schema: number): SfxSettings {
+  // `removed` comes back off disk unchecked — `merge` is shallow on purpose.
+  const removed = Array.isArray(sfx.removed) ? sfx.removed.filter((id) => typeof id === "string") : [];
+  const next: SfxSettings = { ...sfx, removed };
+  if (schema >= 1) return next;
+  return { ...next, enabled: DEFAULT_SFX.enabled };
+}
+
+/**
+ * Bumped whenever a *default* changes in a way an already-saved project should
+ * adopt. A stored value only carries intent once the file was written by a
+ * build that offered the new default, and `schema` is how we tell the two
+ * apart. 1 = sound effects on by default.
+ */
+export const PROJECT_SCHEMA = 1;
+
+/**
  * Brings any stored project up to the current shape without touching what it
  * already says. Older files have no `background.mode`: a custom image means
- * "image", anything else is the wallpaper they were saved with.
+ * "image", anything else is the wallpaper they were saved with — and a file
+ * written before `PROJECT_SCHEMA` 1 has `sfx.enabled: false` because that was
+ * the default nobody was ever shown, not because anyone switched it off, so it
+ * takes the new default instead.
  */
 export function normalizeProject(raw: Project | (Partial<Project> & Record<string, unknown>)): Project {
   const r = raw as Partial<Project> & Record<string, unknown>;
@@ -204,7 +235,8 @@ export function normalizeProject(raw: Project | (Partial<Project> & Record<strin
     cursorStyle: merge(DEFAULT_CURSOR, r.cursorStyle),
     progressBar: merge(DEFAULT_PROGRESS_BAR, r.progressBar),
     audio: merge(DEFAULT_AUDIO, r.audio),
-    sfx: merge(DEFAULT_SFX, r.sfx),
+    schema: PROJECT_SCHEMA,
+    sfx: migrateSfx(merge(DEFAULT_SFX, r.sfx), typeof r.schema === "number" ? r.schema : 0),
     inputs: normalizeInputTrack(r.inputs),
     fade: merge(DEFAULT_FADE, r.fade),
     cursorAlign: merge(DEFAULT_CURSOR_ALIGN, r.cursorAlign),

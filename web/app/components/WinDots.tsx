@@ -17,9 +17,16 @@ const BRAND_GLYPH = (
 );
 
 export const ToolIcons: Record<
-  "focus" | "video" | "launch" | "dictate" | "board" | "social",
+  "focus" | "video" | "launch" | "dictate" | "board" | "social" | "disk",
   ReactElement
 > = {
+  /* a treemap: the shape the disk tool draws your drive as */
+  disk: (
+    <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" xmlns="http://www.w3.org/2000/svg">
+      <rect x="1.3" y="2.3" width="9.4" height="7.4" rx="1.2" />
+      <path d="M5.6 2.3v7.4M5.6 6.2h5.1" />
+    </svg>
+  ),
   /* clock */
   focus: (
     <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" xmlns="http://www.w3.org/2000/svg">

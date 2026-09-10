@@ -32,6 +32,7 @@ export function Editor() {
   const updateProject = useAppStore((s) => s.updateProject);
   const showToast = useAppStore((s) => s.showToast);
   const [autoCutBusy, setAutoCutBusy] = useState(false);
+  const sfxOn = Boolean(project?.sfx.enabled);
 
   const screenRef = useRef<HTMLVideoElement>(null);
   const webcamRef = useRef<HTMLVideoElement>(null);
@@ -299,6 +300,13 @@ export function Editor() {
       { id: "zoom-in", group: "Add", label: "Zoom in at the playhead", keys: "Z", run: () => store().addZoom("in") },
       { id: "zoom-out", group: "Add", label: "Zoom back out", keys: "Shift+Z", run: () => store().addZoom("out") },
       { id: "regen-zoom", group: "Add", label: "Regenerate zooms from the cursor", run: () => store().regenerateZooms() },
+      {
+        id: "sfx",
+        group: "Add",
+        label: sfxOn ? "Sound effects off" : "Sound effects on",
+        hint: "clicks, keystrokes and zoom whooshes",
+        run: () => store().setSfxEnabled(),
+      },
       { id: "caption", group: "Add", label: "Add a caption", keys: "K", run: () => store().addCaption() },
       { id: "text", group: "Add", label: "Add a text overlay", keys: "T", run: () => store().addText() },
       { id: "image", group: "Add", label: "Add an image or logo", keys: "I", run: () => imageRef.current?.click() },
@@ -315,7 +323,7 @@ export function Editor() {
       { id: "home", group: "Project", label: "Back to the recordings list", run: () => void store().setView("home") },
     ];
     // `store()` is read at run time, so the list only depends on what it shows.
-  }, [playing, autoCutBusy]);
+  }, [playing, autoCutBusy, sfxOn]);
 
   async function addImage(file: File) {
     if (!project) return;

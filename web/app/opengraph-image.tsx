@@ -6,7 +6,7 @@ import { ImageResponse } from "next/og";
  * fetches — so it works offline and in CI alike.
  */
 
-export const alt = "shipshape — your work. your device.";
+export const alt = "owntools - your work. your device.";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -44,7 +44,7 @@ export default function OpengraphImage() {
           <svg width="76" height="76" viewBox="0 0 12 12">
             <path d="M6 0.8L10.4 7.6H1.6L6 0.8ZM2 9H10L8.6 11.2H3.4L2 9Z" fill="#f5f5f7" />
           </svg>
-          <div style={{ fontSize: 108, fontWeight: 700, letterSpacing: -6 }}>shipshape</div>
+          <div style={{ fontSize: 108, fontWeight: 700, letterSpacing: -6 }}>owntools</div>
         </div>
 
         <div style={{ marginTop: 26, fontSize: 46, fontWeight: 600, letterSpacing: -2 }}>

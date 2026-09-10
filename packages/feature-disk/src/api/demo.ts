@@ -16,6 +16,7 @@ import type {
   ScanProgress,
   ScanSummary,
   SnapshotMeta,
+  TrashProgress,
   VolumeInfo,
 } from "./types";
 
@@ -109,6 +110,7 @@ export function createDemoBackend(): DiskBackend {
   const done = new Emitter<ScanDone>();
   const dupesProgress = new Emitter<DupesProgress>();
   const dupesDone = new Emitter<DupesDone>();
+  const trashProgress = new Emitter<TrashProgress>();
 
   const summaryOf = (a: TsArena, id: number): ScanSummary => {
     const root = a.nodes[0];
@@ -167,8 +169,8 @@ export function createDemoBackend(): DiskBackend {
         "AppData\\Local\\Temp",
         "AppData\\Roaming\\Code\\CachedData",
         "Downloads",
-        "Projects\\shipshape\\node_modules",
-        "Projects\\shipshape\\target\\debug\\deps",
+        "Projects\\owntools\\node_modules",
+        "Projects\\owntools\\target\\debug\\deps",
         "Pictures\\Camera Roll",
         "Videos\\Captures",
         ".cargo\\registry\\src",
@@ -229,8 +231,13 @@ export function createDemoBackend(): DiskBackend {
       const removed: number[] = [];
       let freed = 0;
       const failed: { id: number; path: string; error: string }[] = [];
+      // The real shell move takes seconds per folder; pace the demo so the
+      // progress row is exercised here too.
+      let step = 0;
       for (const id of ids) {
         const n = a.nodes[id];
+        trashProgress.emit({ done: step++, total: ids.length, path: n ? a.pathOf(id) : "" });
+        await new Promise((r) => setTimeout(r, 120));
         if (!n || a.removed(id)) continue;
         if (n.name === "NTUSER.DAT") {
           failed.push({ id, path: a.pathOf(id), error: "file in use" });
@@ -240,6 +247,7 @@ export function createDemoBackend(): DiskBackend {
         a.remove(id);
         removed.push(id);
       }
+      trashProgress.emit({ done: ids.length, total: ids.length, path: "" });
       dupesResult = null;
       return { removed, freed, failed };
     },
@@ -388,6 +396,7 @@ export function createDemoBackend(): DiskBackend {
       return summary;
     },
 
+    onTrashProgress: (cb) => trashProgress.on(cb),
     onScanProgress: (cb) => progress.on(cb),
     onScanDone: (cb) => done.on(cb),
     onDupesProgress: (cb) => dupesProgress.on(cb),

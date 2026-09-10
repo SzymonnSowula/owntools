@@ -5,7 +5,7 @@ import { POLICIES_UPDATED, REFUND_DAYS } from "@/lib/site";
 export const metadata: Metadata = {
   title: "Refunds",
   description:
-    "14 days, no questions asked: how to get your money back on a shipshape Pro key, and how Polar.sh processes the refund.",
+    "14 days, no questions asked: how to get your money back on an owntools Pro key, and how Polar.sh processes the refund.",
   alternates: { canonical: "/refunds" },
 };
 
@@ -23,7 +23,7 @@ export default function RefundsPage() {
           <strong>{REFUND_DAYS} days</strong> from the purchase, for any reason or none.
         </li>
         <li>
-          It covers the <strong>Pro key</strong> — the only thing we sell. The free app costs
+          It covers the <strong>Pro key</strong> - the only thing we sell. The free app costs
           nothing, so there is nothing to refund.
         </li>
         <li>
@@ -46,7 +46,7 @@ export default function RefundsPage() {
         </li>
       </ol>
       <p>
-        That is it. You do not have to explain why — though if you tell us what did not work, we
+        That is it. You do not have to explain why - though if you tell us what did not work, we
         will probably fix it.
       </p>
 
@@ -59,7 +59,7 @@ export default function RefundsPage() {
       <h2>your statutory rights</h2>
       <p>
         If you are a consumer in the EU, you have a 14-day right of withdrawal on digital
-        purchases. This policy is at least as generous — we honour it even after you have
+        purchases. This policy is at least as generous - we honour it even after you have
         downloaded and used the key. Nothing here limits any right the law gives you.
       </p>
 

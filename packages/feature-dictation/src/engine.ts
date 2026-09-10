@@ -10,9 +10,10 @@ import { pushHistory } from "./history";
 import {
   DEFAULT_MODEL_FILE,
   EMPTY_STATUS,
+  engineAvailable,
   modelById,
-  PARAKEET_RUNTIME,
   resolveActiveModel,
+  runtimeFor,
   WHISPER_RUNTIME,
   type DictationModel,
   type Engine,
@@ -39,10 +40,13 @@ import {
 
 export {
   DEFAULT_MODEL_FILE,
+  defaultInstallModel,
   dictationReady,
   EMPTY_STATUS,
+  engineAvailable,
   formatBytes,
   MODEL_BASE_URL,
+  modelAvailable,
   modelById,
   modelInstalled,
   modelReady,
@@ -50,12 +54,15 @@ export {
   PARAKEET_RUNTIME,
   PARAKEET_V3_ID,
   resolveActiveModel,
+  PARAKEET_RUNTIMES,
+  runtimeFor,
   runtimeInstalled,
   RUNTIMES,
+  WHISPER_RUNTIMES,
   WHISPER_MODELS,
   WHISPER_RUNTIME,
 } from "./models";
-export type { DictationModel, Engine, EngineRuntime, EngineStatus, ModelTag, Vendor } from "./models";
+export type { DictationModel, Engine, EngineRuntime, EngineStatus, ModelTag, RuntimePlatform, Vendor } from "./models";
 
 /** The whisper runtime under its old name (onboarding reads `.bytes`). */
 export const ENGINE = { ...WHISPER_RUNTIME, zip: WHISPER_RUNTIME.archive } as const;
@@ -386,8 +393,24 @@ export async function cancelInstall(): Promise<void> {
   );
 }
 
-/** whisper.cpp: the pinned zip, unpacked in the webview (it is 8 MB). */
+/**
+ * The engine archive for whichever platform we are on, or a clear failure.
+ * whisper.cpp has never shipped a macOS binary, so a Mac without our own
+ * build pinned in `models.ts` gets told that rather than a download error
+ * halfway through.
+ */
+function requireRuntime(engine: "whisper" | "parakeet") {
+  const runtime = runtimeFor(engine);
+  if (runtime) return runtime;
+  const name = engine === "whisper" ? "Whisper" : "Parakeet";
+  throw new Error(
+    `${name} does not have a build for this platform yet. Parakeet runs on both Windows and macOS — pick a Parakeet model instead.`,
+  );
+}
+
+/** whisper.cpp: the pinned archive, unpacked in the webview (it is 8 MB). */
 async function installWhisperRuntime(onProgress: (p: InstallProgress) => void): Promise<void> {
+  const runtime = requireRuntime("whisper");
   const { mkdir, readFile, remove, writeFile, exists, BaseDirectory } = await import(
     "@tauri-apps/plugin-fs"
   );
@@ -398,14 +421,14 @@ async function installWhisperRuntime(onProgress: (p: InstallProgress) => void): 
   await downloadToAppData(
     {
       id: "engine",
-      url: WHISPER_RUNTIME.url,
-      dest: WHISPER_RUNTIME.archive,
-      sha256: WHISPER_RUNTIME.sha256,
-      expectedSize: WHISPER_RUNTIME.bytes,
+      url: runtime.url,
+      dest: runtime.archive,
+      sha256: runtime.sha256,
+      expectedSize: runtime.bytes,
     },
     (loaded, total) => onProgress({ step: "engine", loaded, total }),
   );
-  const zip = await readFile(WHISPER_RUNTIME.archive, appData);
+  const zip = await readFile(runtime.archive, appData);
   const { unzipSync } = await import("fflate");
   const files = unzipSync(zip);
   for (const [name, data] of Object.entries(files)) {
@@ -418,25 +441,33 @@ async function installWhisperRuntime(onProgress: (p: InstallProgress) => void): 
       /^main(\.exe)?$/i.test(base) ||
       (/\.dll$/i.test(base) && /^(whisper|ggml)/i.test(base));
     if (!keep) continue;
-    await writeFile(`whisper/${base}`, data, appData);
+    const dest = `whisper/${base}`;
+    await writeFile(dest, data, appData);
+    // macOS and Linux: `writeFile` leaves the file at 0644, and a
+    // recognizer that cannot be executed is not installed.
+    if (!/\.(dll|exe)$/i.test(base)) {
+      const { invoke } = await import("@tauri-apps/api/core");
+      await invoke("mark_executable", { path: dest }).catch(() => undefined);
+    }
   }
-  await remove(WHISPER_RUNTIME.archive, appData).catch(() => undefined);
+  await remove(runtime.archive, appData).catch(() => undefined);
 }
 
 /** sherpa-onnx: the pinned tar.bz2, unpacked by Rust (`parakeet_install_runtime`). */
 async function installParakeetRuntime(onProgress: (p: InstallProgress) => void): Promise<void> {
+  const runtime = requireRuntime("parakeet");
   await downloadToAppData(
     {
       id: "parakeet-runtime",
-      url: PARAKEET_RUNTIME.url,
-      dest: PARAKEET_RUNTIME.archive,
-      sha256: PARAKEET_RUNTIME.sha256,
-      expectedSize: PARAKEET_RUNTIME.bytes,
+      url: runtime.url,
+      dest: runtime.archive,
+      sha256: runtime.sha256,
+      expectedSize: runtime.bytes,
     },
     (loaded, total) => onProgress({ step: "engine", loaded, total }),
   );
   const { invoke } = await import("@tauri-apps/api/core");
-  await invoke("parakeet_install_runtime", { archive: PARAKEET_RUNTIME.archive });
+  await invoke("parakeet_install_runtime", { archive: runtime.archive });
 }
 
 /** Where a model's files live, relative to AppData. */
@@ -493,8 +524,16 @@ export async function installDictation(
   if (!model) throw new Error(`Unknown model: ${modelId}`);
   cancelRequested = false;
 
+  if (!engineAvailable(model.engine)) requireRuntime(model.engine);
+
   const status = await dictationStatus();
-  const runtimeReady = model.engine === "whisper" ? status?.engine : status?.parakeet.runtime;
+  // Parakeet also needs the resident recognizer: an engine unpacked before
+  // that existed still works, but pays the 4.5 s model load on every take,
+  // so "install" on such a machine means "fetch the archive again".
+  const runtimeReady =
+    model.engine === "whisper"
+      ? status?.engine
+      : status?.parakeet.runtime && status?.parakeet.server;
   if (!runtimeReady) {
     if (model.engine === "whisper") await installWhisperRuntime(onProgress);
     else await installParakeetRuntime(onProgress);
@@ -543,10 +582,60 @@ interface WhisperInvokeOptions {
 const SCRATCH_DIR = "whisper";
 
 /** The JSON line sherpa-onnx prints for a file. */
-interface ParakeetResult {
+interface ParakeetJson {
   text?: string;
   tokens?: string[];
   timestamps?: number[];
+}
+
+/** What `parakeet_transcribe` answers: the JSON plus what it cost. */
+interface ParakeetCall {
+  json: string;
+  /** Milliseconds the user waited for this take. */
+  ms: number;
+  /** The model was already loaded — i.e. this is the honest number. */
+  warm: boolean;
+  audioMs: number;
+}
+
+/**
+ * How long the last take took, so the UI can show it and a regression is
+ * noticed by someone other than the person waiting. Only set for Parakeet,
+ * which is the engine dictation runs on.
+ */
+export interface DictationTiming {
+  ms: number;
+  warm: boolean;
+  audioMs: number;
+}
+
+let lastTiming: DictationTiming | null = null;
+
+export function lastDictationTiming(): DictationTiming | null {
+  return lastTiming;
+}
+
+/**
+ * Loads the speech model before it is needed. The pill calls this the
+ * moment it starts listening, so the model load overlaps with the user
+ * speaking instead of being added to the wait afterwards; on this laptop
+ * that is the difference between ~5 s and ~0.7 s for a four-second take.
+ *
+ * Never throws: a warm-up that fails only means the next take is cold.
+ */
+export async function warmUpDictation(): Promise<void> {
+  if (!isTauri()) return;
+  try {
+    const status = await dictationStatus();
+    if (!status?.parakeet.server) return;
+    const active = resolveActiveModel(getDictationSettings().model, status);
+    if (!active || active.engine !== "parakeet") return;
+    const { invoke } = await import("@tauri-apps/api/core");
+    const ms = await invoke<number>("parakeet_warmup", { model: active.id });
+    logInfo("dictation", `model warm in ${ms} ms`);
+  } catch (err) {
+    logInfo("dictation", `warm-up skipped: ${String(err)}`);
+  }
 }
 
 /**
@@ -584,7 +673,11 @@ export async function transcribeBlob(
   const settings = getDictationSettings();
   const target = await pickEngine(overrides.model ?? settings.model, json || translate);
   logInfo("dictation", `engine ${target.engine} · model ${target.model || "(best installed)"}`);
-  const wav = await blobToWhisperWav(blob);
+  // A live take is trimmed to the words in it: whatever silence sat
+  // between the hotkey and the first syllable is time the recognizer
+  // would otherwise decode at its real-time factor. A file keeps its
+  // silence, because its timings end up in subtitles.
+  const wav = await blobToWhisperWav(blob, { trimSilence: overrides.live === true });
   const { exists, mkdir, writeFile, BaseDirectory } = await import("@tauri-apps/plugin-fs");
   // The scratch WAV lives next to the whisper models; with Parakeet alone
   // installed that folder does not exist yet (caught natively: "os error 3").
@@ -600,13 +693,18 @@ export async function transcribeBlob(
   try {
     let raw: string;
     if (target.engine === "parakeet") {
-      const line = await invoke<string>("parakeet_transcribe", {
+      const call = await invoke<ParakeetCall>("parakeet_transcribe", {
         wav: absolute,
         model: target.model,
       });
-      let parsed: ParakeetResult = {};
+      lastTiming = { ms: call.ms, warm: call.warm, audioMs: call.audioMs };
+      logInfo(
+        "dictation",
+        `${call.audioMs} ms of speech in ${call.ms} ms (${call.warm ? "warm" : "cold"})`,
+      );
+      let parsed: ParakeetJson = {};
       try {
-        parsed = JSON.parse(line) as ParakeetResult;
+        parsed = JSON.parse(call.json) as ParakeetJson;
       } catch {
         throw new Error("Parakeet returned something that is not a result.");
       }
@@ -703,6 +801,40 @@ export function createDictationRecorder(stream: MediaStream): MediaRecorder {
     ...(mimeType ? { mimeType } : {}),
     audioBitsPerSecond: 128000,
   });
+}
+
+/**
+ * macOS decides whether an app may type into *other* applications, and it
+ * decides silently: without the Accessibility permission `CGEventPost`
+ * succeeds and not a character appears. Everywhere else there is nothing to
+ * grant, which is what `"not-needed"` means.
+ */
+export type AccessibilityStatus = "granted" | "denied" | "not-needed";
+
+export async function accessibilityStatus(): Promise<AccessibilityStatus> {
+  if (!isTauri()) return "not-needed";
+  try {
+    const { invoke } = await import("@tauri-apps/api/core");
+    return await invoke<AccessibilityStatus>("accessibility_status");
+  } catch {
+    return "not-needed";
+  }
+}
+
+/**
+ * Asks macOS to show its "open System Settings" sheet. That sheet appears
+ * once per app, so this is only ever called from a button the user pressed —
+ * spending it on a background check would leave them with no prompt and no
+ * idea why dictation does nothing.
+ */
+export async function requestAccessibility(): Promise<AccessibilityStatus> {
+  if (!isTauri()) return "not-needed";
+  try {
+    const { invoke } = await import("@tauri-apps/api/core");
+    return await invoke<AccessibilityStatus>("accessibility_request");
+  } catch {
+    return "not-needed";
+  }
 }
 
 export async function typeText(text: string): Promise<void> {

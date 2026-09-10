@@ -100,7 +100,11 @@ fn trash_one(path: &str) -> Result<(), String> {
             0x71 => "same file".into(),
             0x72 => "several destinations".into(),
             0x78 => "access denied".into(),
-            0x7c => "path invalid".into(),
+            // Seen on a real folder that plainly exists: a tree is refused when
+            // its deepest entry would pass MAX_PATH once re-rooted under
+            // C:\$Recycle.Bin\<SID>\, which is ~30 characters longer than most
+            // source roots.
+            0x7c => "the path is not valid for the Recycle Bin (often: too long once moved there)".into(),
             0x7e => "already exists".into(),
             0x80 => "file in use".into(),
             0x81 => "path too long".into(),
@@ -142,13 +146,98 @@ fn trash_one(path: &str) -> Result<(), String> {
     }
 }
 
-/// Moves each path to the Recycle Bin / Trash; returns `(path, error)` for the ones that failed.
-pub fn trash(paths: &[String]) -> Vec<(String, String)> {
+/// Shell calls want COM on the calling thread. The main thread already has it
+/// (WebView2 sets it up); the trash worker runs off it, so it brings its own
+/// and gives it back on the way out.
+struct ComGuard(bool);
+
+impl ComGuard {
+    fn enter() -> Self {
+        #[cfg(windows)]
+        {
+            use windows::Win32::System::Com::{CoInitializeEx, COINIT_APARTMENTTHREADED, COINIT_DISABLE_OLE1DDE};
+            // S_FALSE = already initialised on this thread, and still ours to balance.
+            // RPC_E_CHANGED_MODE = someone else's apartment: leave it alone.
+            let hr = unsafe { CoInitializeEx(None, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE) };
+            return Self(hr.is_ok());
+        }
+        #[cfg(not(windows))]
+        Self(false)
+    }
+}
+
+impl Drop for ComGuard {
+    fn drop(&mut self) {
+        #[cfg(windows)]
+        if self.0 {
+            unsafe { windows::Win32::System::Com::CoUninitialize() };
+        }
+    }
+}
+
+/// Moves each path to the Recycle Bin / Trash, calling `on_progress(done, path)`
+/// before each one and once more when the last is through; returns
+/// `(path, error)` for the ones that failed.
+///
+/// The shell moves a folder file by file, so a few large trees run for minutes.
+/// Never call this on the main thread — that freezes every window (see
+/// `disk_trash`) — and give the callback something the user can watch.
+pub fn trash_with_progress(paths: &[String], mut on_progress: impl FnMut(usize, &str)) -> Vec<(String, String)> {
+    let _com = ComGuard::enter();
     let mut failed = Vec::new();
-    for p in paths {
+    for (i, p) in paths.iter().enumerate() {
+        on_progress(i, p);
         if let Err(e) = trash_one(p) {
             failed.push((p.clone(), e));
         }
     }
+    on_progress(paths.len(), "");
     failed
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The Recycle Bin move runs on a worker thread now (see `disk_trash`), and
+    /// shell APIs want COM on the calling thread — the main one gets it from
+    /// WebView2, a worker does not. This checks the whole thing from a plain
+    /// `std::thread` with no COM anywhere around it.
+    ///
+    /// `#[ignore]`d because it really does put a file in the Recycle Bin:
+    /// `cargo test -- --ignored trash_from_a_worker_thread`.
+    #[test]
+    #[ignore]
+    fn trash_from_a_worker_thread() {
+        let base = std::env::temp_dir().join(format!("owntools-trash-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        std::fs::create_dir_all(base.join("nested")).unwrap();
+        std::fs::write(base.join("nested/a.bin"), vec![7u8; 4096]).unwrap();
+        std::fs::write(base.join("b.txt"), b"bye").unwrap();
+
+        let target = base.to_string_lossy().into_owned();
+        let missing = base.join("not-here").to_string_lossy().into_owned();
+        let paths = vec![target.clone(), missing.clone()];
+
+        let ticks = std::thread::spawn(move || {
+            let mut seen: Vec<(usize, String)> = Vec::new();
+            let failed = trash_with_progress(&paths, |done, path| seen.push((done, path.to_string())));
+            (seen, failed)
+        })
+        .join()
+        .unwrap();
+        let (seen, failed) = ticks;
+
+        // One tick per item plus the closing one, counting up from zero.
+        assert_eq!(seen.len(), 3, "progress ticks: {seen:?}");
+        assert_eq!(seen[0], (0, target.clone()));
+        assert_eq!(seen[1], (1, missing.clone()));
+        assert_eq!(seen[2].0, 2);
+        assert!(seen[2].1.is_empty(), "the last tick names nothing");
+
+        // The real folder went to the Recycle Bin; the made-up path is reported,
+        // not silently counted as freed.
+        assert!(!base.exists(), "the folder should be gone from disk");
+        assert_eq!(failed.len(), 1, "failures: {failed:?}");
+        assert_eq!(failed[0].0, missing);
+    }
 }

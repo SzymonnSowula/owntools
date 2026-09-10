@@ -1,4 +1,4 @@
-# shipshape
+# owntools
 
 Local-first desktop studio: four tools in one Tauri 2 app, running entirely on
 your own machine (Windows now, macOS next).
@@ -15,7 +15,7 @@ your own machine (Windows now, macOS next).
 - **launch** — paste a URL, get a keynote-style launch video (six style packs,
   16:9 / 9:16 / 1:1, 15–60 s) plus store-screenshot prompts.
 
-Free, with a "made with shipshape" badge on video exports; a one-time Pro key
+Free, with a "made with owntools" badge on video exports; a one-time Pro key
 (offline, no account) removes it. The app has three windows — main, recorder
 overlay and the dictation pill — and one hub. The landing page lives in `web/`.
 
@@ -36,7 +36,7 @@ packages/feature-focus  7 views (Today, Tasks, Notes, Habits, Stats, Sounds,
 packages/feature-editor screeni: compositor, zoom, exportVideo, silence
                         (auto-cut), srt, transcribe, TranscribeModal,
                         ExtractAudioModal
-packages/feature-launch launch engine (`@shipshape/launch-engine`, the one
+packages/feature-launch launch engine (`@owntools/launch-engine`, the one
                         workspace package under packages/): engine/ = style
                         packs + seeded takes + beat sheet + Remotion
                         composition, shared by desktop and web; LaunchView
@@ -84,8 +84,8 @@ is described in [`docs/release.md`](docs/release.md). The essentials:
 - **License keys**: `node scripts/generate-license.mjs [count]` prints offline
   `SCRN-…` Pro keys.
 - **Updater key**: the private signing key lives outside the repo, in
-  `~/.tauri/shipshape.key`. Never commit it.
-- **Identifier**: `app.shipshape.desktop` names every data folder (AppData:
+  `~/.tauri/owntools.key`. Never commit it.
+- **Identifier**: `app.owntools.desktop` names every data folder (AppData:
   whisper + Parakeet engines and models, recordings, boards, social; LocalAppData:
   logs, WebView2 profile). It was `app.suite.desktop` until 0.3;
   `src-tauri/src/migrate.rs` renames the old folders on the first start of a
@@ -106,4 +106,4 @@ is described in [`docs/release.md`](docs/release.md). The essentials:
   `<AppData>/whisper`, default `ggml-large-v3-turbo-q5_0.bin` (~575 MB), with
   an in-app model manager.
 - **Export**: offline WebCodecs via mediabunny; the free tier watermarks
-  "made with shipshape", a `SCRN-…` key removes it.
+  "made with owntools", a `SCRN-…` key removes it.

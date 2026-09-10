@@ -4,6 +4,7 @@
 
 use serde_json::{json, Value};
 
+use super::plan;
 use super::server::emit_changed;
 use super::store::{self, ApiError, PostFilter};
 use super::SocialState;
@@ -20,7 +21,7 @@ fn ok_response(id: Value, result: Value) -> Value {
 }
 
 fn tools() -> Value {
-    let media_ref = json!({ "type": "array", "items": { "type": "string" }, "description": "Media library ids (see list_media / upload_media)." });
+    let media_ref = json!({ "type": "array", "items": { "type": "string" }, "description": "Media library ids (see list_media / add_media_from_path)." });
     let thread = json!({ "type": "array", "items": { "type": "string" }, "description": "Follow-up parts. Networks with threads post them as replies; others get them appended." });
     let overrides = json!({
         "type": "object",
@@ -134,8 +135,121 @@ fn tools() -> Value {
             "name": "list_tags",
             "description": "Calendar tags (id, name, color).",
             "inputSchema": { "type": "object", "properties": {}, "additionalProperties": false }
+        },
+        {
+            "name": "list_networks",
+            "description": "Every network the app knows: what it takes (characters, images, videos, video size and length), whether it is live, and how many channels are connected to it. Use it to answer \"can I post this there\" without guessing.",
+            "inputSchema": { "type": "object", "properties": {}, "additionalProperties": false }
+        },
+        {
+            "name": "check_post",
+            "description": "Check a draft against every target network BEFORE creating it: character count in that network's own units, media limits, missing title, disabled or half-connected channels. Returns ok plus a list of issues per channel. Cheap — run it whenever you write or edit text.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "text": { "type": "string" },
+                    "channelIds": { "type": "array", "items": { "type": "string" }, "description": "Defaults to every connected channel." },
+                    "media": media_ref.clone(),
+                    "title": { "type": "string" }
+                },
+                "additionalProperties": false
+            }
+        },
+        {
+            "name": "suggest_times",
+            "description": "Free slots to schedule into, from the person's own preferred hour, skipping times already taken on the calendar. Use these instead of inventing timestamps.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "count": { "type": "integer", "minimum": 1, "maximum": 20, "description": "How many slots (default 3)." },
+                    "from": { "type": "string", "description": "ISO 8601 earliest time; defaults to half an hour from now." },
+                    "spacingMinutes": { "type": "integer", "minimum": 0, "description": "Keep this far away from other posts (default 60)." }
+                },
+                "additionalProperties": false
+            }
+        },
+        {
+            "name": "add_media_from_path",
+            "description": "Add an image or video to the library from a file already on this machine. Always prefer this over upload_media for anything bigger than a small image — a video does not belong in a JSON-RPC argument. Returns the media id to pass in `media`.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "path": { "type": "string", "description": "Absolute path on this machine." },
+                    "name": { "type": "string", "description": "Override the file name shown in the library." },
+                    "alt": { "type": "string", "description": "Alt text — write one for images." }
+                },
+                "required": ["path"],
+                "additionalProperties": false
+            }
+        },
+        {
+            "name": "post_now",
+            "description": "Write a post and publish it immediately on the given channels — the one call for \"post this\". The desktop app does the network calls within ~30 seconds; call get_post afterwards for the per-channel result and URLs. For anything with a time on it use create_post instead.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "text": { "type": "string" },
+                    "channelIds": { "type": "array", "items": { "type": "string" } },
+                    "title": { "type": "string" },
+                    "media": media_ref,
+                    "thread": thread,
+                    "overrides": overrides,
+                    "tags": { "type": "array", "items": { "type": "string" } }
+                },
+                "required": ["text", "channelIds"],
+                "additionalProperties": false
+            }
         }
     ])
+}
+
+const GUIDE_URI: &str = "owntools://social/guide";
+
+/// Ready-made jobs, so "what can this thing do" has an answer in the client's
+/// own prompt menu instead of in a README.
+fn prompts() -> Value {
+    json!([
+        {
+            "name": "plan_a_week",
+            "description": "Draft a week of posts from a topic and put them in free slots.",
+            "arguments": [{ "name": "topic", "description": "What the week is about", "required": true }]
+        },
+        {
+            "name": "post_this_video",
+            "description": "Take a video file from disk, write the caption, schedule it.",
+            "arguments": [{ "name": "path", "description": "Path to the video on this machine", "required": true }]
+        },
+        {
+            "name": "whats_scheduled",
+            "description": "Read back what is queued and flag anything that will not publish."
+        }
+    ])
+}
+
+fn prompt_text(name: &str, params: &Value) -> Option<String> {
+    let arg = |key: &str| {
+        params
+            .get("arguments")
+            .and_then(|a| a.get(key))
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string()
+    };
+    match name {
+        "plan_a_week" => Some(format!(
+            "Plan a week of social posts about: {}.\n\nUse list_channels for the channels, write one post per free slot from suggest_times (count 5), run check_post on each before creating it, and create them as scheduled posts. Keep each one in the voice of the existing posts you can see through list_posts. Report back as a list of times and first lines.",
+            arg("topic")
+        )),
+        "post_this_video" => Some(format!(
+            "Post this video: {}.\n\nadd_media_from_path to put it in the library, list_channels to see where it can go (mind that not every network takes video — check with list_networks), write a caption of the right length for each, check_post, then schedule it at the first slot from suggest_times. Show me the caption before you schedule it.",
+            arg("path")
+        )),
+        "whats_scheduled" => Some(
+            "List what is scheduled from now on with list_posts (status scheduled). For each one run check_post with its text and channels, and tell me anything that would fail to publish — too long, missing media, a disabled channel. Then summarise the week in a sentence."
+                .to_string(),
+        ),
+        _ => None,
+    }
 }
 
 fn text_result(value: Value) -> Value {
@@ -216,6 +330,32 @@ fn call_tool(state: &SocialState, name: &str, args: &Value) -> Result<Value, Api
             emit_changed(state, "media", item.get("id").and_then(Value::as_str), "create");
             Ok(item)
         }
+        "list_networks" => Ok(plan::networks_summary(root)),
+        "check_post" => plan::check_post(root, args),
+        "suggest_times" => plan::suggest_slots(
+            root,
+            args.get("count").and_then(Value::as_u64).unwrap_or(3) as usize,
+            args.get("from").and_then(Value::as_str),
+            args.get("spacingMinutes").and_then(Value::as_i64).unwrap_or(60),
+        ),
+        "add_media_from_path" => {
+            let path = args.get("path").and_then(Value::as_str).ok_or_else(|| ApiError::bad("`path` is required"))?;
+            let item = plan::add_media_from_path(root, path, args.get("alt").and_then(Value::as_str), args.get("name").and_then(Value::as_str))?;
+            emit_changed(state, "media", item.get("id").and_then(Value::as_str), "create");
+            Ok(item)
+        }
+        "post_now" => {
+            let mut body = args.clone();
+            if let Some(obj) = body.as_object_mut() {
+                obj.insert("status".into(), json!("scheduled"));
+                obj.insert("scheduledAt".into(), json!(store::local_now_iso()));
+            }
+            let post = store::create_post(root, &body)?;
+            let id = post.get("id").and_then(Value::as_str).unwrap_or_default().to_string();
+            let post = store::publish_now(root, &id)?;
+            emit_changed(state, "post", Some(&id), "publish");
+            Ok(json!({ "accepted": true, "post": post, "note": "publishing now; call get_post in a few seconds for the results" }))
+        }
         other => Err(ApiError::not_found(format!("unknown tool `{other}`"))),
     }
 }
@@ -240,9 +380,9 @@ pub fn handle(state: &SocialState, msg: &Value) -> Option<Value> {
             let version = if SUPPORTED.contains(&requested) { requested } else { PROTOCOL_VERSION };
             Ok(json!({
                 "protocolVersion": version,
-                "capabilities": { "tools": { "listChanged": false } },
-                "serverInfo": { "name": "shipshape-social", "version": state.app.package_info().version.to_string() },
-                "instructions": "Local scheduler for social media posts. Read list_channels first, then create_post with the channel ids and an ISO scheduledAt; the person reviews everything in the shipshape calendar. Keep X posts under 280 characters, Bluesky under 300, Mastodon under 500."
+                "capabilities": { "tools": { "listChanged": false }, "resources": { "listChanged": false, "subscribe": false }, "prompts": { "listChanged": false } },
+                "serverInfo": { "name": "owntools-social", "version": state.app.package_info().version.to_string() },
+                "instructions": "Local scheduler for social posts, running on this person's own machine. The loop: list_channels for the ids, check_post to see whether the text fits every target network, suggest_times for a free slot, then create_post (or post_now when they asked for it to go out immediately). Attach media with add_media_from_path — never base64 a video. Everything you create appears in their calendar marked as coming from an agent, and nothing publishes without a time on it. Read the `owntools://social/guide` resource once for the details."
             }))
         }
         "ping" => Ok(json!({})),
@@ -255,8 +395,33 @@ pub fn handle(state: &SocialState, msg: &Value) -> Option<Value> {
                 Err(e) => Ok(error_result(&e)),
             }
         }
-        "resources/list" => Ok(json!({ "resources": [] })),
-        "prompts/list" => Ok(json!({ "prompts": [] })),
+        "resources/list" => Ok(json!({
+            "resources": [{
+                "uri": GUIDE_URI,
+                "name": "How to drive owntools social",
+                "description": "The order to call things in, what each network takes, and the mistakes worth not making.",
+                "mimeType": "text/markdown"
+            }]
+        })),
+        "resources/read" => {
+            let uri = params.get("uri").and_then(Value::as_str).unwrap_or("");
+            if uri == GUIDE_URI {
+                Ok(json!({ "contents": [{ "uri": GUIDE_URI, "mimeType": "text/markdown", "text": plan::guide(&state.root) }] }))
+            } else {
+                Err((-32602, format!("unknown resource `{uri}`")))
+            }
+        }
+        "prompts/list" => Ok(json!({ "prompts": prompts() })),
+        "prompts/get" => {
+            let name = params.get("name").and_then(Value::as_str).unwrap_or("");
+            match prompt_text(name, &params) {
+                Some(text) => Ok(json!({
+                    "description": name,
+                    "messages": [{ "role": "user", "content": { "type": "text", "text": text } }]
+                })),
+                None => Err((-32602, format!("unknown prompt `{name}`"))),
+            }
+        }
         "" => Err((-32600, "missing method".to_string())),
         other => Err((-32601, format!("method not found: {other}"))),
     };

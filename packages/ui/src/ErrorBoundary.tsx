@@ -4,7 +4,7 @@ interface Props {
   /** Which window/module this boundary guards; goes into the log line. */
   scope: string;
   children: ReactNode;
-  /** Extra buttons for the fallback (e.g. "back to shipshape" in the overlay). */
+  /** Extra buttons for the fallback (e.g. "back to owntools" in the overlay). */
   actions?: ReactNode;
   onError?: (error: Error, info: ErrorInfo) => void;
 }
@@ -79,7 +79,7 @@ export class ErrorBoundary extends Component<Props, State> {
             something went wrong
           </h1>
           <p style={{ margin: "8px 0 0", fontSize: 13, color: "#6e6e73", lineHeight: 1.5 }}>
-            This part of shipshape crashed. Your recordings, notes and settings on disk are
+            This part of owntools crashed. Your recordings, notes and settings on disk are
             untouched. Reload to continue; if it keeps happening, copy the details and send them
             with a bug report.
           </p>

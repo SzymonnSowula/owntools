@@ -1,6 +1,6 @@
 import type { BrandKit } from "./types";
 
-/** shipshape family — used as fallbacks and for per-feature tint rotation */
+/** owntools family — used as fallbacks and for per-feature tint rotation */
 export const APPLE_BLUE = "#0a84ff";
 const INDIGO = "#5e5ce6";
 const CYAN = "#32ade6";

@@ -13,8 +13,10 @@ import {
 } from "../lib/share";
 import { activateLicense, isPro } from "@licensing/license";
 import { PRICING_URL, SUITE_NAME } from "@core/branding";
+import { handOff } from "@core/handoff";
 import { exportBlobToPath } from "../lib/projectIo";
 import { captionsToSrt } from "../lib/srt";
+import { sfxPlanFor } from "../lib/sfx/plan";
 import { invokeSafe, isTauri } from "../lib/tauri";
 import { useAppStore } from "../store/appStore";
 
@@ -26,7 +28,7 @@ const PHASE_LABEL: Record<ExportPhase, string> = {
 };
 
 const SHARE_LABEL: Record<SharePhase, string> = {
-  creating: "Asking shipshape.app for an upload…",
+  creating: "Asking owntools.app for an upload…",
   uploading: "Uploading…",
   finishing: "Publishing the link…",
 };
@@ -69,6 +71,7 @@ export function ExportModal({
   const [pro, setPro] = useState(isPro());
   const [licenseInput, setLicenseInput] = useState("");
   const [showLicense, setShowLicense] = useState(false);
+  const [toSocial, setToSocial] = useState(false);
   const abort = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -85,6 +88,8 @@ export function ExportModal({
 
   const mp4Direct = container === "mp4";
   const canMp4 = mp4Direct || hasFfmpeg;
+  // The same plan the timeline draws and the mixer renders, so the count here is the one that lands.
+  const sfxCount = sfxPlanFor(project).length;
 
   async function run() {
     if (!media) {
@@ -287,6 +292,51 @@ export function ExportModal({
     }
   }
 
+  /**
+   * Renders the cut and hands the file straight to the social tool — no save
+   * dialog, no re-import. The whole point of having a recorder and a
+   * scheduler in one app is that the video never has to touch the desktop.
+   */
+  async function sendToSocial() {
+    if (!media) {
+      showToast("No video to export.", "error");
+      return;
+    }
+    setPlaying(false);
+    setToSocial(true);
+    setBusy(true);
+    setProgress(0.01);
+    setPhase("prepare");
+    abort.current = new AbortController();
+    try {
+      const { blob, ext } = await exportProject(project, media, screen, webcam, background, {
+        fps,
+        watermark: !isPro(),
+        overlayImages,
+        signal: abort.current.signal,
+        onProgress: (p, ph) => {
+          setProgress(p);
+          setPhase(ph);
+        },
+      });
+      const base = project.name.replace(/[^\w\-]+/g, "_") || SUITE_NAME;
+      handOff({
+        tool: "social",
+        file: { bytes: new Uint8Array(await blob.arrayBuffer()), name: `${base}.${ext}`, mime: blob.type || `video/${ext}` },
+        from: "screeni",
+      });
+      setOpen(false);
+    } catch (err) {
+      if ((err as { name?: string }).name !== "AbortError") {
+        showToast(err instanceof Error ? err.message : "Export failed.", "error");
+      }
+    } finally {
+      setBusy(false);
+      setToSocial(false);
+      setProgress(null);
+    }
+  }
+
   async function openPricing() {
     try {
       if (isTauri()) {
@@ -340,6 +390,14 @@ export function ExportModal({
           ))}
         </div>
 
+        {sfxCount > 0 ? (
+          <p className="mt-3 text-xs text-muted">
+            {project.sfx.enabled
+              ? `${sfxCount} sound ${sfxCount === 1 ? "effect is" : "effects are"} mixed into this export — clicks, keystrokes and zooms. The Sound button in the toolbar takes them off.`
+              : `Sound effects are off. The Sound button in the toolbar adds ${sfxCount} of them — clicks, keystrokes and zooms — to the export.`}
+          </p>
+        ) : null}
+
         {project.captions.length > 0 ? (
           <button
             className="btn btn-secondary mt-3 w-full text-xs"
@@ -353,9 +411,27 @@ export function ExportModal({
         <div className="mt-4 rounded-[12px] border border-line bg-paper px-3 py-2.5">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
+              <p className="text-sm font-semibold">Post it</p>
+              <p className="text-xs text-muted">
+                Renders the cut and opens it in social, ready to caption, pick channels and schedule.
+              </p>
+            </div>
+            <button
+              className="btn btn-secondary !h-8 shrink-0 !px-3 !py-0 text-xs"
+              disabled={busy}
+              onClick={() => void sendToSocial()}
+            >
+              {toSocial ? "Rendering…" : "Send to social"}
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-3 rounded-[12px] border border-line bg-paper px-3 py-2.5">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
               <p className="text-sm font-semibold">Share link</p>
               <p className="text-xs text-muted">
-                Renders the video, uploads it to shipshape.app and copies a link anyone can open.
+                Renders the video, uploads it to owntools.app and copies a link anyone can open.
               </p>
             </div>
             <button
@@ -430,7 +506,7 @@ export function ExportModal({
             ) : (
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span>
-                  The free version adds a small "made with shipshape" badge.{" "}
+                  The free version adds a small "made with owntools" badge.{" "}
                   <button className="font-semibold text-teal-2 underline" onClick={() => setShowLicense(true)}>
                     I have a license key
                   </button>

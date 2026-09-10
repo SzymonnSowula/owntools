@@ -1,3 +1,6 @@
+// First import in every window: the rename left user data under the old
+// localStorage keys, and this has to run before anything reads them.
+import "@core/storageMigration";
 import React from "react";
 import ReactDOM from "react-dom/client";
 import "@fontsource/inter/latin-400.css";
@@ -30,7 +33,7 @@ function BackToApp() {
         cursor: "pointer",
       }}
     >
-      Back to shipshape
+      Back to owntools
     </button>
   );
 }

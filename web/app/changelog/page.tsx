@@ -4,7 +4,7 @@ import { CHANGELOG } from "@/lib/changelog";
 
 export const metadata: Metadata = {
   title: "Changelog",
-  description: "Every public build of the shipshape desktop app, newest first.",
+  description: "Every public build of the owntools desktop app, newest first.",
   alternates: { canonical: "/changelog" },
 };
 

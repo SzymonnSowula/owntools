@@ -148,7 +148,7 @@ function VoiceNoteButton({ onSaved }: { onSaved: () => void }) {
 }
 
 export function NotesHub() {
-  const [tab, setTab] = useHubTab<Tab>("shipshape-hub-notes", ["pages", "board", "journal"]);
+  const [tab, setTab] = useHubTab<Tab>("owntools-hub-notes", ["pages", "board", "journal"]);
   return (
     <>
       <HubTabs
