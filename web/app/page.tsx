@@ -1096,9 +1096,9 @@ export default function Home() {
             className="display text-5xl font-extrabold sm:text-6xl md:text-[80px] md:leading-[0.98] lg:text-[92px]"
             style={{ textShadow: "0 2px 24px rgba(10,30,60,0.35)" }}
           >
-            One payment. Nine tools.
+            your work.
             <br />
-            No subscription stack.
+            your device.
           </h1>
           {/* The hook does what the headline cannot: the headline is a promise,
               this says what the thing is and why it is different, in two short
@@ -1108,7 +1108,8 @@ export default function Home() {
             className="mx-auto mt-7 max-w-xl text-balance text-lg font-medium text-white md:text-xl"
             style={{ textShadow: "0 1px 12px rgba(10,30,60,0.4)" }}
           >
-Your work. Your device. Nothing ever leaves your machine.          </p>
+            Tools that will get you ahead. Nothing ever leaves your machine.
+          </p>
           <ul className="mx-auto mt-7 flex flex-wrap items-center justify-center gap-2">
             {HERO_VERBS.map((verb) => (
               <li
