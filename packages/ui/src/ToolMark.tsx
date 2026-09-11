@@ -42,8 +42,10 @@ import { useId, type ReactElement } from "react";
 export type ToolMarkName =
   | "focus"
   | "screeni"
+  | "capture"
   | "launch"
   | "dictate"
+  | "meet"
   | "board"
   | "social"
   | "disk";
@@ -87,6 +89,19 @@ const MARKS: Record<ToolMarkName, Mark> = {
     ),
   },
 
+  // PROVISIONAL (redraw + verify on the live contact sheet): a viewfinder —
+  // four corners and the shutter point in the middle.
+  capture: {
+    from: "#4c8cff",
+    to: "#2359dd",
+    glyph: (
+      <g fill="none" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M6 11.2V8.6a2.6 2.6 0 0 1 2.6-2.6h2.6M20.8 6h2.6A2.6 2.6 0 0 1 26 8.6v2.6M26 20.8v2.6a2.6 2.6 0 0 1-2.6 2.6h-2.6M11.2 26H8.6A2.6 2.6 0 0 1 6 23.4v-2.6" strokeWidth="2.2" {...ink(0.9)} />
+        <circle cx="16" cy="16" r="4.2" fill="#fff" stroke="none" />
+      </g>
+    ),
+  },
+
   // The brand's sail, leaning into the wind, with its wake under it. The app
   // icon is sail + hull; this is sail + speed.
   launch: {
@@ -111,6 +126,25 @@ const MARKS: Record<ToolMarkName, Mark> = {
         <rect x="12.4" y="5.6" width="7.2" height="12" rx="3.6" fill="#fff" stroke="none" />
         <path d="M9.2 15.2A6.8 6.8 0 0 0 22.8 15.2" strokeWidth="2.2" {...ink(0.9)} />
         <path d="M9.6 25.4h12.8" strokeWidth="2.1" {...ink(0.5)} />
+      </g>
+    ),
+  },
+
+  // Two speech bubbles, one answering the other: theirs sits back and dim,
+  // yours in front and solid — the same two sides the transcript shows.
+  // Both filled, because two outlined bubbles turned into one lumpy shape
+  // at 16 px; the tails are what make them bubbles and not a treemap.
+  meet: {
+    from: "#2fb4f8",
+    to: "#0a7fdc",
+    glyph: (
+      <g fill="#fff" stroke="none">
+        <g fillOpacity="0.45">
+          <rect x="11.5" y="5.5" width="15" height="10" rx="3.6" />
+          <path d="M21.6 15.2l4 3.8-1.2-3.8z" />
+        </g>
+        <rect x="5.5" y="13.2" width="15" height="10" rx="3.6" />
+        <path d="M8.6 23l-2.4 3.8 5.8-3.8z" />
       </g>
     ),
   },

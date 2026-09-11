@@ -17,10 +17,14 @@ export interface HandoffFile {
 
 export interface Handoff {
   /** Which tool is meant to pick this up. */
-  tool: "social";
+  tool: "social" | "board" | "focus";
   file?: HandoffFile;
-  /** Text to start the post with. */
+  /** Text to start the post with (social), to place on the canvas (board), or the note body (focus). */
   text?: string;
+  /** Separate items — to-dos for focus, one task each. */
+  items?: string[];
+  /** A title for what is handed over (a meeting, a capture). */
+  title?: string;
   /** Where it came from, for the toast the receiving tool shows. */
   from?: string;
 }

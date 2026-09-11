@@ -110,9 +110,79 @@ pub fn type_text(text: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// `kVK_Return` from Carbon's key codes: the Return key on every Mac keyboard.
+const K_VK_RETURN: u16 = 36;
+
+/// Presses Return in the frontmost application — what "send it" does after
+/// the transcript is typed. Same permission as typing, same silent failure
+/// without it, hence the same up-front check.
+pub fn press_enter() -> Result<(), String> {
+    if !is_trusted() {
+        return Err(
+            "macOS has not given owntools permission to press keys in other apps. \
+             Open System Settings → Privacy & Security → Accessibility and switch owntools on."
+                .into(),
+        );
+    }
+    unsafe {
+        for down in [true, false] {
+            let event = CGEventCreateKeyboardEvent(std::ptr::null(), K_VK_RETURN, down);
+            if event.is_null() {
+                return Err("macOS refused to create a keyboard event.".into());
+            }
+            CGEventPost(K_CG_HID_EVENT_TAP, event);
+            CFRelease(event);
+        }
+    }
+    Ok(())
+}
+
 /// Whether this process may post events into other applications.
 pub fn is_trusted() -> bool {
     unsafe { AXIsProcessTrusted() }
+}
+
+/// The application in front, by the name the user knows it by ("Slack",
+/// "Mail"): `NSWorkspace.sharedWorkspace.frontmostApplication.localizedName`.
+/// Three message sends and a C string. There is deliberately no window title:
+/// that would take the Accessibility API per window, and the per-app profiles
+/// match on the application first anyway.
+pub fn frontmost_app() -> Option<String> {
+    unsafe {
+        let class_name = CString::new("NSWorkspace").ok()?;
+        let class = objc_getClass(class_name.as_ptr());
+        if class.is_null() {
+            return None;
+        }
+        let sel = |name: &str| -> *const c_void {
+            let c = CString::new(name).unwrap();
+            sel_registerName(c.as_ptr())
+        };
+        // objc_msgSend is variadic in its declaration and has to be called
+        // through a signature matching each selector exactly.
+        let send: extern "C" fn(*const c_void, *const c_void) -> *const c_void =
+            std::mem::transmute(objc_msgSend as *const ());
+        let workspace = send(class, sel("sharedWorkspace"));
+        if workspace.is_null() {
+            return None;
+        }
+        let app = send(workspace, sel("frontmostApplication"));
+        if app.is_null() {
+            return None;
+        }
+        let name = send(app, sel("localizedName"));
+        if name.is_null() {
+            return None;
+        }
+        let utf8: extern "C" fn(*const c_void, *const c_void) -> *const std::ffi::c_char =
+            std::mem::transmute(objc_msgSend as *const ());
+        let ptr = utf8(name, sel("UTF8String"));
+        if ptr.is_null() {
+            return None;
+        }
+        let text = std::ffi::CStr::from_ptr(ptr).to_string_lossy().trim().to_string();
+        (!text.is_empty()).then_some(text)
+    }
 }
 
 /// Same question, but macOS shows its "open System Settings?" sheet when the
@@ -155,6 +225,7 @@ pub fn request_trust() -> bool {
 #[link(name = "objc", kind = "dylib")]
 unsafe extern "C" {
     fn sel_registerName(name: *const std::ffi::c_char) -> *const c_void;
+    fn objc_getClass(name: *const std::ffi::c_char) -> *const c_void;
     fn objc_msgSend();
 }
 

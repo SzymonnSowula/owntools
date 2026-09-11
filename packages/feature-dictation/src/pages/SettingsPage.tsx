@@ -1,8 +1,10 @@
 import { Keyboard } from "lucide-react";
 import { DICTATION_HOTKEY_HINT, DICTATION_HOTKEY_LABEL } from "@core/hotkeys";
+import { commandPhrases, VOICE_COMMANDS } from "../commands";
 import { Alert, Card, Kbd, Row, Segmented, Switch, PageHead } from "../components";
 import { resolveActiveModel, type DictationLang, type DictationQuality, type EngineStatus } from "../engine";
 import { useDictationSettings } from "../useSettings";
+import { ProfilesCard } from "./ProfilesCard";
 
 const QUALITY_HINTS: Record<DictationQuality, string> = {
   fast: "Greedy decoding — quickest, most typos.",
@@ -52,6 +54,21 @@ export function SettingsPage({ hotkeyOk, status }: { hotkeyOk: boolean | null; s
               { value: "balanced", label: "Balanced" },
               { value: "accurate", label: "Accurate" },
             ]}
+          />
+        </Row>
+        <Row
+          label="Decode while you speak"
+          hint={
+            parakeet
+              ? "Each utterance goes to Parakeet's resident recognizer as you pause, so the stop leaves only the last few words to wait for. The pill shows the text as it lands."
+              : "Parakeet only — its recognizer stays loaded between utterances. Whisper always decodes the whole take after the stop."
+          }
+        >
+          <Switch
+            label="Decode while you speak"
+            checked={settings.streaming}
+            disabled={status !== null && !status.parakeet.server}
+            onCheckedChange={(streaming) => update({ streaming })}
           />
         </Row>
         <Row
@@ -112,6 +129,40 @@ export function SettingsPage({ hotkeyOk, status }: { hotkeyOk: boolean | null; s
           />
         </Row>
       </Card>
+
+      <Card
+        title="Voice commands"
+        desc="Said in English or Polish, at the end of a take or in the middle of it."
+        action={
+          <Switch
+            label="Voice commands"
+            checked={settings.voiceCommands}
+            onCheckedChange={(voiceCommands) => update({ voiceCommands })}
+          />
+        }
+        flush
+      >
+        <div className={`dt-cmds${settings.voiceCommands ? "" : " off"}`}>
+          {VOICE_COMMANDS.map((c) => {
+            const p = commandPhrases(c);
+            return (
+              <div key={c.id} className="dt-cmd">
+                <div className="dt-cmd-phrases">
+                  <span>“{p.en}”</span>
+                  <span className="dt-cmd-pl">“{p.pl}”</span>
+                </div>
+                <div className="dt-cmd-effect">
+                  {c.effect}
+                  {c.where === "trailing" ? <span className="dt-badge line">last words only</span> : null}
+                  {c.where === "boundary" ? <span className="dt-badge line">after a pause</span> : null}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </Card>
+
+      <ProfilesCard />
 
       <Card title="Shortcut" flush>
         <Row label="Dictate anywhere" hint={DICTATION_HOTKEY_HINT}>

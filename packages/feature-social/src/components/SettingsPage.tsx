@@ -1,12 +1,13 @@
-import { Check, FolderOpen, Loader2, Plus, Sparkles, Trash2 } from "lucide-react";
+import { FolderOpen, Plus, Sparkles, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { isTauri } from "@core/env";
-import { logError } from "@core/errors";
-import { DEFAULT_MODELS, aiConfigured, complete } from "../ai";
+import { openIntelligenceSettings } from "@core/llm";
+import { IntelligenceBadge } from "@feature-llm/IntelligenceCard";
+import { adoptSocialAiSettings } from "@feature-llm/migrate";
 import { TAG_COLORS } from "../model";
 import { useSocialStore } from "../store";
-import type { AiSettings } from "../types";
 import { Field, Switch } from "./primitives";
+import { AgentsCard, VoiceCard } from "./SettingsCards";
 
 export function SettingsPage() {
   const settings = useSocialStore((s) => s.settings);
@@ -16,33 +17,16 @@ export function SettingsPage() {
   const updateTag = useSocialStore((s) => s.updateTag);
   const removeTag = useSocialStore((s) => s.removeTag);
   const storage = useSocialStore((s) => s.storage);
-  const toast = useSocialStore((s) => s.toast);
-  const [ai, setAi] = useState<AiSettings>(settings.ai);
-  const [testing, setTesting] = useState(false);
   const [root, setRoot] = useState<string | null>(null);
   const [newTag, setNewTag] = useState("");
 
-  useEffect(() => setAi(settings.ai), [settings.ai]);
+  // A key configured on the old per-tool form moves to Settings → Intelligence, once.
+  useEffect(() => {
+    adoptSocialAiSettings(settings.ai);
+  }, [settings.ai]);
   useEffect(() => {
     void storage.rootPath().then(setRoot);
   }, [storage]);
-
-  const saveAi = () => {
-    void saveSettings({ ai }).then(() => toast({ kind: "success", title: "AI settings saved" }));
-  };
-
-  const testAi = async () => {
-    setTesting(true);
-    try {
-      const out = await complete(ai, "Answer with one short word.", "Say hello.", 32);
-      toast({ kind: "success", title: "The model answered", body: out.slice(0, 80) });
-    } catch (err) {
-      logError("social", "ai test", err);
-      toast({ kind: "error", title: "AI test failed", body: err instanceof Error ? err.message : String(err) });
-    } finally {
-      setTesting(false);
-    }
-  };
 
   return (
     <div className="sc-main">
@@ -86,50 +70,24 @@ export function SettingsPage() {
             </div>
           </div>
 
+          <AgentsCard />
+          <VoiceCard />
+
           <div className="sc-card">
             <div className="sc-card-head">
               <Sparkles className="h-4 w-4 text-muted" />
               <span className="sc-card-title">AI in the composer</span>
-              <span className={`sc-status ml-auto ${aiConfigured(settings.ai) ? "ok" : ""}`}>
-                <span className="sc-status-dot" /> {aiConfigured(settings.ai) ? "configured" : "off"}
+              <span className="ml-auto">
+                <IntelligenceBadge />
               </span>
             </div>
-            <div className="sc-card-body flex flex-col gap-4">
+            <div className="sc-card-body flex flex-col gap-3">
               <p className="text-[12.5px] leading-5 text-muted">
-                Optional. Nothing leaves this machine unless you add a key here; then only the text you ask to rewrite is sent, straight to the provider.
+                Draft, rewrite, shorten and hashtags use the one language model every tool shares: the on-device model when one is installed, your own cloud key otherwise. Nothing leaves this machine unless you add a cloud provider there.
               </p>
-              <Field label="Provider">
-                <select className="sc-field" value={ai.provider} onChange={(e) => setAi((a) => ({ ...a, provider: e.target.value as AiSettings["provider"] }))}>
-                  <option value="none">Off</option>
-                  <option value="anthropic">Anthropic (Claude)</option>
-                  <option value="openai">OpenAI-compatible (OpenAI, Ollama, LM Studio, OpenRouter…)</option>
-                </select>
-              </Field>
-              {ai.provider === "openai" ? (
-                <Field label="Base URL" hint="Ollama: http://localhost:11434/v1 · LM Studio: http://localhost:1234/v1">
-                  <input className="sc-field" value={ai.baseUrl} onChange={(e) => setAi((a) => ({ ...a, baseUrl: e.target.value }))} />
-                </Field>
-              ) : null}
-              {ai.provider !== "none" ? (
-                <>
-                  <Field label="Model" hint={`Default: ${DEFAULT_MODELS[ai.provider]}`}>
-                    <input className="sc-field" value={ai.model} placeholder={DEFAULT_MODELS[ai.provider]} onChange={(e) => setAi((a) => ({ ...a, model: e.target.value }))} />
-                  </Field>
-                  <Field label="API key" hint="Stored in settings.json on this device.">
-                    <input className="sc-field" type="password" value={ai.apiKey} autoComplete="off" onChange={(e) => setAi((a) => ({ ...a, apiKey: e.target.value }))} />
-                  </Field>
-                </>
-              ) : null}
-              <div className="flex gap-2">
-                <button className="sc-btn primary" onClick={saveAi}>
-                  <Check /> Save
-                </button>
-                {ai.provider !== "none" ? (
-                  <button className="sc-btn" onClick={() => void testAi()} disabled={testing || !aiConfigured(ai) || !isTauri()} title={!isTauri() ? "Desktop app only" : undefined}>
-                    {testing ? <Loader2 className="animate-spin" /> : null} Test
-                  </button>
-                ) : null}
-              </div>
+              <button className="sc-btn self-start" onClick={() => openIntelligenceSettings()}>
+                <Sparkles /> Open Settings → Intelligence
+              </button>
             </div>
           </div>
 

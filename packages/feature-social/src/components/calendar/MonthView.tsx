@@ -18,6 +18,7 @@ function DayCell({
   defaultTime,
   onOpen,
   onAdd,
+  onApprove,
 }: {
   day: Date;
   anchor: Date;
@@ -28,6 +29,7 @@ function DayCell({
   defaultTime: string;
   onOpen: (post: Post) => void;
   onAdd: (at: Date) => void;
+  onApprove?: (post: Post) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: dayKey(day), data: { day } });
   const [expanded, setExpanded] = useState(false);
@@ -45,7 +47,7 @@ function DayCell({
         </button>
       </div>
       {shown.map((p) => (
-        <PostCard key={p.id} post={p} channels={channels} tags={tags} onOpen={onOpen} showTime />
+        <PostCard key={p.id} post={p} channels={channels} tags={tags} onOpen={onOpen} onApprove={onApprove} showTime />
       ))}
       {posts.length > 3 && !expanded ? (
         <button className="sc-more" onClick={() => setExpanded(true)}>
@@ -66,6 +68,7 @@ export function MonthView({
   defaultTime,
   onOpen,
   onAdd,
+  onApprove,
 }: {
   rows: Date[][];
   anchor: Date;
@@ -76,6 +79,7 @@ export function MonthView({
   defaultTime: string;
   onOpen: (post: Post) => void;
   onAdd: (at: Date) => void;
+  onApprove?: (post: Post) => void;
 }) {
   const now = new Date();
   const byDay = new Map<string, Post[]>();
@@ -109,6 +113,7 @@ export function MonthView({
             defaultTime={defaultTime}
             onOpen={onOpen}
             onAdd={onAdd}
+            onApprove={onApprove}
           />
         ))}
       </div>

@@ -386,7 +386,8 @@ export function drawFrame(input: DrawFrameInput): void {
   if (input.watermark) drawWatermark(ctx, width, height);
 }
 
-function drawProgressBar(
+/** Exported for the cropped export path, which draws the bar on the output rather than the stage. */
+export function drawProgressBar(
   ctx: CanvasRenderingContext2D,
   width: number,
   height: number,

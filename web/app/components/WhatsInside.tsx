@@ -1,5 +1,5 @@
 /**
- * "What's inside" — six cards, each a small working scene rather than an icon
+ * "What's inside" — eight cards, each a small working scene rather than an icon
  * in a coloured square. Every one is a `SceneCard`: a nature ground for
  * weather, a real fragment of the app floating on it, and two lines of copy
  * whose second half carries the point.
@@ -7,9 +7,16 @@
  * The fragments are deliberately cropped by their frames. A list that runs off
  * the bottom edge reads as a list that continues; a complete little rectangle
  * centred in a swatch reads as a drawing of one.
+ *
+ * Layout: a six-track grid. The first six cards span two tracks each (three a
+ * row, the width they were drawn for); the two newest - meet and capture -
+ * span three, so the last row fills the width instead of leaving a lopsided
+ * pair, and a two-sided transcript and a search over screenshots get the room
+ * they actually need. A four-column grid would have squeezed every scene
+ * below the width its panes were laid out at.
  */
 
-import { CloudOff, Eraser, Languages, Type, Wand2, Wifi } from "lucide-react";
+import { CloudOff, Eraser, Languages, ScanText, Search, Type, Users, Wand2, Wifi } from "lucide-react";
 import { Pane, SceneCard } from "./Scene";
 import { Reveal } from "./Reveal";
 
@@ -30,6 +37,20 @@ const HELLOS = [
   ["bonjour", "안녕하세요", "ciao"],
 ];
 
+/** A call, four lines in: the mic is you, the speakers are them. */
+const CALL: { who: "you" | "them"; text: string }[] = [
+  { who: "them", text: "can we lock the pricing this week?" },
+  { who: "you", text: "yes - one price, paid once. I'll send the page tonight." },
+  { who: "them", text: "and the mac build? half the team is on macs." },
+  { who: "you", text: "after windows ships. it is on the roadmap." },
+];
+
+/** Two captures found by the words in them, not by their file names. */
+const FOUND = [
+  { name: "capture-0412.png", before: "…", hit: "Invoice 2026", after: "-041 · due 30 Sep" },
+  { name: "capture-0398.png", before: "re: ", hit: "invoice 2026", after: ", still open" },
+];
+
 export function WhatsInside() {
   return (
     <section id="inside" className="border-t border-line px-5 py-20 md:py-28">
@@ -45,9 +66,9 @@ export function WhatsInside() {
           </p>
         </Reveal>
 
-        <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-6">
           {/* offline — the toggle is the whole argument */}
-          <Reveal>
+          <Reveal className="lg:col-span-2">
             <SceneCard
               ground="tide"
               tint="cyan"
@@ -69,7 +90,7 @@ export function WhatsInside() {
           </Reveal>
 
           {/* vocabulary — a list that carries on past the frame */}
-          <Reveal delay={0.05}>
+          <Reveal delay={0.05} className="lg:col-span-2">
             <SceneCard
               ground="dawn"
               tint="blue"
@@ -103,7 +124,7 @@ export function WhatsInside() {
           </Reveal>
 
           {/* delivery — where the text actually goes */}
-          <Reveal delay={0.1}>
+          <Reveal delay={0.1} className="lg:col-span-2">
             <SceneCard
               ground="meadow"
               tint="blue"
@@ -132,7 +153,7 @@ export function WhatsInside() {
           </Reveal>
 
           {/* languages — a wall that runs off both edges */}
-          <Reveal delay={0.05}>
+          <Reveal delay={0.05} className="lg:col-span-2">
             <SceneCard
               ground="dusk"
               tint="indigo"
@@ -160,7 +181,7 @@ export function WhatsInside() {
           </Reveal>
 
           {/* cleanup */}
-          <Reveal delay={0.1}>
+          <Reveal delay={0.1} className="lg:col-span-2">
             <SceneCard
               ground="mist"
               tint="blue"
@@ -182,7 +203,7 @@ export function WhatsInside() {
           </Reveal>
 
           {/* privacy */}
-          <Reveal delay={0.15}>
+          <Reveal delay={0.15} className="lg:col-span-2">
             <SceneCard
               ground="tide"
               tint="cyan"
@@ -207,6 +228,82 @@ export function WhatsInside() {
               <span className="layer absolute right-5 top-5 flex items-center gap-1.5 !rounded-full bg-white/92 px-2.5 py-1 text-[10.5px] font-semibold text-[#1d1d1f]">
                 <CloudOff size={11} /> 0 requests
               </span>
+            </SceneCard>
+          </Reveal>
+
+          {/* meet — the two sides of a call, told apart by where they came from */}
+          <Reveal delay={0.05} className="lg:col-span-3">
+            <SceneCard
+              ground="dawn"
+              tint="blue"
+              icon={<Users size={15} />}
+              title="Knows who was talking"
+              lead="Your mic is one channel and what your machine plays is the other, so a call's transcript says which lines were you and which were them."
+              point="No bot joins the call."
+            >
+              <Pane className="absolute inset-x-8 top-6 -bottom-8 overflow-hidden p-3">
+                <p className="flex items-center justify-between font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted">
+                  <span className="flex items-center gap-1.5">
+                    <span className="rec-dot h-1.5 w-1.5 rounded-full bg-[#ff453a]" /> 32:08 · meet
+                  </span>
+                  <span className="hidden sm:inline">you = mic · them = speakers</span>
+                </p>
+                <ul className="mt-2 space-y-1.5">
+                  {CALL.map((l, i) => (
+                    <li key={i} className={`flex items-start gap-2 ${l.who === "you" ? "flex-row-reverse" : ""}`}>
+                      <span
+                        className={`mt-0.5 shrink-0 rounded-full px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-white ${
+                          l.who === "you" ? "bg-accent" : "bg-cyan"
+                        }`}
+                      >
+                        {l.who}
+                      </span>
+                      <span
+                        className={`max-w-[78%] rounded-[8px] px-2 py-1 text-[11px] leading-[15px] text-ink ${
+                          l.who === "you" ? "bg-accent/10" : "bg-ink/[0.06]"
+                        }`}
+                      >
+                        {l.text}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </Pane>
+            </SceneCard>
+          </Reveal>
+
+          {/* capture — the library, searched by the words in the shots */}
+          <Reveal delay={0.1} className="lg:col-span-3">
+            <SceneCard
+              ground="mist"
+              tint="cyan"
+              icon={<ScanText size={15} />}
+              title="Reads your screenshots"
+              lead="The text in a capture is read out of the pixels on-device, so you can copy it - and the library is searched by it: the error message, the invoice number, the name of the file."
+              point="Type what it said, find the shot."
+            >
+              <Pane className="absolute inset-x-8 top-6 -bottom-8 overflow-hidden p-3">
+                <div className="flex items-center gap-2 rounded-md border border-line px-2 py-1.5 text-[11px]">
+                  <Search size={11} className="shrink-0 text-muted" />
+                  <span className="text-ink">
+                    invoice 2026<span className="caret text-accent">|</span>
+                  </span>
+                  <span className="ml-auto shrink-0 text-[10px] text-muted">2 captures</span>
+                </div>
+                <ul className="mt-2 grid grid-cols-2 gap-2">
+                  {FOUND.map((s) => (
+                    <li key={s.name} className="rounded-md border border-line p-1.5">
+                      <span className="block h-10 rounded bg-gradient-to-br from-[#0a84ff]/70 to-[#5e5ce6]/70" />
+                      <span className="mt-1 block truncate text-[10px] font-semibold text-ink">{s.name}</span>
+                      <span className="block truncate text-[9.5px] text-muted">
+                        {s.before}
+                        <span className="rounded-[3px] bg-accent/20 px-0.5 text-ink">{s.hit}</span>
+                        {s.after}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </Pane>
             </SceneCard>
           </Reveal>
         </div>

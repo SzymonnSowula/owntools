@@ -32,7 +32,9 @@ export function DateTimePicker({
     { label: "in 1 h", at: () => setMinutes(addHours(now, 1), 0) },
     { label: `tomorrow ${defaultTime}`, at: () => slotDate(addDays(now, 1), h, m) },
     { label: `next monday ${defaultTime}`, at: () => slotDate(nextMonday(now), h, m) },
-    { label: "next free slot", at: () => nextDefaultSlot(now) },
+    // The queue's "next free slot" is the button next to this picker; this
+    // is only the next round quarter hour.
+    { label: "in 15 min", at: () => nextDefaultSlot(now) },
   ];
   return (
     <Popover

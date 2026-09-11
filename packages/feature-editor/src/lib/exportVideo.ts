@@ -14,13 +14,13 @@ import {
   getFirstEncodableVideoCodec,
 } from "mediabunny";
 import type { AudioCodec, VideoCodec } from "mediabunny";
-import type { AudioSettings, MediaUrls, Project, Segment } from "../types";
-import { canvasSize, drawFrame } from "./compositor";
-import { timelineDuration, timelineToSource } from "./segments";
+import type { AudioSettings, CropAspect, MediaUrls, Project, Segment, TimeRange } from "../types";
+import { canvasSize, drawFrame, drawProgressBar, drawWatermark, type Rect } from "./compositor";
+import { sliceSegmentsToTimelineRange, timelineDuration, timelineToSource } from "./segments";
 import { applyFadesInPlace, mixChannel, renderSfxChannels } from "./sfx/mix";
 import { sfxPack } from "./sfx/packs";
 import { planSfx } from "./sfx/plan";
-import { TransitionTracker } from "./transitions";
+import { TransitionTracker, fadeVeilAlpha } from "./transitions";
 import { ensureFiniteDuration, seekVideo } from "./videoEl";
 
 export type ExportContainer = "mp4" | "webm";
@@ -33,6 +33,98 @@ export interface ExportOptions {
   onProgress?: (progress: number, phase: ExportPhase) => void;
   /** Decoded image overlays keyed by `ImageOverlay.src`. */
   overlayImages?: Record<string, HTMLImageElement>;
+  /** Export only this stretch of the *cut timeline* (a short clip), seconds. */
+  range?: TimeRange;
+  /**
+   * Centre-crop the composed frame to this aspect and size the output for it
+   * (1080×1920 / 1080×1080). Differs from the project's aspect, which fits the
+   * video inside a taller canvas: this fills the frame with the middle of the picture.
+   */
+  crop?: CropAspect;
+}
+
+/** Output size of a cropped export. */
+export function cropSize(aspect: CropAspect): { width: number; height: number } {
+  return aspect === "9:16" ? { width: 1080, height: 1920 } : { width: 1080, height: 1080 };
+}
+
+/** What the encoder is asked for: the crop's size when cropping, else the project aspect's. */
+export function outputSize(project: Project, crop?: CropAspect): { width: number; height: number } {
+  return crop ? cropSize(crop) : canvasSize(project.aspect);
+}
+
+/**
+ * The largest rectangle of a `sw`×`sh` picture with the output's aspect,
+ * centred — the `drawImage` sub-rect a crop copies out.
+ */
+export function centreCrop(sw: number, sh: number, dw: number, dh: number): Rect {
+  const want = dw / dh;
+  const have = sw / sh;
+  if (have > want) {
+    const w = sh * want;
+    return { x: (sw - w) / 2, y: 0, w, h: sh };
+  }
+  const h = sw / want;
+  return { x: 0, y: (sh - h) / 2, w: sw, h };
+}
+
+/**
+ * The clips an export renders: the project's, clamped to `actualDuration`
+ * when the demuxer knows better than the seek probe, then sliced to the
+ * requested stretch of the timeline. Throws when the clip range holds nothing.
+ */
+export function segmentsForExport(project: Project, actualDuration: number, range?: TimeRange): Segment[] {
+  let segments = project.segments;
+  if (actualDuration > 0.2) {
+    const clamped = segments
+      .map((s) => ({ ...s, end: Math.min(s.end, actualDuration) }))
+      .filter((s) => s.end - s.start > 0.01);
+    if (clamped.length) segments = clamped;
+  }
+  if (range) {
+    segments = sliceSegmentsToTimelineRange(segments, range);
+    if (!segments.length || timelineDuration(segments) < 0.05) {
+      throw new Error("The clip range is empty — pick a longer stretch.");
+    }
+  }
+  return segments;
+}
+
+/**
+ * Draws one output frame: the full composition on `stage`, then — when
+ * cropping — the centre of it onto the output, with the progress bar, the
+ * fades and the watermark drawn on the *output* so a crop can not cut them
+ * off or make the bar start off-screen. Without a crop, `stage` is the output.
+ */
+function paintOutput(
+  out: CanvasRenderingContext2D,
+  stage: HTMLCanvasElement,
+  crop: Rect | null,
+  project: Project,
+  progress: number,
+  duration: number,
+  timeline: number,
+  watermark: boolean,
+): void {
+  if (!crop) return;
+  const width = out.canvas.width;
+  const height = out.canvas.height;
+  out.drawImage(stage, crop.x, crop.y, crop.w, crop.h, 0, 0, width, height);
+  if (project.progressBar.enabled && duration > 0) drawProgressBar(out, width, height, project, progress);
+  const veil = fadeVeilAlpha(timeline, duration, project.fade.in, project.fade.out);
+  if (veil > 0) {
+    out.save();
+    out.fillStyle = `rgba(0,0,0,${veil})`;
+    out.fillRect(0, 0, width, height);
+    out.restore();
+  }
+  if (watermark) drawWatermark(out, width, height);
+}
+
+/** With a crop the stage renders without the bar, fades and watermark — `paintOutput` puts them on the crop. */
+function stageProject(project: Project, cropping: boolean): Project {
+  if (!cropping) return project;
+  return { ...project, progressBar: { ...project.progressBar, enabled: false }, fade: { in: 0, out: 0 } };
 }
 
 /**
@@ -191,7 +283,9 @@ async function exportWithWebCodecs(
 ): Promise<ExportResult> {
   const fps = options.fps ?? 60;
   const { signal, onProgress } = options;
-  const { width, height } = canvasSize(project.aspect);
+  const { width, height } = outputSize(project, options.crop);
+  const stageSize = canvasSize(project.aspect);
+  const cropping = Boolean(options.crop);
 
   onProgress?.(0.01, "prepare");
 
@@ -204,15 +298,9 @@ async function exportWithWebCodecs(
 
   // project.duration comes from a <video> seek probe and can overshoot the
   // real track length, which would freeze the last frame — clamp to the
-  // demuxer's precise duration.
-  let segments = project.segments;
+  // demuxer's precise duration. A clip export then slices the timeline.
   const actualDuration = await screenTrack.computeDuration().catch(() => 0);
-  if (actualDuration > 0.2) {
-    segments = segments
-      .map((s) => ({ ...s, end: Math.min(s.end, actualDuration) }))
-      .filter((s) => s.end - s.start > 0.01);
-    if (!segments.length) segments = project.segments;
-  }
+  const segments = segmentsForExport(project, actualDuration, options.range);
   const duration = Math.max(0.1, timelineDuration(segments));
   const totalFrames = Math.max(1, Math.round(duration * fps));
 
@@ -236,6 +324,16 @@ async function exportWithWebCodecs(
   canvas.height = height;
   const ctx = canvas.getContext("2d", { alpha: false });
   if (!ctx) throw new Error("Couldn't create a canvas context.");
+  // The composition is drawn at the project's aspect; a crop copies its centre onto the output.
+  const stage = cropping ? document.createElement("canvas") : canvas;
+  if (cropping) {
+    stage.width = stageSize.width;
+    stage.height = stageSize.height;
+  }
+  const stageCtx = cropping ? stage.getContext("2d", { alpha: false }) : ctx;
+  if (!stageCtx) throw new Error("Couldn't create a canvas context.");
+  const cropRect = cropping ? centreCrop(stageSize.width, stageSize.height, width, height) : null;
+  const drawn = stageProject(project, cropping);
 
   const vw = project.videoWidth || screenTrack.displayWidth || 1920;
   const vh = project.videoHeight || screenTrack.displayHeight || 1080;
@@ -340,21 +438,22 @@ async function exportWithWebCodecs(
 
       const timeline = Math.min(duration - epsilon, i / fps);
       drawFrame({
-        ctx,
-        width,
-        height,
+        ctx: stageCtx,
+        width: stage.width,
+        height: stage.height,
         sourceTime: sourceTimes[i],
         timelineTime: timeline,
         timelineDuration: duration,
-        project: { ...project, segments },
+        project: { ...drawn, segments },
         screenVideo: screenCanvas,
         webcamVideo: webcamReady ? webcamCanvas : null,
         backgroundImage: background,
         overlayImages: options.overlayImages,
         transition: transitions.begin(segments, timeline),
         onFrameReady: (frame) => transitions.end(frame, segments, timeline, 1 / fps + 1e-3),
-        watermark: options.watermark,
+        watermark: cropping ? false : options.watermark,
       });
+      paintOutput(ctx, stage, cropRect, project, timeline / duration, duration, timeline, Boolean(options.watermark));
 
       await videoSource.add(i / fps, 1 / fps);
       i += 1;
@@ -402,17 +501,29 @@ async function exportWithMediaRecorder(
   const fps = Math.min(30, options.fps ?? 30);
   const mimeCandidates = ["video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm"];
   const mime = mimeCandidates.find((t) => MediaRecorder.isTypeSupported(t)) ?? "video/webm";
-  const { width, height } = canvasSize(project.aspect);
+  const { width, height } = outputSize(project, options.crop);
+  const stageSize = canvasSize(project.aspect);
+  const cropping = Boolean(options.crop);
   const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;
   const ctx = canvas.getContext("2d", { alpha: false });
   if (!ctx) throw new Error("Couldn't create a canvas context.");
+  const stage = cropping ? document.createElement("canvas") : canvas;
+  if (cropping) {
+    stage.width = stageSize.width;
+    stage.height = stageSize.height;
+  }
+  const stageCtx = cropping ? stage.getContext("2d", { alpha: false }) : ctx;
+  if (!stageCtx) throw new Error("Couldn't create a canvas context.");
+  const cropRect = cropping ? centreCrop(stageSize.width, stageSize.height, width, height) : null;
+  const drawn = stageProject(project, cropping);
 
   await ensureFiniteDuration(screen);
   if (webcam?.src) await ensureFiniteDuration(webcam).catch(() => 0);
 
-  const duration = Math.max(0.1, timelineDuration(project.segments));
+  const segments = segmentsForExport(project, 0, options.range);
+  const duration = Math.max(0.1, timelineDuration(segments));
   const totalFrames = Math.max(1, Math.round(duration * fps));
 
   const canvasStream = canvas.captureStream(0);
@@ -443,25 +554,26 @@ async function exportWithMediaRecorder(
     for (let i = 0; i < totalFrames; i++) {
       throwIfAborted(options.signal);
       const timeline = Math.min(duration, i / fps);
-      const source = timelineToSource(timeline, project.segments);
+      const source = timelineToSource(timeline, segments);
       await seekVideo(screen, source);
       if (webcam?.src) await seekVideo(webcam, Math.max(0, source - project.webcamOffset));
       drawFrame({
-        ctx,
-        width,
-        height,
+        ctx: stageCtx,
+        width: stage.width,
+        height: stage.height,
         sourceTime: source,
         timelineTime: timeline,
         timelineDuration: duration,
-        project,
+        project: { ...drawn, segments },
         screenVideo: screen,
         webcamVideo: webcam,
         backgroundImage: background,
         overlayImages: options.overlayImages,
-        transition: transitions.begin(project.segments, timeline),
-        onFrameReady: (frame) => transitions.end(frame, project.segments, timeline, 1 / fps + 1e-3),
-        watermark: options.watermark,
+        transition: transitions.begin(segments, timeline),
+        onFrameReady: (frame) => transitions.end(frame, segments, timeline, 1 / fps + 1e-3),
+        watermark: cropping ? false : options.watermark,
       });
+      paintOutput(ctx, stage, cropRect, project, timeline / duration, duration, timeline, Boolean(options.watermark));
       videoTrack.requestFrame?.();
       options.onProgress?.(Math.min(0.99, (i + 1) / totalFrames), "video");
       await sleep(Math.round(1000 / fps));
@@ -484,7 +596,7 @@ export async function exportProject(
   background: HTMLImageElement | null,
   options: ExportOptions = {},
 ): Promise<ExportResult> {
-  const { width, height } = canvasSize(project.aspect);
+  const { width, height } = outputSize(project, options.crop);
   let choice: CodecChoice | null = null;
   try {
     choice = await probeExportSupport(width, height);

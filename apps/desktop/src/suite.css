@@ -2064,3 +2064,437 @@ button.wincard:hover {
   }
 }
 
+
+/* ══ The tool rail ═══════════════════════════════════════════════════════
+   Navigation lives here now: seven marks down the left edge, one click
+   apart, instead of a round trip through the hub. Read top to bottom it is
+   the blue -> indigo -> cyan arc the marks were ordered for, which is why
+   the rail and the hub grid render from one catalogue (shell/toolCatalogue).
+   Sizes are locked together: a 44px tile plus an 8px gap is the 52px the
+   marker slides by, so STEP in ToolRail.tsx and --rail-step must agree.  */
+
+.app-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+/* Panes are flex children now; without this a wide table or timeline inside
+   one refuses to shrink and pushes the rail off the window. */
+.app-body > *:not(.rail) {
+  min-width: 0;
+}
+
+.rail {
+  --rail-step: 52px;
+  flex: 0 0 64px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 0 10px;
+  position: relative;
+  z-index: 6;
+  background: color-mix(in srgb, var(--bg-elevated, #fff) 76%, transparent);
+  backdrop-filter: blur(22px) saturate(150%);
+  -webkit-backdrop-filter: blur(22px) saturate(150%);
+  border-right: 1px solid var(--border-subtle, #eee);
+  /* A hairline of light down the inside edge: the bevel that keeps the rail
+     from reading as a flat grey gutter. */
+  box-shadow: inset -1px 0 0 color-mix(in srgb, var(--bg-elevated, #fff) 55%, transparent);
+}
+
+.rail-grow { flex: 1; }
+
+.rail-sep {
+  width: 22px;
+  height: 1px;
+  background: var(--border, #e8e8e8);
+  margin: 2px 0 4px;
+  flex: none;
+}
+
+.rail-home,
+.rail-quick {
+  appearance: none;
+  border: 1px solid transparent;
+  background: transparent;
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  color: var(--text-muted, #6b6b6b);
+  position: relative;
+  flex: none;
+  transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease,
+    transform 0.16s ease;
+}
+
+.rail-home:hover,
+.rail-quick:hover {
+  background: var(--fill, #f4f4f4);
+  border-color: var(--border-subtle, #eee);
+  color: var(--text, #111);
+}
+
+.rail-home:active,
+.rail-quick:active { transform: scale(0.94); }
+
+.rail-home.active,
+.rail-quick.active {
+  background: var(--fill-strong, #ececec);
+  border-color: var(--border, #e8e8e8);
+  color: var(--text, #111);
+}
+
+.rail-tools {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: none;
+}
+
+/* The one moving part, and most of why the rail reads as an object rather
+   than a column of buttons: it slides between tools instead of blinking. */
+.rail-marker {
+  position: absolute;
+  left: -10px;
+  top: 10px;
+  width: 3px;
+  height: 24px;
+  border-radius: 999px;
+  background: var(--color-accent, #0a84ff);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--color-accent, #0a84ff) 55%, transparent);
+  transition: transform 0.34s cubic-bezier(0.34, 1.28, 0.52, 1), opacity 0.18s ease;
+  pointer-events: none;
+}
+
+.rail-marker[data-on="0"] { opacity: 0; }
+
+.rail-tool {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  position: relative;
+  flex: none;
+  /* Held back until wanted, so the active tile is the lit thing here - but
+     only just: taken further (0.58/0.72 was the first try) the marks stop
+     reading as resting and start reading as disabled. */
+  opacity: 0.74;
+  filter: saturate(0.88);
+  transition: opacity 0.16s ease, filter 0.16s ease, transform 0.16s ease;
+}
+
+.rail-tool > svg {
+  border-radius: 10px;
+  transition: filter 0.2s ease;
+  position: relative;
+  z-index: 1;
+}
+
+.rail-tool:hover,
+.rail-tool.active {
+  opacity: 1;
+  filter: saturate(1);
+}
+
+.rail-tool:hover { transform: translateY(-1px); }
+.rail-tool:active { transform: scale(0.93); }
+
+.rail-tool:hover > svg,
+.rail-tool.active > svg {
+  filter: drop-shadow(0 6px 14px color-mix(in srgb, var(--tint, #0a84ff) 52%, transparent));
+}
+
+/* A wash of the tool's own colour behind the active tile. */
+.rail-tool.active::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--tint, #0a84ff) 13%, transparent);
+}
+
+/* ── Rail tooltips ──────────────────────────────────────────────────────
+   A 64px rail has no room for labels, so every button carries its own. It
+   is a plain span rather than title= because the native tooltip takes a
+   second to appear and cannot show the shortcut on its own line.        */
+
+.rail-tip {
+  position: absolute;
+  left: calc(100% + 10px);
+  top: 50%;
+  display: grid;
+  gap: 1px;
+  padding: 7px 10px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--text, #111) 92%, transparent);
+  color: var(--bg-elevated, #fff);
+  text-align: left;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(-4px, -50%);
+  transition: opacity 0.14s ease, transform 0.14s ease;
+  z-index: 20;
+  box-shadow: 0 10px 26px -8px rgba(17, 17, 17, 0.45);
+}
+
+.rail-tip b { font-size: 12.5px; font-weight: 600; letter-spacing: -0.01em; }
+.rail-tip em { font-style: normal; font-size: 11px; opacity: 0.72; }
+.rail-tip i { font-style: normal; font-size: 10px; opacity: 0.5; letter-spacing: 0.04em; }
+
+.rail-home:hover .rail-tip,
+.rail-tool:hover .rail-tip,
+.rail-quick:hover .rail-tip,
+.rail-home:focus-visible .rail-tip,
+.rail-tool:focus-visible .rail-tip,
+.rail-quick:focus-visible .rail-tip {
+  opacity: 1;
+  transform: translate(0, -50%);
+}
+
+/* ── Quick tools popover ───────────────────────────────────────────────── */
+
+.rail-quick-wrap { position: relative; flex: none; }
+
+.rail-pop {
+  position: absolute;
+  left: calc(100% + 10px);
+  bottom: 0;
+  width: 268px;
+  max-height: 62vh;
+  overflow-y: auto;
+  padding: 6px;
+  border-radius: 14px;
+  background: var(--bg-elevated, #fff);
+  border: 1px solid var(--border, #e8e8e8);
+  box-shadow: 0 22px 52px -14px rgba(17, 17, 17, 0.3);
+  z-index: 30;
+  animation: rail-pop-in 0.16s cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+
+@keyframes rail-pop-in {
+  from { opacity: 0; transform: translateX(-6px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+
+.rail-pop-label {
+  padding: 6px 8px 7px;
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-faint, #9a9a9a);
+}
+
+.rail-pop-item {
+  appearance: none;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 8px;
+  border-radius: 9px;
+  cursor: pointer;
+  text-align: left;
+  color: var(--text, #111);
+  transition: background 0.12s ease;
+}
+
+.rail-pop-item:hover { background: var(--fill, #f4f4f4); }
+.rail-pop-item b { display: block; font-size: 12.5px; font-weight: 550; }
+.rail-pop-item i { display: block; font-style: normal; font-size: 11px; color: var(--text-muted, #6b6b6b); }
+
+.rail-pop-icon {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  flex: none;
+  color: var(--text-muted, #6b6b6b);
+  background: var(--fill, #f4f4f4);
+}
+
+/* ══ Hub cards ═══════════════════════════════════════════════════════════
+   The rail made the grid optional, so the grid had to earn its place: these
+   are the tool's storefront, not a second navigation. Each card is lit in
+   its own colour (--tint, from the same mark the tile paints) and sits at a
+   slight angle until you reach for it, when it straightens and lifts.    */
+
+.hub-card {
+  position: relative;
+  transform: rotate(var(--tilt, 0deg));
+  border-radius: 16px;
+  border-color: color-mix(in srgb, var(--tint, #0a84ff) 14%, var(--border, #e8e8e8));
+  /* Three shadows, not one: contact, ambient, and a far tinted pool that is
+     what actually makes the card look lit rather than pasted on. */
+  box-shadow:
+    0 1px 2px rgba(17, 17, 17, 0.05),
+    0 12px 24px -14px rgba(17, 17, 17, 0.18),
+    0 26px 46px -26px color-mix(in srgb, var(--tint, #0a84ff) 72%, transparent);
+  transition:
+    transform 0.3s cubic-bezier(0.2, 0.85, 0.3, 1),
+    box-shadow 0.3s ease,
+    border-color 0.2s ease;
+}
+
+/* Light falling from the top-left, in the tool's colour. */
+.hub-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    radial-gradient(120% 78% at 10% -6%, color-mix(in srgb, var(--tint, #0a84ff) 11%, transparent), transparent 60%),
+    linear-gradient(to bottom, color-mix(in srgb, #fff 55%, transparent), transparent 34%);
+  opacity: 0.9;
+  transition: opacity 0.3s ease;
+}
+
+.hub-card:hover,
+.hub-card:focus-visible {
+  /* Straightens as you reach for it. */
+  transform: rotate(0deg) translateY(-7px) scale(1.022);
+  border-color: color-mix(in srgb, var(--tint, #0a84ff) 34%, var(--border, #e8e8e8));
+  box-shadow:
+    0 2px 4px rgba(17, 17, 17, 0.05),
+    0 18px 34px -16px rgba(17, 17, 17, 0.2),
+    0 46px 80px -34px color-mix(in srgb, var(--tint, #0a84ff) 78%, transparent);
+}
+
+.hub-card:hover::after { opacity: 1; }
+
+.hub-card:active {
+  transform: rotate(0deg) translateY(-2px) scale(0.995);
+  transition-duration: 0.08s;
+}
+
+.hub-card .wincard-body {
+  position: relative;
+  z-index: 1;
+  padding: 16px 18px 18px;
+}
+
+.hub-card .hub-card-icon {
+  box-shadow: 0 8px 18px -5px color-mix(in srgb, var(--tint, #0a84ff) 62%, transparent);
+  transition: transform 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.25), box-shadow 0.3s ease;
+}
+
+.hub-card:hover .hub-card-icon {
+  transform: translateY(-2px) scale(1.05);
+  box-shadow: 0 16px 30px -8px color-mix(in srgb, var(--tint, #0a84ff) 72%, transparent);
+}
+
+.hub-card .hub-card-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 18px;
+  letter-spacing: -0.025em;
+}
+
+/* The affordance: an arrow that arrives only when the card is live. */
+.hub-card .hub-card-name::after {
+  content: "→";
+  font-size: 14px;
+  color: var(--tint, #0a84ff);
+  opacity: 0;
+  transform: translateX(-5px);
+  transition: opacity 0.22s ease, transform 0.22s cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+
+.hub-card:hover .hub-card-name::after,
+.hub-card:focus-visible .hub-card-name::after {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rail-marker,
+  .rail-tool,
+  .rail-tip,
+  .hub-card,
+  .hub-card::after,
+  .hub-card .hub-card-icon,
+  .hub-card .hub-card-name::after {
+    transition-duration: 0.01ms;
+  }
+  .rail-pop { animation: none; }
+  .hub-card:hover,
+  .hub-card:focus-visible { transform: rotate(0deg); }
+}
+
+/* ── Hub cards, second pass ──────────────────────────────────────────────
+   The first pass only animated the hover, which left seven identical white
+   rectangles sitting there at rest - the state they are actually in almost
+   all of the time. These rules do the resting state: the tint has to be
+   visible without being a colour swatch, and the fake window chrome has to
+   stop eating a quarter of the card.                                     */
+
+.hub-card {
+  /* Slightly cooler than the page so the card lifts off the scenery even
+     before a shadow is involved. */
+  background:
+    linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--tint, #0a84ff) 4%, var(--bg-elevated, #fff)),
+      var(--bg-elevated, #fff) 42%
+    );
+}
+
+.hub-card::after {
+  background:
+    radial-gradient(120% 78% at 10% -8%, color-mix(in srgb, var(--tint, #0a84ff) 17%, transparent), transparent 58%),
+    /* A hairline of light along the top edge, the way a real card catches it.
+       Kept low: at 60% it stopped being a bevel and became a grey haze on
+       every card in the Night theme. */
+    linear-gradient(to bottom, color-mix(in srgb, #fff 26%, transparent), transparent 24%);
+}
+
+/* The window bar is brand furniture, not a header: it should read as a thin
+   strip of chrome, not as a second surface with its own fill and rule. */
+.hub-card .wincard-bar {
+  background: transparent;
+  border-bottom: 0;
+  padding: 10px 14px 2px;
+}
+
+.hub-card .wincard-title {
+  color: color-mix(in srgb, var(--tint, #0a84ff) 62%, var(--text-faint, #9a9a9a));
+  letter-spacing: 0.01em;
+}
+
+.hub-card .wincard-body {
+  padding: 12px 18px 20px;
+}
+
+/* A little more room around the mark - at 38px flush inside a 38px box it
+   read as a sticker rather than an app icon on a desk. */
+.hub-card .hub-card-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 11px;
+  margin-bottom: 14px;
+}
+
+.hub-card .hub-card-desc {
+  margin-top: 7px;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--text-muted, #6b6b6b);
+  max-width: 30ch;
+}

@@ -103,6 +103,108 @@ fn settings_timezone(root: &Path) -> String {
         .unwrap_or_else(|| "UTC".to_string())
 }
 
+/// `agentPostsNeedApproval` from settings.json — on unless the person turned
+/// it off. The same key the frontend's `parseSettings` reads.
+pub fn approval_required(root: &Path) -> bool {
+    read_json(&settings_path(root))
+        .and_then(|s| s.get("agentPostsNeedApproval").and_then(Value::as_bool))
+        .unwrap_or(true)
+}
+
+/// What an agent is told when its post went to the review queue.
+pub const REVIEW_MESSAGE: &str = "waiting for approval in owntools → social → Review";
+
+/* ------------------------------------------------------------------ */
+/* Brand voice & activity log                                           */
+/* ------------------------------------------------------------------ */
+
+pub fn write_text_atomic(path: &Path, text: &str) -> Result<(), String> {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+    let tmp = path.with_extension(format!("{}.tmp", new_id("w")));
+    fs::write(&tmp, text).map_err(|e| e.to_string())?;
+    fs::rename(&tmp, path).map_err(|e| {
+        let _ = fs::remove_file(&tmp);
+        e.to_string()
+    })
+}
+
+pub fn voice_path(root: &Path) -> PathBuf {
+    root.join("voice.md")
+}
+
+/// `voice.md` — empty string when the person has not written one yet.
+pub fn read_voice(root: &Path) -> String {
+    fs::read_to_string(voice_path(root)).unwrap_or_default()
+}
+
+pub fn write_voice(root: &Path, markdown: &str) -> Result<(), String> {
+    write_text_atomic(&voice_path(root), markdown)
+}
+
+pub fn activity_path(root: &Path) -> PathBuf {
+    root.join("activity.jsonl")
+}
+
+const ACTIVITY_MAX_BYTES: u64 = 2 * 1024 * 1024;
+const ACTIVITY_KEEP_LINES: usize = 1000;
+
+/// One line of `activity.jsonl` — the same shape the frontend's `activity.ts`
+/// writes and reads: `{ ts, actor, action, postId, before?, after?, note? }`.
+pub fn log_activity(root: &Path, actor: &str, action: &str, post_id: &str, before: Option<&Value>, after: Option<&Value>, note: Option<&str>) {
+    let mut entry = json!({ "ts": now_iso(), "actor": actor, "action": action, "postId": post_id });
+    if let Some(b) = before {
+        entry["before"] = b.clone();
+    }
+    if let Some(a) = after {
+        entry["after"] = a.clone();
+    }
+    if let Some(n) = note.filter(|n| !n.trim().is_empty()) {
+        entry["note"] = json!(n);
+    }
+    let path = activity_path(root);
+    if let Some(parent) = path.parent() {
+        let _ = fs::create_dir_all(parent);
+    }
+    let line = format!("{}\n", entry);
+    let appended = fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&path)
+        .and_then(|mut f| {
+            use std::io::Write;
+            f.write_all(line.as_bytes())
+        });
+    if let Err(e) = appended {
+        log::warn!("social: could not append to activity.jsonl: {e}");
+        return;
+    }
+    // Keep it bounded: past the cap, rewrite the newest lines only.
+    if fs::metadata(&path).map(|m| m.len() > ACTIVITY_MAX_BYTES).unwrap_or(false) {
+        if let Ok(text) = fs::read_to_string(&path) {
+            let lines: Vec<&str> = text.lines().filter(|l| !l.trim().is_empty()).collect();
+            if lines.len() > ACTIVITY_KEEP_LINES {
+                let kept = lines[lines.len() - ACTIVITY_KEEP_LINES..].join("\n");
+                let _ = write_text_atomic(&path, &format!("{kept}\n"));
+            }
+        }
+    }
+}
+
+/// The newest `limit` entries, newest first. Bad lines are skipped.
+pub fn read_activity(root: &Path, limit: usize) -> Vec<Value> {
+    let Ok(text) = fs::read_to_string(activity_path(root)) else {
+        return Vec::new();
+    };
+    text.lines()
+        .rev()
+        .filter_map(|l| serde_json::from_str::<Value>(l).ok())
+        .filter(|v| v.get("postId").and_then(Value::as_str).is_some() && v.get("action").and_then(Value::as_str).is_some())
+        .take(limit.clamp(1, 1000))
+        .collect()
+}
+
 /* ------------------------------------------------------------------ */
 /* Channels & tags                                                      */
 /* ------------------------------------------------------------------ */
@@ -159,7 +261,9 @@ pub fn delete_post(root: &Path, id: &str) -> Result<bool, String> {
     if !path.exists() {
         return Ok(false);
     }
+    let before = read_json(&path);
     fs::remove_file(&path).map_err(|e| e.to_string())?;
+    log_activity(root, "agent", "delete", id, before.as_ref(), None, None);
     Ok(true)
 }
 
@@ -380,8 +484,30 @@ fn check_channels(root: &Path, ids: &[String]) -> Result<(), ApiError> {
     }
 }
 
-/// Builds a post from an agent's request and writes it.
-pub fn create_post(root: &Path, body: &Value) -> Result<Value, ApiError> {
+/// `client_ref` (or `clientRef`) from a create body — the agent's idempotency key.
+pub fn client_ref_of(body: &Map<String, Value>) -> Option<String> {
+    body.get("client_ref")
+        .or_else(|| body.get("clientRef"))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(|s| s.chars().take(200).collect())
+}
+
+/// The post already created with this `client_ref`, if any.
+pub fn find_by_client_ref(root: &Path, client_ref: &str) -> Option<Value> {
+    list_posts(root, &PostFilter { status: None, from: None, to: None, limit: None })
+        .into_iter()
+        .find(|p| p.get("clientRef").and_then(Value::as_str) == Some(client_ref))
+}
+
+/// The post an agent's request describes — validated and complete, but not
+/// written. `create_post` writes it; `dry_run` shows it.
+///
+/// Status: `needs_review` for every agent post while approval is on (that is
+/// what the setting means — the person sees it before it can publish);
+/// otherwise scheduled when there is a time and a channel, else a draft.
+pub fn build_post(root: &Path, body: &Value) -> Result<Value, ApiError> {
     let body = body.as_object().ok_or_else(|| ApiError::bad("expected a JSON object"))?;
     let content = content_from(body, None);
     let has_text = !content["text"].as_str().unwrap_or("").trim().is_empty();
@@ -405,8 +531,9 @@ pub fn create_post(root: &Path, body: &Value) -> Result<Value, ApiError> {
         None => "draft",
         Some(other) => return Err(ApiError::bad(format!("status `{other}` is not allowed on create (draft or scheduled)"))),
     };
+    let status = if approval_required(root) { "needs_review" } else { status };
     let now = now_iso();
-    let post = json!({
+    let mut post = json!({
         "id": new_id("post"),
         "version": 1,
         "status": status,
@@ -426,9 +553,53 @@ pub fn create_post(root: &Path, body: &Value) -> Result<Value, ApiError> {
         "publishedAt": Value::Null,
         "source": "agent",
         "repeatOf": Value::Null,
+        "clientRef": Value::Null,
     });
-    write_post(root, &post).map_err(ApiError::internal)?;
+    if let Some(client_ref) = client_ref_of(body) {
+        post["clientRef"] = json!(client_ref);
+    }
     Ok(post)
+}
+
+/// What `create_post` hands back: the post, whether it already existed
+/// (same `client_ref`), and whether it waits for a person.
+pub struct Created {
+    pub post: Value,
+    pub duplicate: bool,
+    pub needs_review: bool,
+}
+
+impl Created {
+    /// The post's fields plus `duplicate`, `needs_review` and — when it
+    /// waits — the `message` an agent should pass on. One object, so a client
+    /// that only knows the old shape still finds `id` and `status` at the top.
+    pub fn response(&self) -> Value {
+        let mut out = self.post.clone();
+        out["duplicate"] = json!(self.duplicate);
+        out["needs_review"] = json!(self.needs_review);
+        if self.needs_review {
+            out["message"] = json!(format!("created and {REVIEW_MESSAGE}; the person approves, edits or rejects it — nothing publishes until then"));
+        } else if self.duplicate {
+            out["message"] = json!("a post with this client_ref already exists — returned instead of creating a second one");
+        }
+        out
+    }
+}
+
+/// Builds a post from an agent's request and writes it. A second call with
+/// the same `client_ref` returns the first post instead of a second file.
+pub fn create_post(root: &Path, body: &Value) -> Result<Created, ApiError> {
+    if let Some(client_ref) = body.as_object().and_then(client_ref_of) {
+        if let Some(existing) = find_by_client_ref(root, &client_ref) {
+            let needs_review = existing.get("status").and_then(Value::as_str) == Some("needs_review");
+            return Ok(Created { post: existing, duplicate: true, needs_review });
+        }
+    }
+    let post = build_post(root, body)?;
+    write_post(root, &post).map_err(ApiError::internal)?;
+    let needs_review = post.get("status").and_then(Value::as_str) == Some("needs_review");
+    log_activity(root, "agent", "create", post["id"].as_str().unwrap_or(""), None, Some(&post), None);
+    Ok(Created { post, duplicate: false, needs_review })
 }
 
 /// Applies a partial update; refuses when the caller's `version` is stale.
@@ -445,6 +616,8 @@ pub fn patch_post(root: &Path, id: &str, body: &Value) -> Result<Value, ApiError
     if status_now == "publishing" {
         return Err(ApiError::conflict("the post is being published right now"));
     }
+    let before = post.clone();
+    let approval = approval_required(root);
     if body.contains_key("text") || body.contains_key("content") || body.contains_key("media") || body.contains_key("thread") || body.contains_key("title") {
         post["content"] = content_from(body, post.get("content"));
     }
@@ -484,7 +657,11 @@ pub fn patch_post(root: &Path, id: &str, body: &Value) -> Result<Value, ApiError
                 if post.get("channelIds").and_then(Value::as_array).map(|a| a.is_empty()).unwrap_or(true) {
                     return Err(ApiError::bad("scheduling needs at least one channel"));
                 }
-                post["status"] = json!("scheduled");
+                // Approval is a human act. While the setting is on, an agent can
+                // move a post as far as the review queue and no further; a post
+                // the person already put on the calendar keeps its place.
+                let already_live = matches!(status_now.as_str(), "scheduled" | "publishing" | "failed");
+                post["status"] = json!(if approval && !already_live { "needs_review" } else { "scheduled" });
                 rescheduled = true;
             }
             other => return Err(ApiError::bad(format!("status `{other}` cannot be set through the API (draft, scheduled, cancelled)"))),
@@ -501,7 +678,40 @@ pub fn patch_post(root: &Path, id: &str, body: &Value) -> Result<Value, ApiError
     post["version"] = json!(current_version + 1);
     post["updatedAt"] = json!(now_iso());
     write_post(root, &post).map_err(ApiError::internal)?;
+    log_activity(root, "agent", "update", id, Some(&before), Some(&post), None);
     Ok(post)
+}
+
+/// `duplicate` / `needs_review` / `message` on a post an agent just wrote, so
+/// the agent can tell the person where it went.
+pub fn with_review_flags(post: &Value) -> Value {
+    let mut out = post.clone();
+    let waiting = post.get("status").and_then(Value::as_str) == Some("needs_review");
+    out["needs_review"] = json!(waiting);
+    if waiting {
+        out["message"] = json!(format!("the post is {REVIEW_MESSAGE}; nothing publishes until the person approves it"));
+    }
+    out
+}
+
+/// What `publish_now` hands back: `accepted` when the runner will publish,
+/// otherwise the post went to (or stays in) the review queue.
+pub struct Published {
+    pub post: Value,
+    pub accepted: bool,
+    pub needs_review: bool,
+}
+
+impl Published {
+    pub fn response(&self, note: &str) -> Value {
+        let mut out = json!({ "accepted": self.accepted, "needs_review": self.needs_review, "post": self.post });
+        out["note"] = json!(if self.needs_review {
+            format!("not published: the post is {REVIEW_MESSAGE}. Tell the person; they approve it in the app.")
+        } else {
+            note.to_string()
+        });
+        out
+    }
 }
 
 /// Marks the post due now; the app's runner publishes it.

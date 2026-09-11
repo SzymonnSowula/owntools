@@ -1,7 +1,20 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { Fragment, type ReactNode } from "react";
-import { ArrowRight, Check, Play, Sparkles } from "lucide-react";
+import {
+  ArrowRight,
+  ArrowUpRight,
+  Check,
+  Copy,
+  Download,
+  EyeOff,
+  Highlighter,
+  ListOrdered,
+  Play,
+  ScanText,
+  Sparkles,
+  Square,
+} from "lucide-react";
 import { DemoZoom } from "./components/DemoZoom";
 import { Faq } from "./components/Faq";
 import { Toolkit } from "./components/Toolkit";
@@ -12,6 +25,7 @@ import { SpeedCompare } from "./components/SpeedCompare";
 import { DictateAnywhere } from "./components/DictateAnywhere";
 import { QuickTools } from "./components/QuickTools";
 import { WhatsInside } from "./components/WhatsInside";
+import { Intelligence } from "./components/Intelligence";
 import { ThemeToggle } from "./components/ThemeToggle";
 import { WinDots, ToolIcons } from "./components/WinDots";
 import {
@@ -21,19 +35,11 @@ import {
   MAC_DOWNLOAD_SOON,
   MacDownloadCta,
 } from "./components/Cta";
-import { PRICE, contactEmail, downloadUrl, repoUrl, xUrl } from "@/lib/site";
+import { PRICE, contactEmail, downloadUrl, downloadUrlMac, repoUrl, xUrl } from "@/lib/site";
 
 /* The plain verb list from the brand rules: what the app does, never who is
    supposed to be doing it. */
-const HERO_VERBS = [
-  "dictate",
-  "transcribe",
-  "record",
-  "take notes",
-  "sketch",
-  "schedule",
-  "translate",
-];
+const HERO_VERBS = ["dictate", "transcribe", "record", "capture", "meet", "take notes", "translate"];
 
 const jsonLd = {
   "@context": "https://schema.org",
@@ -42,7 +48,7 @@ const jsonLd = {
   operatingSystem: "Windows, macOS",
   applicationCategory: "MultimediaApplication",
   description:
-    "Dictate into any app, transcribe audio and video, record your screen, take notes, sketch on a whiteboard, schedule social posts, see what is eating your disk, translate, and turn a link into a video - a desktop app that runs entirely on your own machine.",
+    "Dictate into any app, transcribe audio and video, record your screen, record and transcribe your calls, capture and mark up screenshots, take notes, sketch on a whiteboard, schedule social posts, see what is eating your disk, translate, and turn a link into a video - a desktop app that runs entirely on your own machine.",
   offers: [
     { "@type": "Offer", price: "0", priceCurrency: PRICE.currency, name: "Free (badge on exports)" },
     { "@type": "Offer", price: String(PRICE.amount), priceCurrency: PRICE.currency, name: "Pro (lifetime)" },
@@ -197,48 +203,214 @@ function SocialCard() {
             </div>
           ))}
         </div>
-        <p className="mt-2 text-[9px] text-[#6e6e73]">queued by claude · reviewed by you</p>
+        <p className="mt-2 text-[9px] text-[#6e6e73]">queued by claude · approved by you</p>
       </div>
     </div>
   );
 }
 
-function DictateCard() {
+/* A small live level, drawn at the size a pill row can hold (LevelMeter is
+   built for the listening pill and stands 16 px tall). Deterministic, so the
+   server and the client agree. */
+function Bars({ heights, className = "" }: { heights: number[]; className?: string }) {
   return (
-    <div className="floaty" style={{ ["--tilt" as string]: "2deg", animationDelay: "-5.5s" }}>
-      <div className="flex items-center gap-2 rounded-full bg-[#0b0b0d]/95 px-5 py-3 text-[13px] font-semibold text-white shadow-2xl">
-        <span className="rec-dot h-2.5 w-2.5 rounded-full bg-[#ff453a]" />
-        listening… <span className="font-normal text-white/50">ctrl+shift+space</span>
-      </div>
-    </div>
+    <span className={`flex items-end gap-[2px] ${className}`} aria-hidden>
+      {heights.map((h, i) => (
+        <span key={i} className="w-[2px] rounded-full bg-current" style={{ height: h }} />
+      ))}
+    </span>
   );
 }
 
-/* the dictate row's stand-in: the pill plus the text it just typed */
+/* the dictate row's stand-in: the pill, and the text landing while you are
+   still talking - the settled words in ink, the ones still being decoded
+   greyed, the way the streaming engine shows them */
+const VOICE_COMMANDS = ['"new line"', '"scratch that"', '"send it"'];
+
 function DictateStage() {
   return (
     <div className="w-[300px]">
       <div className="flex items-center gap-2 rounded-full bg-[#0b0b0d] px-4 py-2.5 text-[12px] font-semibold text-white shadow-xl">
         <span className="rec-dot h-2 w-2 rounded-full bg-[#ff453a]" /> listening…
+        <Bars heights={[4, 9, 6, 12, 7, 10, 5]} className="ml-0.5 text-white/80" />
         <span className="ml-auto font-mono text-[10px] font-normal text-white/45">ctrl+shift+space</span>
       </div>
       <div className="mt-3 rounded-xl border border-[#1d1d1f]/12 bg-white px-3 py-2.5 shadow-sm">
-        <p className="text-[8px] font-bold uppercase tracking-[0.14em] text-[#6e6e73]">cursor</p>
+        <p className="flex items-center justify-between text-[8px] font-bold uppercase tracking-[0.14em] text-[#6e6e73]">
+          cursor <span className="text-accent">typing while you speak</span>
+        </p>
         <p className="mt-0.5 text-[12px] leading-5 text-[#1d1d1f]">
-          the next clear thought lands right here.<span className="animate-pulse">|</span>
+          the next clear thought lands right here,{" "}
+          <span className="text-[#1d1d1f]/40">a few words behind your voice</span>
+          <span className="animate-pulse">|</span>
+        </p>
+      </div>
+      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+        {VOICE_COMMANDS.map((c) => (
+          <span
+            key={c}
+            className="rounded-full border border-[#1d1d1f]/12 bg-white px-2 py-0.5 font-mono text-[9.5px] text-[#6e6e73] shadow-sm"
+          >
+            {c}
+          </span>
+        ))}
+        <span className="rounded-full bg-[#0b0b0d]/85 px-2 py-0.5 text-[9.5px] font-semibold text-white">en · pl</span>
+      </div>
+    </div>
+  );
+}
+
+/* the meet row's stand-in: a call being written down as it happens, the two
+   sides told apart by where they came from - the mic is you, the speakers are
+   them - with your notes underneath */
+const MEET_LINES: { who: "you" | "them"; text: string; live?: boolean }[] = [
+  { who: "them", text: "can we lock the pricing this week?" },
+  { who: "you", text: "yes - one price, paid once. I'll send the page tonight." },
+  { who: "them", text: "and the mac build? half the team is on", live: true },
+];
+
+function MeetCard() {
+  return (
+    <div className="wincard wincard--light w-[300px]">
+      <div className="wincard-bar">
+        <WinDots icon={ToolIcons.meet} />
+        <span className="wincard-title">meet.app</span>
+      </div>
+      <div className="p-3">
+        {/* the take, then the two sources, each with its own live level */}
+        <div className="flex items-center justify-between text-[9px] font-semibold">
+          <span className="flex items-center gap-1 rounded-full bg-[#0b0b0d] px-2 py-1 text-white">
+            <span className="rec-dot h-1.5 w-1.5 rounded-full bg-[#ff453a]" /> 32:08 · zoom call
+          </span>
+          <span className="text-[#6e6e73]">live transcript</span>
+        </div>
+        <div className="mt-1.5 flex items-center gap-1.5 text-[9px] font-semibold">
+          <span className="flex flex-1 items-center gap-1 whitespace-nowrap rounded-full border border-[#1d1d1f]/10 bg-[#f5f5f7] px-2 py-1 text-[#1d1d1f]">
+            you <span className="font-normal text-[#6e6e73]">· mic</span>
+            <Bars heights={[3, 7, 5, 9, 4]} className="ml-auto text-accent" />
+          </span>
+          <span className="flex flex-1 items-center gap-1 whitespace-nowrap rounded-full border border-[#1d1d1f]/10 bg-[#f5f5f7] px-2 py-1 text-[#1d1d1f]">
+            them <span className="font-normal text-[#6e6e73]">· speakers</span>
+            <Bars heights={[6, 9, 4, 8, 6]} className="ml-auto text-cyan" />
+          </span>
+        </div>
+
+        {/* the transcript, each line owned by a side */}
+        <div className="mt-2.5 space-y-1.5">
+          {MEET_LINES.map((l, i) => (
+            <div key={i} className={`flex items-start gap-1.5 ${l.who === "you" ? "flex-row-reverse" : ""}`}>
+              <span
+                className={`mt-0.5 shrink-0 rounded-full px-1.5 py-px text-[7.5px] font-bold uppercase tracking-wide text-white ${
+                  l.who === "you" ? "bg-accent" : "bg-cyan"
+                }`}
+              >
+                {l.who}
+              </span>
+              <p
+                className={`max-w-[80%] rounded-[8px] px-2 py-1 text-[10px] leading-[14px] text-[#1d1d1f] ${
+                  l.who === "you" ? "bg-accent/10" : "bg-[#f5f5f7]"
+                }`}
+              >
+                {l.text}
+                {l.live ? <span className="caret text-accent">|</span> : null}
+              </p>
+            </div>
+          ))}
+        </div>
+
+        {/* your notes, beside the transcript */}
+        <div className="mt-2.5 flex items-center justify-between rounded-[8px] border border-dashed border-[#1d1d1f]/18 px-2 py-1.5 text-[9.5px]">
+          <span className="font-semibold text-[#1d1d1f]">your notes</span>
+          <span className="text-[#6e6e73]">ask about the invoice</span>
+        </div>
+        <p className="mt-2 flex items-center justify-between px-0.5 text-[9px] font-semibold text-[#6e6e73]">
+          <span>after: summary · decisions · to-dos</span>
+          <span className="text-accent">nothing uploads</span>
         </p>
       </div>
     </div>
   );
 }
 
-function NoteSticker({ text, tilt, className }: { text: string; tilt: string; className?: string }) {
+/* the capture row's stand-in: the screen frozen and dimmed, one region lifted
+   out of it with the mark-up already on it, the toolbar, and the text the tool
+   read out of the pixels */
+const CAPTURE_TOOLS: { icon: ReactNode; on?: boolean }[] = [
+  { icon: <ArrowUpRight size={10} />, on: true },
+  { icon: <Square size={10} /> },
+  { icon: <Highlighter size={10} /> },
+  { icon: <EyeOff size={10} /> },
+  { icon: <ListOrdered size={10} /> },
+  { icon: <Copy size={10} /> },
+  { icon: <Download size={10} /> },
+  { icon: <ScanText size={10} /> },
+];
+
+function CaptureCard() {
   return (
-    <div
-      className={`floaty rounded-[10px] border border-[#1d1d1f]/10 bg-[#fff8c4] px-3 py-2 text-[11px] font-medium text-[#1d1d1f]/80 shadow-md ${className ?? ""}`}
-      style={{ ["--tilt" as string]: tilt }}
-    >
-      {text}
+    <div className="wincard wincard--light w-[300px]">
+      <div className="wincard-bar">
+        <WinDots icon={ToolIcons.capture} />
+        <span className="wincard-title">capture.app</span>
+      </div>
+      <div className="relative h-[196px] overflow-hidden bg-[#0f1424]">
+        {/* the frozen desktop: two windows, dimmed */}
+        <div
+          className="absolute inset-0 opacity-60"
+          style={{
+            background:
+              "radial-gradient(90px 70px at 20% 20%, #0a84ff, transparent 70%), radial-gradient(110px 80px at 85% 30%, #5e5ce6, transparent 70%), #101a2e",
+          }}
+        />
+        <div className="absolute left-[6%] top-[12%] h-[46%] w-[50%] rounded-[5px] border border-white/20 bg-white/30" />
+        <div className="absolute left-[44%] top-[34%] h-[52%] w-[52%] rounded-[5px] border border-white/20 bg-white/35" />
+
+        {/* the toolbar */}
+        <div className="absolute left-1/2 top-2 flex -translate-x-1/2 items-center gap-0.5 rounded-full bg-[#0b0b0d]/92 px-1.5 py-1 text-white shadow-xl">
+          {CAPTURE_TOOLS.map((t, i) => (
+            <span
+              key={i}
+              className={`flex h-4 w-4 items-center justify-center rounded-full ${t.on ? "bg-accent text-white" : "text-white/75"}`}
+            >
+              {t.icon}
+            </span>
+          ))}
+        </div>
+
+        {/* the selection: everything outside it goes dark, everything inside
+            is the shot being marked up */}
+        <div className="absolute left-[40%] top-[30%] h-[52%] w-[54%] rounded-[6px] border-2 border-dashed border-white bg-white shadow-[0_0_0_9999px_rgba(15,20,36,0.45)]">
+          <div className="absolute inset-x-2 top-2 space-y-1.5">
+            <span className="block h-1.5 w-2/3 rounded bg-[#1d1d1f]/30" />
+            <span className="block h-1.5 w-1/2 rounded bg-[#1d1d1f]/15" />
+            <span className="block h-1.5 w-3/5 rounded bg-[#1d1d1f]/15" />
+          </div>
+          <span className="absolute left-1.5 top-[42%] h-[24%] w-[58%] rounded-[3px] border-2 border-[#ff453a]" />
+          <svg className="absolute right-1 top-0.5 h-10 w-12" viewBox="0 0 48 40" fill="none" aria-hidden>
+            <path d="M44 4 C 30 6, 22 14, 14 26" stroke="#ff453a" strokeWidth="2.2" strokeLinecap="round" />
+            <path d="M12 18 L 13.5 27 L 22 25" stroke="#ff453a" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          <span className="absolute bottom-1.5 left-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-[#ff453a] text-[8px] font-bold text-white">
+            1
+          </span>
+          {/* the name, blurred out */}
+          <span className="absolute bottom-2 right-2 h-2.5 w-14 rounded bg-[#1d1d1f]/35 blur-[2px]" />
+          {["-left-1 -top-1", "-right-1 -top-1", "-left-1 -bottom-1", "-right-1 -bottom-1"].map((c) => (
+            <span key={c} className={`absolute ${c} h-2 w-2 rounded-[2px] border border-[#1d1d1f]/40 bg-white`} />
+          ))}
+        </div>
+
+        {/* the text read out of it */}
+        <div className="absolute bottom-2 left-2 w-[150px] rounded-[8px] border border-white/75 bg-white/97 p-2 shadow-lg">
+          <p className="flex items-center justify-between font-mono text-[7.5px] font-bold uppercase tracking-[0.12em] text-[#6e6e73]">
+            text in this shot <span className="text-accent">copied</span>
+          </p>
+          <p className="mt-1 text-[9.5px] leading-[13px] text-[#1d1d1f]">Invoice 2026-041 · due 30 Sep · net 14 days</p>
+        </div>
+        <span className="absolute bottom-2 right-2 rounded-full bg-[#0b0b0d]/90 px-2 py-0.5 font-mono text-[8.5px] font-semibold text-white/85">
+          ctrl+shift+4
+        </span>
+      </div>
     </div>
   );
 }
@@ -254,11 +426,39 @@ const TOOL_ROWS: ShowcaseTool[] = [
     tint: "#32ade6",
     trigger: "hit record",
     headline: "recordings that look edited - without editing",
-    desc: "Auto-zoom follows your cursor so viewers always look at the right pixel. Trim, split, camera bubble, TikTok-style captions. Offline render straight to MP4 60 fps.",
-    chips: ["auto-zoom", "auto-cut silence", "auto-captions (Whisper)", ".srt export", "no ffmpeg, no upload"],
+    desc: "Auto-zoom follows your cursor so viewers always look at the right pixel. The transcript is a second timeline: delete a sentence and the video follows, and the fillers and retakes are found for you. Offline render straight to MP4 60 fps.",
+    chips: [
+      "auto-zoom",
+      "edit the transcript, the video follows",
+      "fillers & retakes found for you",
+      "chapters, ready for YouTube",
+      "short clips picked from the words, 9:16",
+      "auto-captions (Whisper)",
+      "no ffmpeg, no upload",
+    ],
     media: shot("screeni"),
     ground: "tide",
     mock: <ScreeniCard />,
+  },
+  {
+    name: "capture",
+    icon: "capture",
+    file: "capture.app",
+    tint: "#28a3ea",
+    trigger: "ctrl + shift + 4",
+    headline: "a screenshot that explains itself",
+    desc: "One shortcut freezes the screen. Drag a region, add the arrows, the boxes, a blur over the name, copy it or save it - or copy the text out of it, read on-device. Every capture lands in a library you can search by what it says.",
+    chips: [
+      "freeze · drag · mark up",
+      "arrows, boxes, highlighter, blur",
+      "numbered steps",
+      "copy the text out of it (on-device OCR)",
+      "send to board or social",
+      "a library searchable by its text",
+    ],
+    media: shot("capture"),
+    ground: "tide",
+    mock: <CaptureCard />,
   },
   {
     name: "dictate",
@@ -267,11 +467,39 @@ const TOOL_ROWS: ShowcaseTool[] = [
     tint: "#1e9bf0",
     trigger: "ctrl + shift + space",
     headline: "write, prompt and reply - with your voice",
-    desc: "One hotkey anywhere: an email, a message, an essay, a form, a prompt box. ~4× faster than typing, on-device, in English and Polish.",
-    chips: ["works in every app", "voice notes → your vault", "transcribe meetings & files", "translate to English", "100% offline"],
+    desc: "One hotkey anywhere: an email, a message, an essay, a form, a prompt box. Text is decoded while you speak, so when you stop only the tail is left to wait for. ~4× faster than typing, on-device, in English and Polish.",
+    chips: [
+      "works in every app",
+      "types while you speak",
+      "voice commands - en & pl",
+      "a profile per app",
+      "live captions, translated to English",
+      "100% offline",
+    ],
     media: shot("dictate"),
     ground: "meadow",
     mock: <DictateStage />,
+  },
+  {
+    name: "meet",
+    icon: "meet",
+    file: "meet.app",
+    tint: "#1490f2",
+    trigger: "any call, any app",
+    headline: "the call, written down - and who said what",
+    desc: "Zoom, Meet, Teams, a lecture in a tab: meet records your mic and what your machine plays, and the live transcript says which lines were you and which were them. Your notes sit beside it. When the call ends, the on-device model writes the summary, the decisions and the to-dos. Nothing joins the call, nothing is uploaded.",
+    chips: [
+      "mic + system audio, captured locally",
+      "you / them, told apart",
+      "notes beside the transcript",
+      "summary · decisions · to-dos",
+      "to-dos → focus · summary → social",
+      "Markdown export",
+      "windows first",
+    ],
+    media: shot("meet"),
+    ground: "dawn",
+    mock: <MeetCard />,
   },
   {
     name: "focus",
@@ -306,8 +534,16 @@ const TOOL_ROWS: ShowcaseTool[] = [
     tint: "#4a67ec",
     trigger: "write once",
     headline: "run your social media on autopilot",
-    desc: "A visual calendar for every network you post to. Write once with per-network previews and limits, or let an AI agent queue the week over a local MCP server - every post waits in the calendar for your review.",
-    chips: ["week · month · list", "per-network previews & limits", "threads, tags, repeats", "local REST + MCP API", "bluesky · mastodon · telegram · discord · slack"],
+    desc: "A visual calendar for every network you post to. Write once with per-network previews and limits, or let an AI agent queue the week over a local MCP server - every agent-made post waits in a Review queue until you approve it.",
+    chips: [
+      "week · month · list",
+      "review queue for agent posts",
+      "posting slots per channel",
+      "a brand-voice doc every agent reads",
+      "activity log with undo",
+      "local REST + MCP API",
+      "bluesky · mastodon · telegram · discord · slack",
+    ],
     media: shot("social"),
     ground: "dusk",
     mock: <SocialCard />,
@@ -368,6 +604,14 @@ const MOMENTS = [
   },
   {
     ground: "dawn" as const,
+    motif: "meet" as const,
+    window: "the-call-you-wont-remember.you",
+    title: "when it's a call you will not remember",
+    desc: "A client, a lecturer, a stand-up, a doctor. meet records what your machine plays and what you say, keeps the two apart, and leaves you the summary, the decisions and the to-dos - nothing joins the call, nothing is uploaded.",
+    tools: ["meet"],
+  },
+  {
+    ground: "dawn" as const,
     motif: "timer" as const,
     window: "quiet-hour.you",
     title: "when the day needs a quiet hour",
@@ -379,8 +623,16 @@ const MOMENTS = [
     motif: "sketch" as const,
     window: "wont-fit-in-a-line.you",
     title: "when the idea won't fit in a line",
-    desc: "A plan, a flow, a screenshot that needs three arrows and a question mark. Paste it onto an endless board, draw around it, and come back tomorrow to find it exactly where you left it.",
+    desc: "A plan, a flow, a diagram that keeps changing shape. Put it on an endless board, draw around it, and come back tomorrow to find it exactly where you left it.",
     tools: ["board"],
+  },
+  {
+    ground: "dusk" as const,
+    motif: "capture" as const,
+    window: "three-arrows.you",
+    title: "when a screenshot needs three arrows",
+    desc: "A bug for the developer, a how-to for a colleague, a form somebody filled in wrong. One shortcut freezes the screen: drag the region, add the arrows and a blur over the name, copy it - or copy the text out of it.",
+    tools: ["capture"],
   },
   {
     ground: "mist" as const,
@@ -496,6 +748,35 @@ const MOTIFS: Record<string, ReactNode> = {
       ))}
     </span>
   ),
+  /* two voices: the louder one is you, the quieter one is them - the same
+     drawing as the meet glyph in the window bars */
+  meet: (
+    <span className="absolute inset-0 flex items-center justify-center gap-3">
+      <span className="flex items-end gap-[3px]">
+        {[12, 26, 18, 34, 20].map((h, i) => (
+          <span key={i} className="w-[4px] rounded-full bg-white" style={{ height: h }} />
+        ))}
+      </span>
+      <span className="flex items-end gap-[3px]">
+        {[10, 18, 24, 14, 8].map((h, i) => (
+          <span key={i} className="w-[4px] rounded-full bg-white/55" style={{ height: h }} />
+        ))}
+      </span>
+    </span>
+  ),
+  /* the viewfinder with its shutter point - the capture glyph, blown up */
+  capture: (
+    <svg className="absolute inset-0 h-full w-full" viewBox="0 0 92 92" fill="none" aria-hidden>
+      <path
+        d="M22 34V28a6 6 0 0 1 6-6h6M58 22h6a6 6 0 0 1 6 6v6M70 58v6a6 6 0 0 1-6 6h-6M34 70h-6a6 6 0 0 1-6-6v-6"
+        stroke="#fff"
+        strokeWidth="3.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <circle cx="46" cy="46" r="8" fill="#fff" />
+    </svg>
+  ),
 };
 
 const FREE_TOOLS = [
@@ -563,9 +844,12 @@ const COURSE: { t: string; state: "done" | "now" | "next" }[] = [
   { t: "workspaces & sessions", state: "done" },
   { t: "board - an endless whiteboard", state: "done" },
   { t: "social - schedule everywhere", state: "done" },
+  { t: "disk - see what fills the drive", state: "done" },
+  { t: "meet - any call, written down", state: "done" },
+  { t: "capture - screenshots that read", state: "done" },
+  { t: "a model of your own", state: "done" },
   { t: "macOS - coming soon", state: "now" },
   { t: "mate, the agent", state: "next" },
-  { t: "a model of your own", state: "next" },
 ];
 
 /* how far along the course we are — derived, so adding a port cannot leave the
@@ -579,9 +863,9 @@ const AGENTS = ["OpenClaw", "Hermes", "Claude", "ChatGPT", "Codex", "Cursor"];
 
 const SOCIAL_POINTS = [
   { t: "one calendar, every network.", d: "Week, month or list. Drag a post to another slot, filter by channel, tag or status." },
-  { t: "write once, tune per network.", d: "A global text plus a tab for each channel, live previews, per-network character limits, threads where they exist, Unicode bold and italic where they don't." },
-  { t: "agents plan, you approve.", d: "A local REST + MCP server with a token. An agent lists your channels and queues the week; nothing leaves the calendar without you." },
-  { t: "publishes from your machine.", d: "owntools runs in the tray and sends each post straight to the network at its time - retries, a notification, and a catch-up sheet if the app was closed." },
+  { t: "write once, tune per network.", d: "A global text plus a tab for each channel, live previews, per-network character limits, threads where they exist, Unicode bold and italic where they don't - and, with the on-device model, a variant per network that fits its limit." },
+  { t: "agents plan, you approve.", d: "A local REST + MCP server with a token. An agent-made post waits in a Review queue until you approve it - on by default. Posting slots per channel mean an agent says \"add to queue\" instead of inventing 3 a.m., a retry never double-posts, and a brand-voice document tells every agent how you sound." },
+  { t: "publishes from your machine.", d: "owntools runs in the tray and sends each post straight to the network at its time - retries, a notification, a catch-up sheet if the app was closed, and an activity log with undo." },
 ];
 
 /* A treemap of a drive: big blocks are the folders eating the space, and the
@@ -640,14 +924,14 @@ function DiskCard() {
 function SocialCalendarCard() {
   const days = ["mon 6", "tue 7", "wed 8", "thu 9", "fri 10", "sat 11", "sun 12"];
   const hours = ["9 am", "10 am", "11 am", "1 pm", "3 pm"];
-  const cells: Record<string, { tag: string; tagColor: string; text: string; badge: string; draft?: boolean; done?: boolean }> = {
+  const cells: Record<string, { tag: string; tagColor: string; text: string; badge: string; draft?: boolean; done?: boolean; review?: boolean }> = {
     "0-0": { tag: "news", tagColor: "#ff375f", text: "new build: board + social", badge: "#0085ff", done: true },
     "1-1": { tag: "personal", tagColor: "#5e5ce6", text: "small daily workouts beat…", badge: "#000000" },
     "2-0": { tag: "product", tagColor: "#0a84ff", text: "thread: url → video 🧵", badge: "#6364ff" },
     "2-3": { tag: "news", tagColor: "#ff375f", text: "record button now in the tray", badge: "#26a5e4" },
-    "3-2": { tag: "product", tagColor: "#0a84ff", text: "dictation tip: quiet rooms", badge: "#0a66c2" },
+    "3-2": { tag: "product", tagColor: "#0a84ff", text: "dictation tip: quiet rooms", badge: "#0a66c2", review: true },
     "4-1": { tag: "personal", tagColor: "#5e5ce6", text: "draft: quiet hour", badge: "#0085ff", draft: true },
-    "5-4": { tag: "product", tagColor: "#0a84ff", text: "weekly changelog", badge: "#5865f2" },
+    "5-4": { tag: "product", tagColor: "#0a84ff", text: "weekly changelog", badge: "#5865f2", review: true },
   };
   return (
     <div className="wincard w-full max-w-[560px]">
@@ -678,7 +962,11 @@ function SocialCalendarCard() {
                   >
                     {c === 2 && r === 1 ? <span className="absolute inset-x-0 top-[40%] h-px bg-[#ff453a]" /> : null}
                     {cell ? (
-                      <div className={`overflow-hidden rounded-[5px] border border-line bg-card shadow-sm ${cell.done ? "opacity-80" : ""}`}>
+                      <div
+                        className={`overflow-hidden rounded-[5px] border bg-card shadow-sm ${cell.done ? "opacity-80" : ""} ${
+                          cell.review ? "border-dashed border-[#ff9f0a]/70" : "border-line"
+                        }`}
+                      >
                         <div className="px-1 py-px text-[7px] font-bold uppercase tracking-wide text-white" style={{ background: cell.tagColor }}>
                           {cell.tag}
                         </div>
@@ -686,6 +974,7 @@ function SocialCalendarCard() {
                           <span className="mt-0.5 h-2 w-2 shrink-0 rounded-full" style={{ background: cell.badge }} />
                           <span className="line-clamp-2 text-[8px] leading-[1.25] text-ink">
                             {cell.draft ? <span className="text-muted">Draft: </span> : null}
+                            {cell.review ? <span className="font-semibold text-[#ff9f0a]">Review: </span> : null}
                             {cell.text}
                           </span>
                         </div>
@@ -698,8 +987,8 @@ function SocialCalendarCard() {
           ))}
         </div>
         <div className="mt-2 flex items-center justify-between text-[10px] text-muted">
-          <span>4 scheduled · 1 draft · 1 published</span>
-          <span>queued by claude code over mcp · reviewed by you</span>
+          <span>3 scheduled · 2 awaiting your review · 1 draft · 1 published</span>
+          <span>queued by claude code over mcp · approved by you</span>
         </div>
       </div>
     </div>
@@ -776,6 +1065,7 @@ export default function Home() {
           </a>
           <nav className="flex items-center gap-3 text-sm font-medium text-muted md:gap-5">
             <a href="#tools" className="hidden transition hover:text-ink md:block">tools</a>
+            <a href="#intelligence" className="hidden transition hover:text-ink md:block">on-device</a>
             <a href="#who" className="hidden transition hover:text-ink md:block">what it’s for</a>
             <a href="#roadmap" className="hidden transition hover:text-ink md:block">roadmap</a>
             <a href="/tools/launch-video-maker" className="hidden transition hover:text-ink md:block">free tools</a>
@@ -791,21 +1081,17 @@ export default function Home() {
 
       {/* hero — the sky above the desk */}
       <section className="hero-sky ground ground--wide relative overflow-hidden">
+        {/* Two windows, diagonally opposed and well outside the text column.
+            There were four of these plus two sticky notes, which framed nothing
+            and turned the first screen into scatter. */}
         <div className="pointer-events-none absolute inset-0 hidden xl:block" aria-hidden>
           <div className="relative mx-auto h-full max-w-[1600px]">
-            <div className="absolute left-[3%] top-32"><FocusCard /></div>
-            <div className="pointer-events-auto absolute right-[2%] top-28"><DemoZoom /></div>
-            <div className="absolute bottom-[14%] left-[6%]"><LaunchCard /></div>
-            <div className="absolute bottom-[22%] right-[7%]"><DictateCard /></div>
-            <NoteSticker text="say it, don't type it" tilt="-6deg" className="absolute left-[24%] top-24" />
-            <NoteSticker text="no cloud. promise." tilt="5deg" className="absolute bottom-[12%] right-[26%]" />
+            <div className="absolute left-[4%] top-44"><FocusCard /></div>
+            <div className="pointer-events-auto absolute bottom-[27%] right-[3%]"><DemoZoom /></div>
           </div>
         </div>
 
-        <div className="relative mx-auto max-w-3xl px-5 pb-24 pt-32 text-center md:pb-40 md:pt-44 lg:pb-44 lg:pt-48">
-          <p className="mx-auto mb-6 inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/15 px-4 py-1.5 text-[13px] font-semibold text-white backdrop-blur-md md:text-sm">
-            one app instead of six subscriptions
-          </p>
+        <div className="relative mx-auto max-w-3xl px-5 pb-24 pt-36 text-center md:pb-36 md:pt-52">
           <h1
             className="display text-5xl font-extrabold sm:text-6xl md:text-[80px] md:leading-[0.98] lg:text-[92px]"
             style={{ textShadow: "0 2px 24px rgba(10,30,60,0.35)" }}
@@ -814,10 +1100,17 @@ export default function Home() {
             <br />
             your device.
           </h1>
-          <p className="mt-6 text-lg font-medium text-white md:text-xl" style={{ textShadow: "0 1px 12px rgba(10,30,60,0.4)" }}>
-            One app for the whole working day - and it never phones home.
+          {/* The hook does what the headline cannot: the headline is a promise,
+              this says what the thing is and why it is different, in two short
+              sentences a non-native reader gets on one pass. It replaces both a
+              badge and a vaguer subtitle that used to sit here. */}
+          <p
+            className="mx-auto mt-7 max-w-xl text-balance text-lg font-medium text-white md:text-xl"
+            style={{ textShadow: "0 1px 12px rgba(10,30,60,0.4)" }}
+          >
+            Nine tools for the whole working day. Nothing ever leaves your machine.
           </p>
-          <ul className="mx-auto mt-6 flex flex-wrap items-center justify-center gap-2">
+          <ul className="mx-auto mt-7 flex flex-wrap items-center justify-center gap-2">
             {HERO_VERBS.map((verb) => (
               <li
                 key={verb}
@@ -827,36 +1120,50 @@ export default function Home() {
               </li>
             ))}
           </ul>
-          <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
-            <DownloadCta
-              className="btn btn-light"
-              fallback={
-                <>
-                  <WindowsGlyph /> {DOWNLOAD_SOON}
-                </>
-              }
-            >
-              <WindowsGlyph /> download for windows
-            </DownloadCta>
-            <MacDownloadCta
-              className="btn btn-light"
-              fallback={
-                <>
-                  <AppleGlyph /> {MAC_DOWNLOAD_SOON}
-                </>
-              }
-            >
-              <AppleGlyph /> download for mac
-            </MacDownloadCta>
-            <a href="/tools/launch-video-maker" className="btn btn-ghost">
-              <Play size={15} /> try a free tool in the browser
-            </a>
+
+          <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
+            {downloadUrl || downloadUrlMac ? (
+              <>
+                <DownloadCta
+                  className="btn btn-light"
+                  fallback={
+                    <>
+                      <WindowsGlyph /> {DOWNLOAD_SOON}
+                    </>
+                  }
+                >
+                  <WindowsGlyph /> download for windows
+                </DownloadCta>
+                <MacDownloadCta
+                  className="btn btn-light"
+                  fallback={
+                    <>
+                      <AppleGlyph /> {MAC_DOWNLOAD_SOON}
+                    </>
+                  }
+                >
+                  <AppleGlyph /> download for mac
+                </MacDownloadCta>
+              </>
+            ) : (
+              /* Before launch exactly one thing here works, so it is the only
+                 thing that looks clickable. Two identical dead buttons side by
+                 side taught the reader the whole hero was inert. */
+              <>
+                <a href="/tools/launch-video-maker" className="btn btn-light">
+                  <Play size={15} /> try a free tool in the browser
+                </a>
+                <span className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-4 py-2 text-[13px] font-medium text-white/85 backdrop-blur-md">
+                  <WindowsGlyph />
+                  <AppleGlyph />
+                  windows &amp; mac - launching soon
+                </span>
+              </>
+            )}
           </div>
-          <p className="mt-5 text-[13px] font-medium text-white/80">
-            windows 10/11 · macOS 11+ (apple silicon &amp; intel) · one licence covers both
-          </p>
+
           <p
-            className="mt-3 text-[13px] font-medium text-white/80"
+            className="mx-auto mt-6 text-[13px] font-medium text-white/75"
             style={{ textShadow: "0 1px 14px rgba(10,30,60,0.45)" }}
           >
             paid once · no accounts · works with the wi-fi off
@@ -1061,9 +1368,9 @@ export default function Home() {
       <section id="tools" className="py-20 md:py-28">
         <div className="mx-auto max-w-7xl px-5">
           <Reveal className="mx-auto max-w-2xl text-center">
-            <h2 className="display text-4xl md:text-5xl">seven tools, one desk, zero cloud</h2>
+            <h2 className="display text-4xl md:text-5xl">nine tools, one desk, zero cloud</h2>
             <p className="mx-auto mt-4 max-w-xl text-muted">
-              Use one of them or all seven - nothing here assumes what your job is.
+              Use one of them or all nine - nothing here assumes what your job is.
             </p>
           </Reveal>
           <div className="mt-16 md:mt-24">
@@ -1071,6 +1378,8 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      <Intelligence />
 
       <QuickTools />
 
@@ -1130,7 +1439,7 @@ export default function Home() {
       <section id="who" className="mx-auto max-w-6xl px-5 py-16 md:py-24">
         <SectionHead
           kicker="what it's for"
-          title="seven moments, not seven job titles"
+          title="nine moments, not nine job titles"
           sub="There is no niche here. If you talk, record, listen or just need to concentrate, one of these is already your day."
         />
         <div className="mt-12 grid gap-5 sm:grid-cols-2">
@@ -1268,7 +1577,7 @@ export default function Home() {
                   <p className="text-[13px] text-[#6e6e73]">see what the fuss is about</p>
                   <p className="display mt-3 text-5xl font-extrabold">$0</p>
                   <ul className="mt-5 space-y-2.5 text-sm text-[#6e6e73]">
-                    <li className="flex gap-2"><Check size={15} className="mt-0.5 text-accent" /> all seven tools, no limits</li>
+                    <li className="flex gap-2"><Check size={15} className="mt-0.5 text-accent" /> all nine tools, no limits</li>
                     <li className="flex gap-2"><Check size={15} className="mt-0.5 text-accent" /> 60 fps MP4 export with audio</li>
                     <li className="flex gap-2"><Check size={15} className="mt-0.5 text-accent" /> on-device dictation &amp; captions</li>
                     <li className="flex gap-2"><Check size={15} className="mt-0.5 text-accent" /> small “made with owntools” badge on videos</li>
@@ -1406,7 +1715,7 @@ export default function Home() {
 
         <Reveal delay={0.06}>
           <div className="mt-9 overflow-x-auto pb-1">
-            <ol className="relative flex min-w-[760px] items-start">
+            <ol className="relative flex min-w-[980px] items-start">
               <span className="absolute inset-x-0 top-[6px] border-t border-dashed border-line" aria-hidden />
               <span
                 className="absolute left-0 top-[6px] border-t-2 border-accent"
@@ -1482,9 +1791,12 @@ export default function Home() {
               <div className="mt-3 flex flex-col gap-2 text-muted">
                 <a className="transition hover:text-ink" href="#tools">focus - deep work</a>
                 <a className="transition hover:text-ink" href="#tools">screeni - recording</a>
+                <a className="transition hover:text-ink" href="#tools">capture - screenshots</a>
                 <a className="transition hover:text-ink" href="#tools">launch - announce</a>
                 <a className="transition hover:text-ink" href="#tools">dictate - voice</a>
+                <a className="transition hover:text-ink" href="#tools">meet - calls</a>
                 <a className="transition hover:text-ink" href="#tools">board - whiteboard</a>
+                <a className="transition hover:text-ink" href="#tools">disk - drive space</a>
                 <a className="transition hover:text-ink" href="#social">social - scheduler</a>
               </div>
             </div>

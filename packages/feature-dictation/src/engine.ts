@@ -2,11 +2,31 @@ import { isTauri } from "@core/env";
 import { logInfo } from "@core/errors";
 import {
   blobToWhisperWav,
+  conditionPcm,
   DICTATION_MIC_CONSTRAINTS,
+  encodeWav,
   preferredRecorderMime,
+  WHISPER_SAMPLE_RATE,
 } from "@core/audio";
-import { cleanTranscript, stripNonSpeech } from "./cleanup";
+import { llmComplete, llmStatus } from "@core/llm";
+import { cleanTranscript, stripNonSpeech, type CleanupOptions } from "./cleanup";
+import { applyVoiceCommands, type CommandId } from "./commands";
 import { pushHistory } from "./history";
+import {
+  matchProfile,
+  MODE_INSTRUCTIONS,
+  sanitizeProfiles,
+  type AppProfile,
+  type ForegroundApp,
+} from "./profiles";
+import { resampleLinear } from "./segmenter";
+import {
+  createStreamingSession,
+  StreamingFailed,
+  type PartialState,
+  type StreamingResult,
+  type StreamingSession,
+} from "./streaming";
 import {
   DEFAULT_MODEL_FILE,
   EMPTY_STATUS,
@@ -108,6 +128,16 @@ export interface DictationSettings {
   removeFillers: boolean;
   /** Remember the last takes locally (History page). */
   keepHistory: boolean;
+  /** "new line", "scratch that", "send it" and their Polish twins (`commands.ts`). */
+  voiceCommands: boolean;
+  /**
+   * Decode while you speak (Parakeet): utterances go to the resident
+   * recognizer as they close, so the stop leaves only the tail to wait for.
+   * Off = the whole take is decoded after the stop, as before.
+   */
+  streaming: boolean;
+  /** Per-application finishing rules (`profiles.ts`). */
+  profiles: AppProfile[];
 }
 
 export const SETTINGS_KEY = "suite-dictation-settings";
@@ -124,18 +154,30 @@ export const DEFAULT_SETTINGS: DictationSettings = {
   cleanup: true,
   removeFillers: false,
   keepHistory: true,
+  voiceCommands: true,
+  streaming: true,
+  profiles: [],
 };
 
 /**
  * Folds any stored shape onto the current one: entries are validated, and the
- * old free-text vocabulary becomes entries the first time it is seen.
+ * old free-text vocabulary becomes entries the first time it is seen. A JSON
+ * from before voice commands, streaming or profiles existed gets their
+ * defaults; a profile row that no longer parses is dropped, not kept broken.
  */
 export function normalizeSettings(raw: Partial<DictationSettings> | null | undefined): DictationSettings {
   const merged = { ...DEFAULT_SETTINGS, ...(raw ?? {}) };
   let entries = sanitizeEntries(merged.entries);
   const legacy = typeof merged.vocabulary === "string" ? merged.vocabulary : "";
   if (!entries.length && legacy.trim()) entries = entriesFromText(legacy);
-  return { ...merged, entries, vocabulary: "" };
+  return {
+    ...merged,
+    entries,
+    vocabulary: "",
+    voiceCommands: merged.voiceCommands !== false,
+    streaming: merged.streaming !== false,
+    profiles: sanitizeProfiles(merged.profiles),
+  };
 }
 
 /** Beam search / best-of per preset — whisper's own default is 5 / 5. */
@@ -265,18 +307,54 @@ export async function dictationHotkeyRegistered(): Promise<boolean | null> {
 export type DictationTarget = "main" | "other";
 
 /**
- * Where a transcript should go: `"main"` when the app's own main window is in
- * front (its text fields and the board take the words directly, see
- * `insert.ts`), `"other"` for any other application, which gets them typed.
+ * The window in front when a take starts: whether it is our own main window
+ * (its text fields and the board take the words directly, see `insert.ts`)
+ * and, for any other application, which one — the process image name
+ * ("slack.exe"; the app name on macOS) and its title, for the per-app
+ * profiles. Both null when the platform cannot say.
  */
-export async function dictationTarget(): Promise<DictationTarget> {
-  if (!isTauri()) return "other";
+export interface ForegroundTarget extends ForegroundApp {
+  main: boolean;
+}
+
+const UNKNOWN_TARGET: ForegroundTarget = { main: false, app: null, title: null };
+
+export async function dictationTargetInfo(): Promise<ForegroundTarget> {
+  if (!isTauri()) return UNKNOWN_TARGET;
   try {
     const { invoke } = await import("@tauri-apps/api/core");
-    return (await invoke<string>("dictation_target")) === "main" ? "main" : "other";
+    const raw = await invoke<unknown>("dictation_target");
+    // A build from before the struct answered with a bare string.
+    if (raw === "main" || raw === "other") return { ...UNKNOWN_TARGET, main: raw === "main" };
+    if (raw && typeof raw === "object") {
+      const r = raw as Partial<ForegroundTarget>;
+      return {
+        main: r.main === true,
+        app: typeof r.app === "string" && r.app ? r.app : null,
+        title: typeof r.title === "string" && r.title ? r.title : null,
+      };
+    }
+    return UNKNOWN_TARGET;
   } catch {
-    return "other";
+    return UNKNOWN_TARGET;
   }
+}
+
+/** `"main"` when our own main window is in front, `"other"` for anything else. */
+export async function dictationTarget(): Promise<DictationTarget> {
+  return (await dictationTargetInfo()).main ? "main" : "other";
+}
+
+/**
+ * Presses Enter in the application in front — what "send it" and a profile's
+ * auto-send do after the text is typed. Never called when the target is our
+ * own window: there the text lands in a field through `insert.ts`, and Enter
+ * would submit whatever form that field belongs to.
+ */
+export async function pressEnter(): Promise<void> {
+  if (!isTauri()) return;
+  const { invoke } = await import("@tauri-apps/api/core");
+  await invoke("press_enter");
 }
 
 /** Deletes an installed model of either engine. */
@@ -567,6 +645,13 @@ export interface TranscribeOverrides {
   live?: boolean;
   /** Length of the recording, for the history. */
   durationMs?: number;
+  /**
+   * The application the take is going to, read by the pill when the take
+   * *starts* — a window switched to mid-take does not change the profile.
+   */
+  target?: ForegroundApp;
+  /** Profile override for this take; the settings' switch otherwise. */
+  removeFillers?: boolean;
 }
 
 interface WhisperInvokeOptions {
@@ -602,17 +687,67 @@ interface ParakeetCall {
  * How long the last take took, so the UI can show it and a regression is
  * noticed by someone other than the person waiting. Only set for Parakeet,
  * which is the engine dictation runs on.
+ *
+ * For a streamed take `ms` is the **tail**: from the stop to the last word,
+ * the only number the person waits for. `decodeMs` is everything the
+ * recognizer spent on the take, most of it while they were still talking.
  */
 export interface DictationTiming {
   ms: number;
   warm: boolean;
   audioMs: number;
+  /** Decoded while speaking; `ms` is the tail. */
+  streamed?: boolean;
+  decodeMs?: number;
+  /** Audio left to decode when the person stopped. */
+  tailAudioMs?: number;
+  segments?: number;
 }
 
 let lastTiming: DictationTiming | null = null;
 
 export function lastDictationTiming(): DictationTiming | null {
   return lastTiming;
+}
+
+/** Where the per-take WAVs go before an engine reads them. */
+async function writeScratchWav(wav: Uint8Array): Promise<{ rel: string; absolute: string }> {
+  const { exists, mkdir, writeFile, BaseDirectory } = await import("@tauri-apps/plugin-fs");
+  // The scratch WAV lives next to the whisper models; with Parakeet alone
+  // installed that folder does not exist yet (caught natively: "os error 3").
+  const appData = { baseDir: BaseDirectory.AppData };
+  if (!(await exists(SCRATCH_DIR, appData))) await mkdir(SCRATCH_DIR, { ...appData, recursive: true });
+  const rel = `${SCRATCH_DIR}/input-${Date.now()}-${Math.floor(Math.random() * 1e6).toString(36)}.wav`;
+  await writeFile(rel, wav, appData);
+  const { appDataDir, join } = await import("@tauri-apps/api/path");
+  return { rel, absolute: await join(await appDataDir(), rel) };
+}
+
+async function removeScratch(rel: string): Promise<void> {
+  const { remove, BaseDirectory } = await import("@tauri-apps/plugin-fs");
+  await remove(rel, { baseDir: BaseDirectory.AppData }).catch(() => undefined);
+}
+
+/**
+ * The lowest-level Parakeet call: a conditioned 16 kHz WAV in, the recognizer's
+ * text and what it cost out. Both the whole-take path and the streaming
+ * segments end here.
+ */
+async function runParakeet(wav: Uint8Array, model: string): Promise<{ text: string; call: ParakeetCall }> {
+  const { rel, absolute } = await writeScratchWav(wav);
+  try {
+    const { invoke } = await import("@tauri-apps/api/core");
+    const call = await invoke<ParakeetCall>("parakeet_transcribe", { wav: absolute, model });
+    let parsed: ParakeetJson = {};
+    try {
+      parsed = JSON.parse(call.json) as ParakeetJson;
+    } catch {
+      throw new Error("Parakeet returned something that is not a result.");
+    }
+    return { text: (parsed.text ?? "").trim(), call };
+  } finally {
+    void removeScratch(rel);
+  }
 }
 
 /**
@@ -678,91 +813,329 @@ export async function transcribeBlob(
   // would otherwise decode at its real-time factor. A file keeps its
   // silence, because its timings end up in subtitles.
   const wav = await blobToWhisperWav(blob, { trimSilence: overrides.live === true });
-  const { exists, mkdir, writeFile, BaseDirectory } = await import("@tauri-apps/plugin-fs");
-  // The scratch WAV lives next to the whisper models; with Parakeet alone
-  // installed that folder does not exist yet (caught natively: "os error 3").
-  const appData = { baseDir: BaseDirectory.AppData };
-  if (!(await exists(SCRATCH_DIR, appData))) await mkdir(SCRATCH_DIR, { ...appData, recursive: true });
-  const rel = `${SCRATCH_DIR}/input-${Date.now()}.wav`;
-  await writeFile(rel, wav, appData);
 
-  const { appDataDir, join } = await import("@tauri-apps/api/path");
-  const absolute = await join(await appDataDir(), rel);
-  const { invoke } = await import("@tauri-apps/api/core");
+  if (target.engine === "parakeet") {
+    const { text, call } = await runParakeet(wav, target.model);
+    lastTiming = { ms: call.ms, warm: call.warm, audioMs: call.audioMs };
+    logInfo(
+      "dictation",
+      `${call.audioMs} ms of speech in ${call.ms} ms (${call.warm ? "warm" : "cold"})`,
+    );
+    return cleanTranscript(text, cleanupOptions(settings, overrides));
+  }
 
+  const { rel, absolute } = await writeScratchWav(wav);
   try {
-    let raw: string;
-    if (target.engine === "parakeet") {
-      const call = await invoke<ParakeetCall>("parakeet_transcribe", {
-        wav: absolute,
-        model: target.model,
-      });
-      lastTiming = { ms: call.ms, warm: call.warm, audioMs: call.audioMs };
-      logInfo(
-        "dictation",
-        `${call.audioMs} ms of speech in ${call.ms} ms (${call.warm ? "warm" : "cold"})`,
-      );
-      let parsed: ParakeetJson = {};
-      try {
-        parsed = JSON.parse(call.json) as ParakeetJson;
-      } catch {
-        throw new Error("Parakeet returned something that is not a result.");
-      }
-      raw = (parsed.text ?? "").trim();
-    } else {
-      const preset = QUALITY_PRESETS[overrides.quality ?? settings.quality];
-      const promptSettings = overrides.ignoreSessionContext
-        ? { ...settings, useSessionContext: false }
-        : settings;
-      const options: WhisperInvokeOptions = {
-        prompt: buildPrompt(promptSettings, overrides.prompt),
-        model: target.model,
-        beamSize: preset.beamSize,
-        bestOf: preset.bestOf,
-        suppressNonSpeech: settings.cleanup,
-        maxLen: overrides.maxLen,
-      };
-      raw = await invoke<string>("whisper_transcribe", {
-        wav: absolute,
-        lang: lang === "auto" ? "auto" : lang,
-        json,
-        translate,
-        options,
-      });
-      if (json) return raw;
-    }
-    return cleanTranscript(raw, {
-      hallucinations: settings.cleanup,
-      vocabulary: vocabularyTerms(settings),
-      replacements: overrides.live ? replacementRules(settings.entries) : [],
-      removeFillers: overrides.live ? settings.removeFillers : false,
-      sentenceCase: true,
+    const preset = QUALITY_PRESETS[overrides.quality ?? settings.quality];
+    const promptSettings = overrides.ignoreSessionContext
+      ? { ...settings, useSessionContext: false }
+      : settings;
+    const options: WhisperInvokeOptions = {
+      prompt: buildPrompt(promptSettings, overrides.prompt),
+      model: target.model,
+      beamSize: preset.beamSize,
+      bestOf: preset.bestOf,
+      suppressNonSpeech: settings.cleanup,
+      maxLen: overrides.maxLen,
+    };
+    const { invoke } = await import("@tauri-apps/api/core");
+    const raw = await invoke<string>("whisper_transcribe", {
+      wav: absolute,
+      lang: lang === "auto" ? "auto" : lang,
+      json,
+      translate,
+      options,
     });
+    if (json) return raw;
+    return cleanTranscript(raw, cleanupOptions(settings, overrides));
   } finally {
-    const { remove } = await import("@tauri-apps/plugin-fs");
-    void remove(rel, { baseDir: BaseDirectory.AppData }).catch(() => undefined);
+    void removeScratch(rel);
   }
 }
 
 /**
- * The dictation path: transcribe, clean, and remember the result as context for
- * the next take. Use this anywhere the user is speaking *now* (pill, voice
- * notes, the test recorder) rather than transcribing an existing file.
+ * The clean-up a transcript gets. A live take (someone speaking now) also gets
+ * the phrase replacements and the filler removal — the latter overridable per
+ * app; a file being transcribed gets spelling fixes only.
  */
-export async function dictate(
-  blob: Blob,
-  overrides: TranscribeOverrides = {},
-): Promise<string> {
-  const settings = getDictationSettings();
-  const text = (
-    await transcribeBlob(blob, settings.lang, false, false, { ...overrides, live: true })
-  ).trim();
+function cleanupOptions(settings: DictationSettings, overrides: TranscribeOverrides): CleanupOptions {
+  return {
+    hallucinations: settings.cleanup,
+    vocabulary: vocabularyTerms(settings),
+    replacements: overrides.live ? replacementRules(settings.entries) : [],
+    removeFillers: overrides.live ? (overrides.removeFillers ?? settings.removeFillers) : false,
+    sentenceCase: true,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Finishing a take
+//
+// Whatever decoded the audio — whisper on the whole take, Parakeet on the whole
+// take, Parakeet segment by segment — the words then go through the same
+// door: voice commands, the per-app profile, the rolling context, the history.
+// ---------------------------------------------------------------------------
+
+/** What a live take came to, beyond the text. */
+export interface DictateOutcome {
+  text: string;
+  /** "Send it" was said, or the profile asks for Enter: press it after typing. */
+  send: boolean;
+  /** "Undo" was said; there is nothing to undo with yet, the pill says so. */
+  undo: boolean;
+  /** Voice commands that fired. */
+  commands: CommandId[];
+  /** The profile that applied, if any. */
+  profile: AppProfile | null;
+  /** Why the profile's tone was not applied ("no model"), when it was not. */
+  formattingSkipped: string | null;
+  engine: Engine;
+  /** Segments decoded while speaking; 0 for a whole-take decode. */
+  segments: number;
+}
+
+const EMPTY_OUTCOME: Omit<DictateOutcome, "engine"> = {
+  text: "",
+  send: false,
+  undo: false,
+  commands: [],
+  profile: null,
+  formattingSkipped: null,
+  segments: 0,
+};
+
+/** Waiting longer than this for a rewrite is worse than typing the words as said. */
+const FORMAT_TIMEOUT_MS = 8000;
+
+/**
+ * Rewrites the take in the profile's tone through the shared language model
+ * — only when one is set up. Without one the text comes back untouched with
+ * a reason, never an error and never a wait: the model status is a local
+ * lookup.
+ */
+async function formatForMode(
+  text: string,
+  mode: AppProfile["mode"],
+): Promise<{ text: string; skipped: string | null }> {
+  if (!mode || mode === "plain" || !text.trim()) return { text, skipped: null };
+  let status;
+  try {
+    status = await llmStatus();
+  } catch {
+    return { text, skipped: "no model" };
+  }
+  if (!status.available) return { text, skipped: "no model" };
+  try {
+    const out = await llmComplete({
+      system: MODE_INSTRUCTIONS[mode],
+      prompt: text,
+      purpose: "dictation formatting",
+      temperature: 0.2,
+      maxTokens: Math.min(2000, Math.max(200, text.length)),
+      signal: AbortSignal.timeout(FORMAT_TIMEOUT_MS),
+    });
+    const cleaned = out.trim().replace(/^["“]|["”]$/g, "");
+    return cleaned ? { text: cleaned, skipped: null } : { text, skipped: "model answered with nothing" };
+  } catch (err) {
+    const why = err instanceof Error && err.name === "TimeoutError" ? "model took too long" : "model error";
+    logInfo("dictation", `formatting skipped: ${why}`);
+    return { text, skipped: why };
+  }
+}
+
+/**
+ * Everything after the recognizer: voice commands, the per-app profile, the
+ * rolling context and the history entry. Shared by the whole-take and the
+ * streaming paths.
+ */
+async function finishTake(
+  cleaned: string,
+  settings: DictationSettings,
+  overrides: TranscribeOverrides,
+  engine: Engine,
+  segments: string[] | null,
+): Promise<DictateOutcome> {
+  const profile = overrides.target ? matchProfile(settings.profiles, overrides.target) : null;
+  let text = cleaned.trim();
+  let send = false;
+  let undo = false;
+  let commands: CommandId[] = [];
+  if (text && settings.voiceCommands) {
+    const result = applyVoiceCommands(text, segments ? { segments } : {});
+    text = result.text;
+    send = result.send;
+    undo = result.undo;
+    commands = result.applied;
+  }
+  let formattingSkipped: string | null = null;
+  if (text && profile?.mode && profile.mode !== "plain") {
+    const formatted = await formatForMode(text, profile.mode);
+    text = formatted.text;
+    formattingSkipped = formatted.skipped;
+  }
+  if (profile?.autoSend) send = true;
   if (text) {
     pushDictationContext(text);
-    if (settings.keepHistory) pushHistory(text, overrides.durationMs);
+    if (settings.keepHistory) {
+      pushHistory(text, overrides.durationMs, {
+        ...(overrides.target ? { app: overrides.target.app } : {}),
+        ...(formattingSkipped ? { note: `formatting skipped: ${formattingSkipped}` } : {}),
+      });
+    }
   }
-  return text;
+  return {
+    text,
+    send: Boolean(text) && send,
+    undo,
+    commands,
+    profile,
+    formattingSkipped,
+    engine,
+    segments: segments?.length ?? 0,
+  };
 }
+
+/**
+ * The dictation path, in full: transcribe the whole take, clean it, apply the
+ * voice commands and the profile, remember the result as context for the
+ * next take. Use this anywhere the user is speaking *now* (pill, voice notes,
+ * the test recorder) rather than transcribing an existing file.
+ */
+export async function dictateDetailed(
+  blob: Blob,
+  overrides: TranscribeOverrides = {},
+): Promise<DictateOutcome> {
+  const settings = getDictationSettings();
+  const profile = overrides.target ? matchProfile(settings.profiles, overrides.target) : null;
+  const live: TranscribeOverrides = {
+    ...overrides,
+    live: true,
+    removeFillers: overrides.removeFillers ?? profile?.removeFillers,
+  };
+  const status = await dictationStatus();
+  const engine = resolveActiveModel(live.model ?? settings.model, status)?.engine ?? "whisper";
+  const text = (await transcribeBlob(blob, settings.lang, false, false, live)).trim();
+  if (!text) return { ...EMPTY_OUTCOME, engine, profile };
+  return finishTake(text, settings, live, engine, null);
+}
+
+/** `dictateDetailed` for callers that only want the words (voice notes, the test recorder). */
+export async function dictate(blob: Blob, overrides: TranscribeOverrides = {}): Promise<string> {
+  return (await dictateDetailed(blob, overrides)).text;
+}
+
+// ---------------------------------------------------------------------------
+// Streaming
+//
+// Parakeet's resident recognizer answers a short utterance in a few hundred
+// milliseconds, so there is no reason to hold the whole take until the stop:
+// the segmenter closes an utterance on the pause after it and it is decoded
+// while the next one is being spoken. At the stop only the tail is left.
+// Whisper stays whole-take — its CLI loads the model per call.
+// ---------------------------------------------------------------------------
+
+/** Parakeet needs no padding to speak of; whisper's 1.2 s minimum does not apply. */
+const SEGMENT_AUDIO = { padSeconds: 0.1, minSeconds: 0.5, trimSilence: false } as const;
+
+/**
+ * Whether the next take can be decoded while speaking: the setting is on, the
+ * active model is Parakeet and the resident recognizer is installed (the
+ * one-shot CLI would load the model once *per segment*).
+ */
+export function streamingAvailable(status: EngineStatus | null, settings = getDictationSettings()): boolean {
+  if (!settings.streaming || !status?.parakeet.server) return false;
+  return resolveActiveModel(settings.model, status)?.engine === "parakeet";
+}
+
+export interface DictationStream {
+  session: StreamingSession;
+  model: string;
+}
+
+/**
+ * Opens a streaming take for the pill: feed it microphone PCM at
+ * `sampleRate`, read `session.partial()` for the live text, then hand it to
+ * `dictateStreamed`. Resolves null when the take has to be decoded whole
+ * (whisper, an old engine, the setting off) — the caller records as before.
+ */
+export async function createDictationStream(
+  sampleRate: number,
+  onPartial?: (state: PartialState) => void,
+  status?: EngineStatus | null,
+): Promise<DictationStream | null> {
+  if (!isTauri()) return null;
+  const settings = getDictationSettings();
+  const known = status === undefined ? await dictationStatus() : status;
+  if (!streamingAvailable(known, settings)) return null;
+  const active = resolveActiveModel(settings.model, known);
+  if (!active || active.engine !== "parakeet") return null;
+  const model = active.id;
+  const session = createStreamingSession({
+    sampleRate,
+    onPartial,
+    transcribe: async (pcm, rate) => {
+      const at16k = rate === WHISPER_SAMPLE_RATE ? pcm : resampleLinear(pcm, rate, WHISPER_SAMPLE_RATE);
+      const wav = encodeWav(conditionPcm(at16k, WHISPER_SAMPLE_RATE, SEGMENT_AUDIO), WHISPER_SAMPLE_RATE);
+      const { text, call } = await runParakeet(wav, model);
+      logInfo("dictation", `segment: ${call.audioMs} ms of speech in ${call.ms} ms`);
+      return { text, ms: call.ms };
+    },
+  });
+  return { session, model };
+}
+
+/**
+ * Ends a streaming take: decodes the tail, joins the segments in order and
+ * finishes the take like any other. Rejects with `StreamingFailed` when a
+ * segment could not be decoded — the caller then falls back to
+ * `dictateDetailed` on `session.audio()`, which the session kept for exactly
+ * that.
+ */
+export async function dictateStreamed(
+  stream: DictationStream,
+  overrides: TranscribeOverrides = {},
+): Promise<DictateOutcome> {
+  const settings = getDictationSettings();
+  const profile = overrides.target ? matchProfile(settings.profiles, overrides.target) : null;
+  const live: TranscribeOverrides = {
+    ...overrides,
+    live: true,
+    removeFillers: overrides.removeFillers ?? profile?.removeFillers,
+  };
+  const result: StreamingResult = await stream.session.finish();
+  lastTiming = {
+    ms: result.tailMs,
+    warm: true,
+    audioMs: Math.round(result.audioMs),
+    streamed: true,
+    decodeMs: result.decodeMs,
+    tailAudioMs: result.tailAudioMs,
+    segments: result.segments.length,
+  };
+  logInfo(
+    "dictation",
+    `streamed: ${result.segments.length} segments, ${Math.round(result.audioMs)} ms of audio, ` +
+      `${result.decodeMs} ms decoding, tail ${result.tailMs} ms (queue ${result.maxQueue})`,
+  );
+  const options = cleanupOptions(settings, live);
+  const cleaned = cleanTranscript(result.raw, options).trim();
+  if (!cleaned) return { ...EMPTY_OUTCOME, engine: "parakeet", profile, segments: result.segments.length };
+  // The commands see the segments so "scratch that" can drop an utterance;
+  // each is cleaned the same way so their text matches the joined one.
+  const segments = result.segments.map((s) => cleanTranscript(s, options).trim()).filter(Boolean);
+  return finishTake(cleaned, settings, live, "parakeet", segments);
+}
+
+/** A WAV of everything a streaming session heard, for the whole-take fallback. */
+export function sessionAudioBlob(session: StreamingSession): Blob {
+  const pcm = session.audio();
+  const at16k =
+    session.sampleRate === WHISPER_SAMPLE_RATE ? pcm : resampleLinear(pcm, session.sampleRate, WHISPER_SAMPLE_RATE);
+  return new Blob([encodeWav(at16k, WHISPER_SAMPLE_RATE)], { type: "audio/wav" });
+}
+
+export { StreamingFailed };
+export type { PartialState, StreamingSession };
 
 export interface WhisperSegment {
   start: number;

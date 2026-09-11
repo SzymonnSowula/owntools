@@ -65,6 +65,16 @@ export interface ChannelPreferences {
   charLimit?: number;
 }
 
+/**
+ * One recurring posting time of a channel's queue (Buffer-style): the days
+ * of the week it applies to (0 = Sunday … 6 = Saturday) and a local
+ * wall-clock "HH:MM". A channel without slots uses `DEFAULT_SLOTS`.
+ */
+export interface QueueSlot {
+  days: number[];
+  time: string;
+}
+
 export interface Channel {
   id: string;
   provider: NetworkId;
@@ -77,6 +87,8 @@ export interface Channel {
   collection: string;
   disabled: boolean;
   preferences: ChannelPreferences;
+  /** Queue slots "Next free slot" and agents' `add_to_queue` fill first. Absent = defaults. */
+  slots?: QueueSlot[];
   /**
    * Provider facts that are not secrets: Bluesky `did` + `pds`, Mastodon
    * `instance`, Telegram `chatId` + `chatUsername`, LinkedIn `authorUrn`,
@@ -92,7 +104,16 @@ export interface Channel {
 /** Secrets, one record per channel; stored in credentials.json. */
 export type ChannelCredentials = Record<string, string>;
 
-export type PostStatus = "draft" | "scheduled" | "publishing" | "published" | "failed" | "cancelled";
+/**
+ * `needs_review` is where a post from an agent or an automation waits while
+ * "agent posts need my approval" is on: the runner never publishes it, the
+ * calendar draws it hatched, and a person approves, edits or rejects it in
+ * social → Review.
+ */
+export type PostStatus = "draft" | "needs_review" | "scheduled" | "publishing" | "published" | "failed" | "cancelled";
+
+/** Who created a post: the composer, an agent over the API, a repeat rule, or another tool. */
+export type PostSource = "app" | "agent" | "repeat" | "automation" | "meet" | "capture" | "screeni";
 
 export interface MediaRef {
   /** Media library id (see MediaItem). */
@@ -171,10 +192,38 @@ export interface Post {
   createdAt: string;
   updatedAt: string;
   publishedAt: string | null;
-  /** Who created it — the composer, an agent over the API, or the repeat rule. */
-  source: "app" | "agent" | "repeat";
+  /** Who created it — the composer, an agent over the API, the repeat rule, or another tool. */
+  source: PostSource;
   /** Id of the post this occurrence was created from. */
   repeatOf?: string | null;
+  /**
+   * Caller-chosen idempotency key from an agent (`client_ref`): a second
+   * create with the same ref returns this post instead of making another.
+   */
+  clientRef?: string | null;
+}
+
+/* ------------------------------------------------------------------ */
+/* Activity log — <AppData>/social/activity.jsonl                       */
+/* ------------------------------------------------------------------ */
+
+export type ActivityActor = "agent" | "automation" | "user";
+export type ActivityAction = "create" | "update" | "delete" | "publish" | "approve" | "reject";
+
+/**
+ * One line of `activity.jsonl`: what an agent or an automation did to a
+ * post (and what a person did about it). `before` / `after` carry the whole
+ * post, so an update or a delete can be undone by writing `before` back as
+ * a new version. Rust appends the same shape for REST / MCP writes.
+ */
+export interface ActivityEntry {
+  ts: string;
+  actor: ActivityActor;
+  action: ActivityAction;
+  postId: string;
+  before?: Post | null;
+  after?: Post | null;
+  note?: string;
 }
 
 export interface Tag {
@@ -228,6 +277,12 @@ export interface SocialSettings {
   notifications: boolean;
   /** Posts due more than this many minutes ago wait for the catch-up sheet. */
   lateToleranceMinutes: number;
+  /**
+   * Posts created by an agent (REST / MCP) or an automation land as
+   * `needs_review` and wait for a person in social → Review. Default on;
+   * Rust reads the same key from settings.json.
+   */
+  agentPostsNeedApproval: boolean;
   agent: AgentSettings;
   ai: AiSettings;
   unsplashKey: string;

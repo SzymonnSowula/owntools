@@ -131,6 +131,20 @@ export function HistoryPage({ onNavigate }: { onNavigate: (page: Page) => void }
                           <span>{duration}</span>
                         </>
                       ) : null}
+                      {take.app ? (
+                        <>
+                          <span>·</span>
+                          <span className="dt-take-app" title="Typed into">
+                            → {take.app}
+                          </span>
+                        </>
+                      ) : null}
+                      {take.note ? (
+                        <>
+                          <span>·</span>
+                          <span className="dt-take-note">{take.note}</span>
+                        </>
+                      ) : null}
                       <span className="dt-take-actions">
                         <button
                           className="dt-icon-btn"

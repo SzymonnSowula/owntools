@@ -183,6 +183,12 @@ export default defineConfig(async () => ({
       "@feature-social": resolve(dirname, "../../packages/feature-social/src"),
       "@feature-tools": resolve(dirname, "../../packages/feature-tools/src"),
       "@feature-disk": resolve(dirname, "../../packages/feature-disk/src"),
+      "@feature-meet": resolve(dirname, "../../packages/feature-meet/src"),
+      "@feature-capture": resolve(dirname, "../../packages/feature-capture/src"),
+      "@feature-automations": resolve(dirname, "../../packages/feature-automations/src"),
+      "@feature-sync": resolve(dirname, "../../packages/feature-sync/src"),
+      "@feature-privacy": resolve(dirname, "../../packages/feature-privacy/src"),
+      "@feature-llm": resolve(dirname, "../../packages/feature-llm/src"),
     },
     // The launch engine lives outside this app's node_modules; without dedupe
     // its `react`/`remotion` imports would resolve to a second copy and break
@@ -195,6 +201,8 @@ export default defineConfig(async () => ({
         main: resolve(dirname, "index.html"),
         overlay: resolve(dirname, "overlay.html"),
         dictation: resolve(dirname, "dictation.html"),
+        captions: resolve(dirname, "captions.html"),
+        capture: resolve(dirname, "capture.html"),
       },
     },
   },

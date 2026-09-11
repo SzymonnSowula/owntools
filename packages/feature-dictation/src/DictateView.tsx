@@ -1,5 +1,5 @@
 import "./dictate.css";
-import { BookA, Cpu, History, Home, SlidersHorizontal } from "lucide-react";
+import { BookA, Captions, Cpu, History, Home, SlidersHorizontal } from "lucide-react";
 import { ToolMark } from "@ui/ToolMark";
 import { useEffect, useState, type ReactElement } from "react";
 import { isTauri } from "@core/env";
@@ -7,6 +7,7 @@ import { DICTATION_HOTKEY_LABEL } from "@core/hotkeys";
 import { Kbd } from "./components";
 import { dictationHotkeyRegistered, dictationReady, dictationStatus, type EngineStatus } from "./engine";
 import { useInstallSession } from "./install";
+import { CaptionsPage } from "./pages/CaptionsPage";
 import { HistoryPage } from "./pages/HistoryPage";
 import { ModelsPage } from "./pages/ModelsPage";
 import { OverviewPage } from "./pages/OverviewPage";
@@ -14,12 +15,13 @@ import { SettingsPage } from "./pages/SettingsPage";
 import { VocabularyPage } from "./pages/VocabularyPage";
 import { useDictationSettings } from "./useSettings";
 
-export type Page = "overview" | "vocabulary" | "models" | "settings" | "history";
+export type Page = "overview" | "vocabulary" | "models" | "captions" | "settings" | "history";
 
 const NAV: { id: Page; label: string; icon: ReactElement }[] = [
   { id: "overview", label: "Overview", icon: <Home /> },
   { id: "vocabulary", label: "Vocabulary", icon: <BookA /> },
   { id: "models", label: "Models", icon: <Cpu /> },
+  { id: "captions", label: "Captions", icon: <Captions /> },
   { id: "settings", label: "Settings", icon: <SlidersHorizontal /> },
   { id: "history", label: "History", icon: <History /> },
 ];
@@ -115,6 +117,8 @@ export default function DictateView() {
           <VocabularyPage />
         ) : page === "models" ? (
           <ModelsPage status={status} refresh={refresh} />
+        ) : page === "captions" ? (
+          <CaptionsPage status={status} />
         ) : page === "settings" ? (
           <SettingsPage hotkeyOk={hotkeyOk} status={status} />
         ) : (

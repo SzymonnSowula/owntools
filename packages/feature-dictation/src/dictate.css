@@ -1175,6 +1175,114 @@
   user-select: text;
 }
 
+/* ---- voice commands --------------------------------------------------- */
+
+.dt-cmds.off {
+  opacity: 0.45;
+}
+
+.dt-cmd {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.4fr);
+  gap: 4px 16px;
+  padding: 10px 16px;
+  font-size: 12.5px;
+}
+
+.dt-cmd + .dt-cmd {
+  border-top: 1px solid var(--color-line);
+}
+
+.dt-cmd-phrases {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-weight: 550;
+  letter-spacing: -0.01em;
+}
+
+.dt-cmd-pl {
+  color: var(--color-muted);
+  font-weight: 500;
+}
+
+.dt-cmd-effect {
+  color: var(--color-muted);
+  line-height: 1.45;
+}
+
+.dt-cmd-effect .dt-badge {
+  margin-left: 6px;
+  vertical-align: 1px;
+}
+
+/* ---- per-app profiles ------------------------------------------------- */
+
+.dt-profile {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) auto auto auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px 10px 16px;
+}
+
+.dt-profile + .dt-profile {
+  border-top: 1px solid var(--color-line);
+}
+
+.dt-profile-main {
+  min-width: 0;
+}
+
+.dt-profile-main .dt-input {
+  font-weight: 550;
+}
+
+.dt-profile-main .dt-row-hint {
+  margin-top: 4px;
+  padding-left: 2px;
+}
+
+.dt-profile-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11.5px;
+  color: var(--color-muted);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.dt-profile-form {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(140px, 1fr);
+  gap: 12px;
+}
+
+.dt-profile-flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+}
+
+.dt-num {
+  min-width: 26px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+/* ---- history: where it went ------------------------------------------- */
+
+.dt-take-app {
+  color: var(--color-muted);
+  font-weight: 550;
+}
+
+.dt-take-note {
+  color: #b7791f;
+}
+
 /* ---- motion ----------------------------------------------------------- */
 
 @keyframes dt-pulse {
@@ -1251,6 +1359,18 @@
   .dt-entry {
     grid-template-columns: minmax(0, 1fr) auto;
     row-gap: 0;
+  }
+  .dt-profile {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .dt-profile > :nth-child(3),
+  .dt-profile > :nth-child(4) {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+  .dt-cmd,
+  .dt-profile-form {
+    grid-template-columns: 1fr;
   }
   .dt-entry .dt-entry-arrow {
     display: none;

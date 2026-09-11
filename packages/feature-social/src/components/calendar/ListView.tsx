@@ -1,8 +1,9 @@
 import { format, isSameDay } from "date-fns";
-import { AlertCircle, CalendarPlus, Check, FileText, Loader2 } from "lucide-react";
+import { AlertCircle, CalendarPlus, Check, FileText, Loader2, ShieldAlert } from "lucide-react";
 import { postSummary } from "../../model";
 import { formatTime, fromIso, relativeTime } from "../../time";
 import type { Channel, Post, Tag } from "../../types";
+import { STATUS_LABEL } from "../../ui";
 import { Avatar } from "../Avatar";
 import { EmptyState } from "../primitives";
 
@@ -21,7 +22,7 @@ function Row({ post, channels, tags, onOpen }: { post: Post; channels: Channel[]
         </span>
         <span className="min-w-0">
           <span className="sc-row-text block">
-            {post.status === "draft" ? <span className="text-muted font-semibold">Draft: </span> : null}
+            {post.status === "draft" ? <span className="text-muted font-semibold">Draft: </span> : post.status === "needs_review" ? <span className="text-muted font-semibold">Review: </span> : null}
             {postSummary(post, 140)}
           </span>
           <span className="mt-0.5 flex items-center gap-2 text-[11px] text-muted">
@@ -46,8 +47,15 @@ function Row({ post, channels, tags, onOpen }: { post: Post; channels: Channel[]
           </span>
         ) : post.status === "publishing" ? (
           <Loader2 className="h-4 w-4 animate-spin text-accent" />
+        ) : post.status === "needs_review" ? (
+          <span className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-accent">
+            <span className="sc-post-glyph review">
+              <ShieldAlert />
+            </span>
+            review
+          </span>
         ) : (
-          <span className="text-[11px] font-semibold uppercase tracking-wide">{post.status}</span>
+          <span className="text-[11px] font-semibold uppercase tracking-wide">{STATUS_LABEL[post.status]}</span>
         )}
       </span>
     </button>

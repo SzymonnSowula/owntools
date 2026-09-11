@@ -1,3 +1,5 @@
+mod audio_capture;
+mod automations;
 mod capture;
 mod cursor;
 mod diagnostics;
@@ -9,9 +11,11 @@ mod hotkeys;
 mod importer;
 mod input_track;
 mod launcher;
+mod llm;
 #[cfg(target_os = "macos")]
 mod mac;
 mod migrate;
+mod netlog;
 mod parakeet;
 mod permissions;
 mod prefs;
@@ -19,6 +23,7 @@ mod prefs;
 mod scroll_guard;
 mod shield;
 mod social;
+mod sync;
 #[cfg(windows)]
 mod usage;
 mod ws;
@@ -150,7 +155,7 @@ pub fn run() {
             // overlay windows manage themselves and must never come back
             // visible on their own.
             tauri_plugin_window_state::Builder::new()
-                .with_denylist(&["recorder", "dictation"])
+                .with_denylist(&["recorder", "dictation", "captions", "capture"])
                 .with_state_flags(
                     tauri_plugin_window_state::StateFlags::all()
                         & !tauri_plugin_window_state::StateFlags::VISIBLE,
@@ -164,6 +169,12 @@ pub fn run() {
         .manage(disk::DiskState::default())
         .invoke_handler(tauri::generate_handler![
             quit_app,
+            automations::automations_watch_set,
+            automations::automations_allow_folder,
+            automations::automations_allowed_folders,
+            automations::automations_write_text,
+            automations::automations_import_file,
+            automations::automations_list_folder,
             usage::usage_set_enabled,
             usage::usage_is_enabled,
             scroll_guard::scroll_guard_sync,
@@ -187,13 +198,26 @@ pub fn run() {
             parakeet::parakeet_warmup,
             parakeet::parakeet_shutdown,
             parakeet::parakeet_remove_model,
+            llm::llm_status,
+            llm::llm_install_runtime,
+            llm::llm_remove_model,
+            llm::llm_ensure_server,
+            llm::llm_complete,
+            llm::llm_shutdown,
             dictation::type_text,
             dictation::mark_executable,
             permissions::accessibility_status,
             permissions::accessibility_request,
             dictation::dictation_target,
+            dictation::press_enter,
             downloader::download_file,
             downloader::download_cancel,
+            netlog::net_log,
+            netlog::net_log_summary,
+            netlog::net_log_recent,
+            netlog::net_log_clear,
+            netlog::privacy_offline_get,
+            netlog::privacy_offline_set,
             diagnostics::read_log_tail,
             diagnostics::diagnostics_info,
             prefs::set_close_to_tray,
@@ -235,7 +259,24 @@ pub fn run() {
             disk::disk_snapshot_list,
             disk::disk_snapshot_delete,
             disk::disk_snapshot_diff,
-            disk::disk_snapshot_open
+            disk::disk_snapshot_open,
+            audio_capture::audio_capture_devices,
+            audio_capture::audio_capture_start,
+            audio_capture::audio_capture_pause,
+            audio_capture::audio_capture_resume,
+            audio_capture::audio_capture_stop,
+            sync::sync_set_device,
+            sync::sync_set_folder,
+            sync::sync_clear_folder,
+            sync::sync_read_all,
+            sync::sync_write,
+            sync::sync_copy_out,
+            sync::sync_copy_in,
+            sync::sync_remove_out,
+            sync::sync_watch,
+            sync::sync_status,
+            sync::sync_app_scan,
+            sync::sync_app_remove
         ])
         .setup(move |app| {
             log::info!("owntools {} starting", app.package_info().version);
@@ -362,6 +403,10 @@ pub fn run() {
             // else reaps it, so a normal quit has to.
             if let tauri::RunEvent::Exit = event {
                 parakeet::shutdown();
+                llm::shutdown();
+                // Open call recordings: stop the WASAPI threads and patch the
+                // archive header so the file is playable.
+                audio_capture::shutdown();
             }
         });
 }

@@ -1,12 +1,13 @@
 import { confirmDialog } from "@ui/Dialog";
-import { FolderInput, Loader2, MoreHorizontal, Plug, Plus, RefreshCw, Settings2, Trash2 } from "lucide-react";
+import { FolderInput, Loader2, MoreHorizontal, Plug, Plus, RefreshCw, Settings2, Trash2, X } from "lucide-react";
 import { useState } from "react";
 import { logError } from "@core/errors";
 import { AVAILABILITY_LABEL, networkById } from "../../networks";
 import { providerFor } from "../../providers";
 import { networkAvailable } from "../../providers/http";
+import { DAY_NAMES, DEFAULT_SLOTS, cloneSlots, describeSlots } from "../../slots";
 import { useSocialStore } from "../../store";
-import type { Channel, ChannelPreferences } from "../../types";
+import type { Channel, ChannelPreferences, QueueSlot } from "../../types";
 import { useUi } from "../../ui";
 import { Avatar } from "../Avatar";
 import { Dialog, EmptyState, Field, Menu, Switch } from "../primitives";
@@ -21,8 +22,13 @@ function PreferencesDialog({ channel, onClose }: { channel: Channel; onClose: ()
   const updateChannel = useSocialStore((s) => s.updateChannel);
   const [prefs, setPrefs] = useState<ChannelPreferences>({ ...channel.preferences });
   const [name, setName] = useState(channel.displayName);
+  // Empty = the defaults (weekdays 9 / 13 / 17); anything here is the channel's own queue.
+  const [slots, setSlots] = useState<QueueSlot[]>(() => cloneSlots(channel.slots ?? []));
   const net = networkById(channel.provider);
   const set = (patch: Partial<ChannelPreferences>) => setPrefs((p) => ({ ...p, ...patch }));
+  const setSlot = (i: number, patch: Partial<QueueSlot>) => setSlots((list) => list.map((s, j) => (j === i ? { ...s, ...patch } : s)));
+  const toggleDay = (i: number, day: number) =>
+    setSlots((list) => list.map((s, j) => (j === i ? { ...s, days: s.days.includes(day) ? s.days.filter((d) => d !== day) : [...s.days, day].sort((a, b) => a - b) } : s)));
   return (
     <Dialog
       open
@@ -46,7 +52,8 @@ function PreferencesDialog({ channel, onClose }: { channel: Channel; onClose: ()
               if (prefs.parseMode) clean.parseMode = prefs.parseMode;
               if (prefs.publishAsDraft !== undefined) clean.publishAsDraft = prefs.publishAsDraft;
               if (prefs.defaultTags?.length) clean.defaultTags = prefs.defaultTags;
-              void updateChannel(channel.id, { preferences: clean, displayName: name.trim() || channel.displayName });
+              const keptSlots = slots.filter((s) => s.days.length > 0 && /^\d{2}:\d{2}$/.test(s.time));
+              void updateChannel(channel.id, { preferences: clean, displayName: name.trim() || channel.displayName, slots: keptSlots });
               onClose();
             }}
           >
@@ -106,6 +113,43 @@ function PreferencesDialog({ channel, onClose }: { channel: Channel; onClose: ()
             </Field>
           </>
         ) : null}
+        <div>
+          <div className="sc-label">Queue slots</div>
+          <div className="sc-hint mb-2">
+            “Next free slot” in the composer and an agent's <code>add_to_queue</code> fill these first. {slots.length ? "" : `Empty = the defaults: ${describeSlots(DEFAULT_SLOTS)}.`}
+          </div>
+          <div className="flex flex-col gap-2">
+            {slots.map((s, i) => (
+              <div key={i} className="sc-slot-row">
+                <div className="sc-days" role="group" aria-label={`Days for slot ${i + 1}`}>
+                  {DAY_NAMES.map((n, d) => (
+                    <button key={d} type="button" className={`sc-day-toggle${s.days.includes(d) ? " on" : ""}`} aria-pressed={s.days.includes(d)} title={n} onClick={() => toggleDay(i, d)}>
+                      {n[0]}
+                    </button>
+                  ))}
+                </div>
+                <input type="time" className="sc-field !h-[26px] !w-[112px]" value={s.time} onChange={(e) => e.target.value && setSlot(i, { time: e.target.value })} aria-label={`Time for slot ${i + 1}`} />
+                <button type="button" className="sc-icon-btn !h-6 !w-6" aria-label="Remove slot" onClick={() => setSlots((list) => list.filter((_, j) => j !== i))}>
+                  <X />
+                </button>
+              </div>
+            ))}
+            <div className="flex flex-wrap gap-2">
+              <button type="button" className="sc-btn sm" onClick={() => setSlots((list) => [...list, { days: [1, 2, 3, 4, 5], time: "09:00" }])}>
+                <Plus /> Add slot
+              </button>
+              {slots.length === 0 ? (
+                <button type="button" className="sc-btn ghost sm" onClick={() => setSlots(cloneSlots(DEFAULT_SLOTS))}>
+                  Start from the defaults
+                </button>
+              ) : (
+                <button type="button" className="sc-btn ghost sm" onClick={() => setSlots([])}>
+                  Use the defaults instead
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
     </Dialog>
   );
@@ -202,6 +246,7 @@ function ChannelRow({ channel }: { channel: Channel }) {
           {count ? ` · ${count} post${count === 1 ? "" : "s"}` : ""}
           {published ? ` · ${published} published` : ""}
           {channel.preferences.signature ? " · signature" : ""}
+          {channel.slots?.length ? ` · queue ${describeSlots(channel.slots)}` : ""}
         </div>
       </div>
       <Switch checked={!channel.disabled} onCheckedChange={(v) => void updateChannel(channel.id, { disabled: !v })} label="Enabled" />

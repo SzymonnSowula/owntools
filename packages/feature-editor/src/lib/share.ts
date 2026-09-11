@@ -1,6 +1,6 @@
 import { SHARE_API_URL } from "@core/branding";
+import { trackedFetch } from "@core/net";
 import type { ShareLink } from "../types";
-import { isTauri } from "./tauri";
 
 /**
  * Share links, from the app's side. An export is uploaded in 8 MB parts
@@ -45,12 +45,9 @@ interface UploadPlan {
   expiresAt: number | null;
 }
 
-async function httpFetch(input: string, init?: RequestInit): Promise<Response> {
-  if (isTauri()) {
-    const { fetch: nativeFetch } = await import("@tauri-apps/plugin-http");
-    return nativeFetch(input, init);
-  }
-  return fetch(input, init);
+/** Every share request goes out through `@core/net`: logged in Settings → Privacy, refused in Offline mode. */
+async function httpFetch(input: string, init: RequestInit, purpose: string): Promise<Response> {
+  return trackedFetch(input, { ...init, purpose });
 }
 
 async function errorFrom(res: Response, fallback: string): Promise<ShareError> {
@@ -78,20 +75,24 @@ export async function createShareLink(
 ): Promise<ShareLink> {
   const contentType = input.ext === "mp4" ? "video/mp4" : "video/webm";
   onProgress?.("creating", 0);
-  const created = await httpFetch(SHARE_API_URL, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      name: input.name,
-      bytes: input.blob.size,
-      contentType,
-      width: input.width,
-      height: input.height,
-      duration: input.duration,
-      poster: Boolean(input.poster),
-    }),
-    signal,
-  });
+  const created = await httpFetch(
+    SHARE_API_URL,
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        name: input.name,
+        bytes: input.blob.size,
+        contentType,
+        width: input.width,
+        height: input.height,
+        duration: input.duration,
+        poster: Boolean(input.poster),
+      }),
+      signal,
+    },
+    "share link: create",
+  );
   if (!created.ok) throw await errorFrom(created, "Couldn't start the upload.");
   const plan = (await created.json()) as UploadPlan;
 
@@ -101,12 +102,16 @@ export async function createShareLink(
     throwIfAborted(signal);
     const slice = input.blob.slice(i * plan.partSize, Math.min(input.blob.size, (i + 1) * plan.partSize));
     const body = new Uint8Array(await slice.arrayBuffer());
-    const res = await httpFetch(plan.partUrls[i], {
-      method: "PUT",
-      headers: { "content-type": contentType },
-      body,
-      signal,
-    });
+    const res = await httpFetch(
+      plan.partUrls[i],
+      {
+        method: "PUT",
+        headers: { "content-type": contentType },
+        body,
+        signal,
+      },
+      "share link upload",
+    );
     if (!res.ok) throw new ShareError(`Uploading part ${i + 1} of ${total} failed (${res.status}).`, "upload_failed");
     const etag = res.headers.get("etag") ?? res.headers.get("ETag") ?? "";
     if (!etag) throw new ShareError("The storage returned no ETag for a part — the bucket may hide response headers.", "upload_failed");
@@ -116,12 +121,16 @@ export async function createShareLink(
 
   if (input.poster && plan.posterUrl) {
     throwIfAborted(signal);
-    const res = await httpFetch(plan.posterUrl, {
-      method: "PUT",
-      headers: { "content-type": "image/jpeg" },
-      body: new Uint8Array(await input.poster.arrayBuffer()),
-      signal,
-    });
+    const res = await httpFetch(
+      plan.posterUrl,
+      {
+        method: "PUT",
+        headers: { "content-type": "image/jpeg" },
+        body: new Uint8Array(await input.poster.arrayBuffer()),
+        signal,
+      },
+      "share link upload",
+    );
     if (!res.ok) {
       // A missing poster only costs the preview image; the video still shares.
       input.poster = null;
@@ -129,20 +138,24 @@ export async function createShareLink(
   }
 
   onProgress?.("finishing", 1);
-  const done = await httpFetch(`${SHARE_API_URL}/${plan.id}`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      ownerToken: plan.ownerToken,
-      parts,
-      name: input.name,
-      width: input.width,
-      height: input.height,
-      duration: input.duration,
-      poster: Boolean(input.poster),
-    }),
-    signal,
-  });
+  const done = await httpFetch(
+    `${SHARE_API_URL}/${plan.id}`,
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        ownerToken: plan.ownerToken,
+        parts,
+        name: input.name,
+        width: input.width,
+        height: input.height,
+        duration: input.duration,
+        poster: Boolean(input.poster),
+      }),
+      signal,
+    },
+    "share link: finish",
+  );
   if (!done.ok) throw await errorFrom(done, "Couldn't finish the upload.");
   const result = (await done.json()) as { viewUrl: string; expiresAt: number | null; bytes: number };
 
@@ -157,11 +170,15 @@ export async function createShareLink(
 }
 
 export async function deleteShareLink(link: ShareLink): Promise<void> {
-  const res = await httpFetch(`${SHARE_API_URL}/${link.id}`, {
-    method: "DELETE",
-    headers: { authorization: `Bearer ${link.ownerToken}`, "content-type": "application/json" },
-    body: JSON.stringify({ ownerToken: link.ownerToken }),
-  });
+  const res = await httpFetch(
+    `${SHARE_API_URL}/${link.id}`,
+    {
+      method: "DELETE",
+      headers: { authorization: `Bearer ${link.ownerToken}`, "content-type": "application/json" },
+      body: JSON.stringify({ ownerToken: link.ownerToken }),
+    },
+    "share link: remove",
+  );
   // A link that is already gone counts as deleted.
   if (!res.ok && res.status !== 404) throw await errorFrom(res, "Couldn't remove the link.");
 }

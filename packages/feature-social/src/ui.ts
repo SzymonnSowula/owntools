@@ -5,7 +5,7 @@ import type { Post, PostStatus } from "./types";
 
 /** View-only state of the social tool (nothing here is persisted). */
 
-export type Page = "calendar" | "channels" | "media" | "analytics" | "agents" | "settings";
+export type Page = "calendar" | "review" | "channels" | "media" | "analytics" | "agents" | "settings";
 export type CalendarView = "week" | "month" | "list";
 
 export interface Filters {
@@ -84,6 +84,7 @@ export function postMatchesFilters(post: Post, filters: Filters): boolean {
 
 export const STATUS_LABEL: Record<PostStatus, string> = {
   draft: "Draft",
+  needs_review: "Needs review",
   scheduled: "Scheduled",
   publishing: "Publishing",
   published: "Published",

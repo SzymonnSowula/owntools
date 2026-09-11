@@ -15,6 +15,8 @@ export interface SocialStorage {
   readText(rel: string): Promise<string | null>;
   /** Atomic: written next to the target, then renamed over it. */
   writeText(rel: string, text: string): Promise<void>;
+  /** Adds to the end of a file (the activity log); creates it when missing. */
+  appendText(rel: string, text: string): Promise<void>;
   remove(rel: string): Promise<void>;
   exists(rel: string): Promise<boolean>;
   /** File names (not paths) directly under `relDir`. */
@@ -39,6 +41,10 @@ export const PATHS = {
   settings: "settings.json",
   /** Mirror of the network catalogue, written for the Rust agent server. */
   networks: "networks.json",
+  /** Brand voice, one Markdown document every agent reads (see voice.ts). */
+  voice: "voice.md",
+  /** One JSON line per agent / automation write and per review decision (see activity.ts). */
+  activity: "activity.jsonl",
   posts: "posts",
   mediaDir: "media",
   avatars: "avatars",
@@ -94,6 +100,12 @@ function makeTauriStorage(): SocialStorage {
       const tmp = `${abs(rel)}.${Math.random().toString(36).slice(2, 8)}.tmp`;
       await fs.writeTextFile(tmp, text, o);
       await fs.rename(tmp, abs(rel), { oldPathBaseDir: o.baseDir, newPathBaseDir: o.baseDir });
+    },
+    async appendText(rel, text) {
+      const fs = await tauriFs();
+      const o = await opts();
+      await ensureDir(parentOf(abs(rel)));
+      await fs.writeTextFile(abs(rel), text, { ...o, append: true });
     },
     async remove(rel) {
       const fs = await tauriFs();
@@ -209,6 +221,10 @@ const browserStorage: SocialStorage = {
   },
   async writeText(rel, text) {
     await kvSet(rel, text);
+  },
+  async appendText(rel, text) {
+    const current = await kvGet<string>(rel);
+    await kvSet(rel, `${typeof current === "string" ? current : ""}${text}`);
   },
   async remove(rel) {
     await kvDel(rel);

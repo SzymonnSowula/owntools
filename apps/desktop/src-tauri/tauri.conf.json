@@ -60,6 +60,40 @@
         "focus": false,
         "focusable": false,
         "visible": false
+      },
+      {
+        "label": "captions",
+        "title": "owntools captions",
+        "url": "captions.html",
+        "width": 920,
+        "height": 150,
+        "resizable": false,
+        "maximizable": false,
+        "minimizable": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "decorations": false,
+        "transparent": true,
+        "shadow": false,
+        "focus": false,
+        "focusable": false,
+        "visible": false
+      },
+      {
+        "label": "capture",
+        "title": "owntools capture",
+        "url": "capture.html",
+        "width": 800,
+        "height": 600,
+        "resizable": false,
+        "maximizable": false,
+        "minimizable": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "decorations": false,
+        "transparent": true,
+        "shadow": false,
+        "visible": false
       }
     ],
     "security": {

@@ -32,13 +32,18 @@ export const metadata: Metadata = {
     template: "%s · owntools",
   },
   description:
-    "Dictate into any app, transcribe audio and video, record your screen, take notes, sketch on a whiteboard, schedule your social posts, see what is eating your disk, translate, and turn a link into a video. One desktop app that runs on your own machine and keeps working offline.",
+    "Dictate into any app, transcribe audio and video, record your screen, record and transcribe your calls, capture and mark up screenshots, take notes, sketch on a whiteboard, schedule your social posts, see what is eating your disk, translate, and turn a link into a video. One desktop app that runs on your own machine and keeps working offline.",
   keywords: [
     "dictation app",
     "voice typing",
     "speech to text",
     "offline transcription",
     "screen recorder",
+    "meeting recorder",
+    "meeting transcription without a bot",
+    "screenshot tool",
+    "screenshot OCR",
+    "live captions",
     "subtitle generator",
     "note taking app",
     "whiteboard app",
@@ -46,6 +51,7 @@ export const metadata: Metadata = {
     "schedule posts with AI agents",
     "focus timer",
     "local-first",
+    "on-device AI",
     "whisper dictation",
     "screen studio alternative",
   ],
@@ -55,14 +61,14 @@ export const metadata: Metadata = {
     siteName: "owntools",
     title: "owntools - dictate, transcribe and record on your own device",
     description:
-      "Dictate anywhere, transcribe anything, record your screen, take notes, sketch on a whiteboard, schedule posts, reclaim disk space, translate. One app, no account, nothing uploaded.",
+      "Dictate anywhere, transcribe anything, record your screen and your calls, capture and mark up screenshots, take notes, sketch on a whiteboard, schedule posts, reclaim disk space, translate. One app, no account, nothing uploaded.",
     locale: "en_US",
   },
   twitter: {
     card: "summary_large_image",
     title: "owntools - dictate, transcribe and record on your own device",
     description:
-      "Dictate anywhere, transcribe anything, record your screen, take notes, sketch on a whiteboard, schedule posts, reclaim disk space, translate. One app, no account, nothing uploaded.",
+      "Dictate anywhere, transcribe anything, record your screen and your calls, capture and mark up screenshots, take notes, sketch on a whiteboard, schedule posts, reclaim disk space, translate. One app, no account, nothing uploaded.",
   },
   alternates: { canonical: siteUrl },
 };

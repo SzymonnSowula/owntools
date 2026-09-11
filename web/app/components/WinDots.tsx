@@ -4,6 +4,11 @@ import type { ReactElement } from "react";
  * Mac-style "traffic lights" as three tinted mini icons. Local copy of
  * packages/ui/src/WinDots.tsx from the desktop monorepo side — web is a
  * standalone Next app and cannot import @ui.
+ *
+ * Keep the drawings identical to that file: the glyphs are the tool marks
+ * seen from further away, and the desktop and the site must not tell two
+ * different stories about the same tool (the brand sails, it does not launch
+ * rockets). When a glyph changes there, change it here in the same commit.
  */
 
 /** Default brand glyph: a little sailboat (sail + hull), single-color. */
@@ -17,21 +22,14 @@ const BRAND_GLYPH = (
 );
 
 export const ToolIcons: Record<
-  "focus" | "video" | "launch" | "dictate" | "board" | "social" | "disk",
+  "focus" | "video" | "capture" | "launch" | "dictate" | "meet" | "board" | "social" | "disk",
   ReactElement
 > = {
-  /* a treemap: the shape the disk tool draws your drive as */
-  disk: (
-    <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" xmlns="http://www.w3.org/2000/svg">
-      <rect x="1.3" y="2.3" width="9.4" height="7.4" rx="1.2" />
-      <path d="M5.6 2.3v7.4M5.6 6.2h5.1" />
-    </svg>
-  ),
-  /* clock */
+  /* aperture: ring closing on a point — the app mark at 11 px */
   focus: (
     <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="6" cy="6" r="4.6" />
-      <path d="M6 3.6v2.6l1.8 1.1" />
+      <circle cx="6" cy="6" r="4.4" />
+      <circle cx="6" cy="6" r="1.15" fill="currentColor" stroke="none" />
     </svg>
   ),
   /* filmstrip with play */
@@ -42,19 +40,44 @@ export const ToolIcons: Record<
       <path d="M5.3 4.8l1.9 1.2-1.9 1.2V4.8z" fill="currentColor" stroke="none" />
     </svg>
   ),
-  /* rocket */
-  launch: (
-    <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" xmlns="http://www.w3.org/2000/svg">
-      <path d="M6 8.7c2.7-1.2 3.6-3.9 3.6-6.3-2.4 0-5.1.9-6.3 3.6L1.8 7.5l2.7 2.7L6 8.7z" />
-      <circle cx="7.2" cy="4.8" r="0.9" fill="currentColor" stroke="none" />
+  /* viewfinder corners + shutter point */
+  capture: (
+    <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" xmlns="http://www.w3.org/2000/svg">
+      <path d="M1.6 3.8V2.6a1 1 0 0 1 1-1h1.2M8.2 1.6h1.2a1 1 0 0 1 1 1v1.2M10.4 8.2v1.2a1 1 0 0 1-1 1H8.2M3.8 10.4H2.6a1 1 0 0 1-1-1V8.2" />
+      <circle cx="6" cy="6" r="1.7" fill="currentColor" stroke="none" />
     </svg>
   ),
-  /* box, arrow, circle: a sketch */
-  board: (
+  /* sail over its wake — not a rocket; the brand sails */
+  launch: (
+    <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" xmlns="http://www.w3.org/2000/svg">
+      <path d="M8.4 1.4l1.5 5.7-6.5-1.2z" fill="currentColor" stroke="none" />
+      <path d="M2.2 8.2q2.3.7 4.7 1M3.7 10.4q2.1.6 4.2.8" />
+    </svg>
+  ),
+  /* mic */
+  dictate: (
     <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" xmlns="http://www.w3.org/2000/svg">
-      <rect x="1.4" y="1.6" width="4.8" height="3.6" rx="0.9" />
-      <circle cx="8.6" cy="8.6" r="2" />
-      <path d="M3.8 5.2v1.9a1.2 1.2 0 001.2 1.2h1.6" />
+      <rect x="4.4" y="1.2" width="3.2" height="5.4" rx="1.6" />
+      <path d="M2.7 5.7a3.3 3.3 0 006.6 0M6 9v1.8" />
+    </svg>
+  ),
+  /* two voices: waveform answering waveform */
+  meet: (
+    <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" xmlns="http://www.w3.org/2000/svg">
+      <path d="M2.2 5v2M3.8 3.4v5.2M5.4 4.4v3.2" />
+      <path d="M7 5v2M8.6 4.2v3.6M10.2 5.2v1.6" opacity="0.55" />
+    </svg>
+  ),
+  /* one stroke across a dotted canvas */
+  board: (
+    <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" xmlns="http://www.w3.org/2000/svg">
+      <g fill="currentColor" stroke="none" opacity="0.6">
+        <circle cx="2.4" cy="2.4" r="0.8" />
+        <circle cx="9.6" cy="2.4" r="0.8" />
+        <circle cx="2.4" cy="9.6" r="0.8" />
+        <circle cx="9.6" cy="9.6" r="0.8" />
+      </g>
+      <path d="M2.2 9.2q1.4-2.2 3.4-3 2-.8 4.2-3" />
     </svg>
   ),
   /* calendar with a scheduled dot */
@@ -65,11 +88,11 @@ export const ToolIcons: Record<
       <circle cx="7.6" cy="8" r="1" fill="currentColor" stroke="none" />
     </svg>
   ),
-  /* mic */
-  dictate: (
+  /* treemap: a box split into blocks */
+  disk: (
     <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" xmlns="http://www.w3.org/2000/svg">
-      <rect x="4.4" y="1.2" width="3.2" height="5.4" rx="1.6" />
-      <path d="M2.7 5.7a3.3 3.3 0 006.6 0M6 9v1.8" />
+      <rect x="1.4" y="1.4" width="9.2" height="9.2" rx="1.4" />
+      <path d="M6.2 1.4v9.2M6.2 6.4h4.4M1.4 7.4h4.8" />
     </svg>
   ),
 };

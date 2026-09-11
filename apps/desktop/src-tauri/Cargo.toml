@@ -42,6 +42,9 @@ hex = "0.4"
 # backend is the pure-Rust one, so no C toolchain surprises on CI.
 tar = "0.4"
 bzip2 = "0.6"
+# llm: unpacking the llama.cpp release zip on Windows (macOS ships a .tar.gz,
+# read with tar + flate2 above). Same `zip` major the tree already carries.
+zip = { version = "4", default-features = false, features = ["deflate"] }
 # data-folder migration (identifier rename) runs before Tauri resolves paths.
 dirs = "6"
 # disk: snapshots are gzip JSON.
@@ -51,6 +54,15 @@ axum = { version = "0.8", features = ["multipart"] }
 tower-http = { version = "0.6", features = ["cors"] }
 rand = "0.9"
 base64 = "0.22"
+# capture: the screenshot itself (xcap), PNG encode/decode for the library
+# copy and the clipboard (image, png only), the system clipboard (arboard —
+# no plugin, no npm package: the overlay never needs a JS clipboard API).
+xcap = "0.9"
+image = { version = "0.25", default-features = false, features = ["png"] }
+arboard = { version = "3.6", default-features = false, features = ["image-data"] }
+# sync: watches the person's own synced folder (Dropbox, OneDrive, …) for the
+# other device's writes; debounced in sync.rs, never on the main thread.
+notify = "8"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-updater = "2"
@@ -72,6 +84,19 @@ windows = { version = "0.61", features = [
   "Win32_Storage_FileSystem",
   "Win32_UI_Shell",
   "Win32_System_Com",
+  # meet: WASAPI capture (mic + loopback) and endpoint names via the property store
+  "Win32_Media_Audio",
+  "Win32_System_Com_StructuredStorage",
+  "Win32_System_Variant",
+  "Win32_UI_Shell_PropertiesSystem",
+  "Win32_Devices_FunctionDiscovery",
+  # capture: text recognition through WinRT Windows.Media.Ocr
+  "Media_Ocr",
+  "Graphics_Imaging",
+  "Storage",
+  "Storage_Streams",
+  "Foundation",
+  "Foundation_Collections",
 ] }
 # disk: installed apps come from the registry's Uninstall keys.
 winreg = "0.55"

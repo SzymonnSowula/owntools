@@ -2411,3 +2411,171 @@ button.sc-chip:hover {
     animation: none;
   }
 }
+
+/* ------------------------------------------------------------------ */
+/* Review queue — posts from agents waiting for a person               */
+/* ------------------------------------------------------------------ */
+
+.sc-post.review {
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--color-accent) 55%, transparent);
+  background-color: var(--color-card);
+  background-image: repeating-linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--color-accent) 9%, transparent) 0 6px,
+    transparent 6px 12px
+  );
+}
+
+.sc-post.review:hover {
+  border-color: var(--color-accent);
+}
+
+.sc-post-glyph.review {
+  background: var(--color-accent);
+  color: #fff;
+}
+
+.sc-post-approve {
+  margin-left: auto;
+  height: 18px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: var(--color-accent);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 18px;
+  transition: background 0.12s, transform 0.12s;
+}
+
+.sc-post-approve:hover {
+  background: var(--color-accent-2, var(--color-accent));
+  transform: translateY(-1px);
+}
+
+.sc-rail-badge.review {
+  background: var(--color-accent);
+}
+
+.sc-review-card .sc-card-head {
+  gap: 8px;
+}
+
+.sc-review-text {
+  white-space: pre-wrap;
+  font-size: 13px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+/* ------------------------------------------------------------------ */
+/* Activity log rows (Agents page)                                      */
+/* ------------------------------------------------------------------ */
+
+.sc-activity-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  font-size: 12.5px;
+}
+
+.sc-activity-row + .sc-activity-row {
+  border-top: 1px solid var(--color-line);
+}
+
+.sc-activity-row .who {
+  font-weight: 600;
+}
+
+.sc-activity-row .when {
+  font-size: 11px;
+  color: var(--color-muted);
+}
+
+.sc-activity-row .what {
+  display: block;
+  color: var(--color-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sc-activity-row .note {
+  display: block;
+  font-size: 11.5px;
+  color: var(--color-muted);
+  font-style: italic;
+}
+
+.sc-activity-actor {
+  display: inline-block;
+  padding: 0 6px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: color-mix(in srgb, var(--color-ink) 8%, transparent);
+  color: var(--color-muted);
+}
+
+.sc-activity-actor.agent {
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  color: var(--color-accent);
+}
+
+.sc-activity-actor.automation {
+  background: color-mix(in srgb, var(--sc-amber) 18%, transparent);
+  color: color-mix(in srgb, var(--sc-amber) 65%, var(--color-ink));
+}
+
+/* ------------------------------------------------------------------ */
+/* Queue slot editor (channel preferences)                              */
+/* ------------------------------------------------------------------ */
+
+.sc-slot-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sc-days {
+  display: flex;
+  gap: 3px;
+}
+
+.sc-day-toggle {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  border: 1px solid var(--color-line);
+  background: var(--color-card);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-muted);
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+
+.sc-day-toggle:hover {
+  color: var(--color-ink);
+}
+
+.sc-day-toggle.on {
+  background: var(--sc-tint);
+  border-color: color-mix(in srgb, var(--color-accent) 45%, transparent);
+  color: var(--color-accent);
+}
+
+/* Brand voice editor (Settings) */
+.sc-voice {
+  min-height: 240px;
+  resize: vertical;
+  font-family: ui-monospace, "Cascadia Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.55;
+}

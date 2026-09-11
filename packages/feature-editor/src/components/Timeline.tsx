@@ -231,6 +231,23 @@ export function Timeline({ project }: { project: Project }) {
                 {formatTime(t)}
               </div>
             ))}
+            {/* Chapter flags from the Script panel, in timeline time; the ruler under them still scrubs. */}
+            {(project.chapters ?? []).map((c, i) => {
+              const t = sourceToTimeline(c.start, project.segments);
+              return (
+                <div
+                  key={`${c.start}-${i}`}
+                  className="pointer-events-none absolute bottom-0 z-[5] flex items-end"
+                  style={{ left: t * pps }}
+                  title={`${c.title} · ${formatTime(t)}`}
+                >
+                  <span className="h-3.5 w-px bg-teal" />
+                  <span className="mb-px ml-0.5 max-w-[120px] truncate rounded-[4px] bg-teal/12 px-1 text-[9px] font-semibold leading-[13px] text-teal-2">
+                    {c.title}
+                  </span>
+                </div>
+              );
+            })}
           </div>
 
           {TRACKS.map((track) => (

@@ -1,0 +1,428 @@
+/*
+ * Automations card (Settings → Automations). Sits inside `.mod-focus`, so the
+ * focus vocabulary (.card, .stack, .row, .field, .input, .btn, .muted) does
+ * the heavy lifting; these `au-*` classes cover what it lacks: the rule rows,
+ * the trigger picker, the action list and the run log. Un-layered on purpose
+ * — the focus legacy CSS lives in `@layer focus-legacy` and these have to
+ * win over it (see the CSS layering trap in CLAUDE.md). Colours come from the
+ * focus theme variables so all five themes apply; the one hard-coded colour
+ * is the semantic red for a failed run.
+ */
+
+.au-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.au-head p {
+  max-width: 62ch;
+}
+.au-summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--pill);
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.au-summary .au-dot {
+  margin: 0;
+}
+
+/* Rule list ------------------------------------------------------------- */
+
+.au-rules {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.au-rule {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 14px;
+  background: var(--bg-elevated);
+}
+.au-rule + .au-rule {
+  border-top: 1px solid var(--border-subtle);
+}
+.au-rule.off .au-rule-name,
+.au-rule.off .au-rule-line {
+  color: var(--text-faint);
+}
+.au-rule-body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.au-rule-name {
+  font-weight: 600;
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.au-rule-line {
+  font-size: 12px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.au-rule-meta {
+  font-size: 12px;
+  color: var(--text-faint);
+}
+.au-rule-meta .au-running {
+  color: var(--text);
+}
+.au-rule-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.au-switch {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--text);
+  cursor: pointer;
+}
+
+.au-files {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 4px 0 2px 30px;
+}
+.au-files .pill {
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Templates ------------------------------------------------------------- */
+
+.au-templates {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+@media (max-width: 720px) {
+  .au-templates {
+    grid-template-columns: 1fr;
+  }
+}
+.au-template {
+  text-align: left;
+  border: 1px dashed var(--border);
+  background: transparent;
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--text);
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+.au-template:hover {
+  background: var(--fill);
+  border-color: var(--text-faint);
+}
+.au-template strong {
+  font-size: 13px;
+  font-weight: 600;
+}
+.au-template span {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* Editor ---------------------------------------------------------------- */
+
+.au-editor {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  background: var(--bg);
+}
+.au-block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.au-block-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.au-block-title strong {
+  font-size: 13px;
+}
+.au-block-title span {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.au-picks {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+@media (max-width: 900px) {
+  .au-picks {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.au-pick {
+  text-align: left;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  color: var(--text);
+  cursor: pointer;
+  min-width: 0;
+}
+.au-pick:hover {
+  background: var(--fill);
+}
+.au-pick.on {
+  box-shadow: inset 0 0 0 1.5px var(--text);
+}
+.au-pick strong {
+  font-size: 13px;
+  font-weight: 600;
+}
+.au-pick span {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+.au-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
+}
+.au-fields .field {
+  min-width: 0;
+}
+.au-fields .input,
+.au-fields .select {
+  width: 100%;
+  min-width: 0;
+}
+.au-inline {
+  display: flex;
+  gap: 6px;
+  align-items: stretch;
+}
+.au-inline .input {
+  flex: 1;
+  min-width: 0;
+}
+.au-days {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.au-days .pill {
+  padding: 5px 9px;
+}
+.au-hint {
+  font-size: 11.5px;
+  color: var(--text-faint);
+  line-height: 1.4;
+}
+.au-hint code {
+  font-family: ui-monospace, "Cascadia Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 11px;
+  background: var(--fill);
+  border-radius: 4px;
+  padding: 1px 4px;
+}
+
+.au-items {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.au-item {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.au-item-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.au-item-head .au-step {
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--fill-strong);
+  color: var(--text-muted);
+  font-size: 11px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+.au-item-head .select {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 10px;
+  font-size: 13px;
+}
+.au-item-head .icon-btn {
+  width: 28px;
+  height: 28px;
+}
+.au-item-head .icon-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.au-cond {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 1.6fr) auto;
+  gap: 6px;
+  align-items: center;
+}
+.au-cond .select,
+.au-cond .input {
+  min-width: 0;
+  padding: 6px 10px;
+  font-size: 13px;
+}
+.au-problems {
+  margin: 0;
+  padding: 0 0 0 18px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.au-editor-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.au-editor-foot .au-spacer {
+  flex: 1;
+}
+
+/* Runs ------------------------------------------------------------------ */
+
+.au-runs {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.au-run {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: start;
+  padding: 10px 14px;
+  background: var(--bg-elevated);
+}
+.au-run + .au-run {
+  border-top: 1px solid var(--border-subtle);
+}
+.au-run-body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.au-run-title {
+  font-size: 13px;
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+.au-run-title .au-when {
+  font-size: 12px;
+  color: var(--text-faint);
+}
+.au-run-notes {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.au-run-error {
+  font-size: 12px;
+  color: #ff453a;
+  overflow-wrap: anywhere;
+}
+.au-run-side {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+.au-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  margin-top: 6px;
+  background: var(--text-faint);
+  flex-shrink: 0;
+}
+.au-dot.ok {
+  background: var(--green);
+}
+.au-dot.error {
+  background: #ff453a;
+}
+.au-dot.running {
+  background: var(--text);
+  animation: au-pulse 1.1s ease-in-out infinite;
+}
+@keyframes au-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.au-dev {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+  font-size: 12px;
+  color: var(--text-faint);
+}

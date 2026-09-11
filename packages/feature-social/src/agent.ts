@@ -62,19 +62,19 @@ export async function installAgent(target: string): Promise<InstallOutcome> {
 export const STARTER_PROMPTS: { title: string; prompt: string }[] = [
   {
     title: "Post something now",
-    prompt: "Using the owntools-social tools: list my channels, write a short post about what I shipped today, run check_post on it, then post_now to the channels that fit.",
+    prompt: "Using the owntools-social tools: read get_brand_voice, list my channels, write a short post about what I shipped today in that voice, run check_post on it, then post_now to the channels that fit. If it lands in review, tell me so I can approve it.",
   },
   {
     title: "Plan a week",
-    prompt: "Using the owntools-social tools: take 5 free slots from suggest_times and schedule a week of posts about <topic>. Check each one with check_post first and show me the drafts before you create them.",
+    prompt: "Using the owntools-social tools: read get_brand_voice, then write five posts about <topic> and put each one in the queue with add_to_queue (one client_ref per post, so a retry never doubles them). Run check_post first; use adapt_post where a channel's limit is tight. They will wait for my approval in Review — list them with times when you are done.",
   },
   {
     title: "Post a video",
-    prompt: "Using the owntools-social tools: add_media_from_path for <path to the clip>, write a caption for each channel that takes video, check_post, then schedule it at the next free slot.",
+    prompt: "Using the owntools-social tools: add_media_from_path for <path to the clip>, write a caption for each channel that takes video (list_networks says which), check_post, then add_to_queue with the media attached. Show me the caption before you queue it.",
   },
   {
     title: "Look after the queue",
-    prompt: "Using the owntools-social tools: list everything scheduled from now on, check each post against its networks, and tell me what would fail to publish.",
+    prompt: "Using the owntools-social tools: read the owntools://social/week resource and list_upcoming for 7 days, check each post against its networks with check_post, and tell me what would fail to publish and what is still waiting for my approval.",
   },
 ];
 
@@ -180,26 +180,54 @@ export const REST_ROUTES: { method: string; path: string; what: string }[] = [
   { method: "POST", path: "/check", what: "Check text + channelIds before creating anything." },
   { method: "GET", path: "/slots", what: "Free times: ?count=&from=&spacingMinutes=." },
   { method: "POST", path: "/media/path", what: "Add a file already on this machine: { path, alt? }." },
+  { method: "POST", path: "/posts/queue", what: "Next free queue slot: { text, channelIds, mediaPaths?, client_ref? }." },
+  { method: "GET", path: "/posts/upcoming", what: "What goes out in the next ?days= (default 7)." },
+  { method: "GET", path: "/posts/search", what: "Find posts: ?q=&status=." },
+  { method: "GET", path: "/review", what: "Posts waiting for your approval (read-only)." },
+  { method: "POST", path: "/posts/{id}/reschedule", what: "Move a post: { at }." },
+  { method: "POST", path: "/posts/{id}/duplicate", what: "Copy a post: { channelIds? }." },
+  { method: "GET", path: "/voice", what: "The brand voice document (Markdown)." },
+  { method: "PUT", path: "/voice", what: "Replace it: { markdown } or a text/markdown body." },
+  { method: "POST", path: "/adapt", what: "Per-network variants of a text: { text, channelIds }." },
+  { method: "GET", path: "/activity", what: "The activity log: ?limit=." },
+  { method: "GET", path: "/week", what: "This week's calendar as Markdown." },
   { method: "GET", path: "/guide", what: "This whole workflow as Markdown." },
   { method: "POST", path: "/mcp", what: "MCP over Streamable HTTP (JSON-RPC)." },
 ];
 
 export const MCP_TOOLS: { name: string; what: string }[] = [
-  { name: "list_channels", what: "Connected channels, their network and character limit." },
+  { name: "list_channels", what: "Connected channels, their network, character limit and queue slots." },
   { name: "list_networks", what: "Every network and what it takes — characters, images, video size and length." },
+  { name: "get_brand_voice", what: "Your voice document (voice.md) — what every agent reads before writing a word." },
+  { name: "set_brand_voice", what: "Rewrite the voice document (Markdown)." },
   { name: "check_post", what: "Would this text go out? Per-network count and blocking issues, before writing anything." },
-  { name: "suggest_times", what: "Free slots from the preferred hour, spaced out, skipping what is taken." },
-  { name: "create_post", what: "Draft or schedule a post on one or more channels." },
-  { name: "post_now", what: "Write and publish in one call — for “post this”." },
+  { name: "adapt_post", what: "One text → a version per network that fits its limit; model-backed when a model is set up, rules otherwise." },
+  { name: "suggest_times", what: "Free times: the channels' queue slots first, then the preferred hour, skipping what is taken." },
+  { name: "add_to_queue", what: "Text + channels (+ media paths) into the next free queue slot. Same client_ref twice = the same post." },
+  { name: "create_post", what: "Draft or schedule a post; client_ref makes it idempotent, dry_run shows what would be created." },
+  { name: "post_now", what: "Write and publish in one call — for “post this” (waits for approval when that is on)." },
   { name: "list_posts", what: "Posts, optionally by status or date range." },
+  { name: "list_upcoming", what: "What goes out in the next N days, in order." },
+  { name: "list_needs_review", what: "Posts waiting for the person's approval — read-only; approving is a human act." },
+  { name: "search_posts", what: "Find posts by words in their text, optionally by status." },
   { name: "get_post", what: "One post with its per-channel results and URLs." },
   { name: "update_post", what: "Change text, time, channels, tags or per-channel overrides." },
+  { name: "reschedule", what: "Move a post to another time." },
+  { name: "duplicate_post", what: "Copy a post — same text and media, new channels if asked, no time yet." },
   { name: "delete_post", what: "Remove a post." },
   { name: "publish_post", what: "Publish a post that is already on the calendar." },
   { name: "add_media_from_path", what: "Take a file from disk into the library — how a video gets attached." },
   { name: "upload_media", what: "Add a small image from base64." },
   { name: "list_media", what: "Images and videos in the library." },
   { name: "list_tags", what: "Tags for the calendar." },
+  { name: "get_activity", what: "The activity log — every agent write and every approval, rejection and undo." },
+];
+
+/** What `resources/list` offers next to the tools. */
+export const MCP_RESOURCES: { uri: string; what: string }[] = [
+  { uri: "owntools://social/guide", what: "How to drive this scheduler, in one page." },
+  { uri: "owntools://social/week", what: "This week's calendar as Markdown: day → time · channel · status · first line." },
+  { uri: "owntools://social/voice", what: "The brand voice document." },
 ];
 
 export function isDesktop(): boolean {

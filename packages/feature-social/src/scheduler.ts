@@ -1,5 +1,6 @@
 import { logError, logInfo } from "@core/errors";
 import { notify } from "@feature-focus/lib/notify";
+import { makeEntry } from "./activity";
 import { applySignature, flattenThread, resolveContent, validateForChannel } from "./limits";
 import { newPost, nowIso, postSummary } from "./model";
 import { networkById } from "./networks";
@@ -180,6 +181,17 @@ export async function publishPost(id: string, opts: { manual?: boolean } = {}): 
     );
     const final = (await store.updatePost(id, (p) => ({ ...p, results: cleaned }))) ?? settled;
     await announce(final, opts.manual ?? false);
+    // What happened to a post an agent or an automation made belongs in the
+    // activity log next to the write that created it.
+    if ((final.source === "agent" || final.source === "automation") && final.status !== "scheduled") {
+      const okCount = Object.values(final.results).filter((r) => r.status === "ok").length;
+      await useSocialStore.getState().appendActivity(
+        makeEntry("automation", "publish", id, {
+          after: final,
+          note: final.status === "published" ? `published to ${okCount} channel${okCount === 1 ? "" : "s"}` : `failed: ${final.lastError ?? "unknown error"}`,
+        }),
+      );
+    }
     if (final.status === "published") {
       const follow = nextRepeat(final);
       if (follow) await store.createPost(follow);

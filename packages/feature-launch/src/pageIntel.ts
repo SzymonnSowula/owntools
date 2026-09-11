@@ -1,4 +1,5 @@
 import { isTauri } from "@core/env";
+import { trackedFetch } from "@core/net";
 
 export interface PageIntel {
   url: string;
@@ -10,34 +11,35 @@ export interface PageIntel {
   features: string[];
 }
 
-async function fetchText(url: string): Promise<string> {
-  if (isTauri()) {
-    const { fetch: tauriFetch } = await import("@tauri-apps/plugin-http");
-    const res = await tauriFetch(url, {
-      method: "GET",
-      headers: { "User-Agent": "Mozilla/5.0 (suite launch-maker)" },
-    });
-    if (!res.ok) throw new Error(`The site answered ${res.status}.`);
-    return res.text();
+/** "launch: reading acme.com" — the line the Privacy card shows for a page or asset read. */
+function readingPurpose(url: string): string {
+  try {
+    return `launch: reading ${new URL(url).hostname.replace(/^www\./, "")}`;
+  } catch {
+    return "launch: reading a page";
   }
-  const res = await fetch(url);
+}
+
+/**
+ * Reads the page through `@core/net` (the HTTP plugin in the app, plain fetch
+ * in the browser) so the read is logged and Offline mode can refuse it. The
+ * browser forbids setting User-Agent, so the header is only sent natively.
+ */
+async function fetchText(url: string): Promise<string> {
+  const res = await trackedFetch(url, {
+    method: "GET",
+    headers: isTauri() ? { "User-Agent": "Mozilla/5.0 (owntools launch-maker)" } : undefined,
+    purpose: readingPurpose(url),
+  });
   if (!res.ok) throw new Error(`The site answered ${res.status}.`);
   return res.text();
 }
 
 async function fetchDataUrl(url: string): Promise<string | null> {
   try {
-    let blob: Blob;
-    if (isTauri()) {
-      const { fetch: tauriFetch } = await import("@tauri-apps/plugin-http");
-      const res = await tauriFetch(url, { method: "GET" });
-      if (!res.ok) return null;
-      blob = await res.blob();
-    } else {
-      const res = await fetch(url);
-      if (!res.ok) return null;
-      blob = await res.blob();
-    }
+    const res = await trackedFetch(url, { method: "GET", purpose: readingPurpose(url) });
+    if (!res.ok) return null;
+    const blob = await res.blob();
     if (blob.size === 0 || blob.size > 15_000_000) return null;
     return await new Promise((resolve) => {
       const reader = new FileReader();

@@ -11,6 +11,7 @@ import {
   PauseGlyph,
   PlayGlyph,
   RedoGlyph,
+  ScriptGlyph,
   SoundGlyph,
   SoundOffGlyph,
   SplitGlyph,
@@ -58,6 +59,8 @@ export function Toolbar({
   const redo = useAppStore((s) => s.redo);
   const historyIndex = useAppStore((s) => s.historyIndex);
   const history = useAppStore((s) => s.history);
+  const scriptOpen = useAppStore((s) => s.scriptOpen);
+  const setScriptOpen = useAppStore((s) => s.setScriptOpen);
 
   if (!project) return null;
 
@@ -108,6 +111,21 @@ export function Toolbar({
         title={sfxTitle(project)}
         active={project.sfx.enabled}
         onClick={() => setSfxEnabled()}
+      />
+
+      <Divider />
+      <Tool
+        icon={<ScriptGlyph />}
+        label="Script"
+        title={
+          scriptOpen
+            ? "Hide the Script panel (Shift+S)"
+            : project.captions.length
+              ? "Script: edit the video as text — cut sentences, remove fillers, chapters, short clips (Shift+S)"
+              : "Script: transcribe the take and edit the video as text (Shift+S)"
+        }
+        active={scriptOpen}
+        onClick={() => setScriptOpen(!scriptOpen)}
       />
 
       <Divider />

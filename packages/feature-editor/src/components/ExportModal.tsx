@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import type { AspectRatio, Project, ShareLink } from "../types";
+import { EXPORT_FINISHED_EVENT, emitToolEvent } from "@core/events";
+import type { AspectRatio, CropAspect, Project, ShareLink, TimeRange } from "../types";
 import type { ExportPhase } from "../lib/exportVideo";
-import { exportProject, blobToFileDownload, probeExportSupport } from "../lib/exportVideo";
+import { exportProject, blobToFileDownload, outputSize, probeExportSupport } from "../lib/exportVideo";
 import { canvasSize, drawFrame } from "../lib/compositor";
 import { timelineDuration, timelineToSource } from "../lib/segments";
+import { formatTime } from "../lib/time";
 import {
   createShareLink,
   deleteShareLink,
@@ -52,6 +54,7 @@ export function ExportModal({
 }) {
   const open = useAppStore((s) => s.exportOpen);
   const setOpen = useAppStore((s) => s.setExportOpen);
+  const request = useAppStore((s) => s.exportRequest);
   const progress = useAppStore((s) => s.exportProgress);
   const setProgress = useAppStore((s) => s.setExportProgress);
   const media = useAppStore((s) => s.media);
@@ -72,17 +75,30 @@ export function ExportModal({
   const [licenseInput, setLicenseInput] = useState("");
   const [showLicense, setShowLicense] = useState(false);
   const [toSocial, setToSocial] = useState(false);
+  /** A short clip: a stretch of the cut timeline, and a centre crop on top of the aspect. */
+  const [range, setRange] = useState<TimeRange | null>(null);
+  const [crop, setCrop] = useState<CropAspect | null>(null);
+  const [clipLabel, setClipLabel] = useState<string | null>(null);
   const abort = useRef<AbortController | null>(null);
+
+  // What the dialog was opened with — the Shorts list hands over a clip and a crop.
+  useEffect(() => {
+    if (!open) return;
+    setRange(request?.range ?? null);
+    setCrop(request?.crop ?? null);
+    setClipLabel(request?.label ?? null);
+    setPro(isPro());
+    void invokeSafe<boolean>("ffmpeg_available").then((v) => setHasFfmpeg(Boolean(v)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
-    setPro(isPro());
-    void invokeSafe<boolean>("ffmpeg_available").then((v) => setHasFfmpeg(Boolean(v)));
-    const { width, height } = canvasSize(project.aspect);
+    const { width, height } = outputSize(project, crop ?? undefined);
     void probeExportSupport(width, height)
       .then((choice) => setContainer(choice ? choice.container : "legacy"))
       .catch(() => setContainer("legacy"));
-  }, [open, project.aspect]);
+  }, [open, project.aspect, crop]);
 
   if (!open) return null;
 
@@ -90,6 +106,13 @@ export function ExportModal({
   const canMp4 = mp4Direct || hasFfmpeg;
   // The same plan the timeline draws and the mixer renders, so the count here is the one that lands.
   const sfxCount = sfxPlanFor(project).length;
+  const wholeDuration = timelineDuration(project.segments);
+  const exportedSeconds = range ? Math.max(0, range.end - range.start) : wholeDuration;
+  const clipOptions = { range: range ?? undefined, crop: crop ?? undefined };
+  const fileBase = () => {
+    const base = project.name.replace(/[^\w\-]+/g, "_") || SUITE_NAME;
+    return range ? `${base}_clip` : base;
+  };
 
   async function run() {
     if (!media) {
@@ -107,12 +130,13 @@ export function ExportModal({
         watermark: !isPro(),
         overlayImages,
         signal: abort.current.signal,
+        ...clipOptions,
         onProgress: (p, ph) => {
           setProgress(p);
           setPhase(ph);
         },
       });
-      const base = project.name.replace(/[^\w\-]+/g, "_") || SUITE_NAME;
+      const base = fileBase();
       let outExt = ext;
       let saved = await exportBlobToPath(blob, `${base}.${ext}`, ext);
 
@@ -131,7 +155,15 @@ export function ExportModal({
       }
 
       if (!saved) await blobToFileDownload(blob, `${base}.${outExt}`);
-      showToast(outExt === "mp4" ? "MP4 saved." : "Video saved.", "info");
+      // Automations listen for this; the path is the saved file (the download's
+      // name in the browser preview, where there is no path).
+      emitToolEvent(EXPORT_FINISHED_EVENT, {
+        projectId: project.id,
+        path: saved ?? `${base}.${outExt}`,
+        mime: outExt === "mp4" ? "video/mp4" : "video/webm",
+        durationMs: Math.round(exportedSeconds * 1000),
+      });
+      showToast(range ? "Clip saved." : outExt === "mp4" ? "MP4 saved." : "Video saved.", "info");
       setOpen(false);
     } catch (err) {
       if ((err as { name?: string }).name !== "AbortError") {
@@ -230,13 +262,14 @@ export function ExportModal({
         watermark: !isPro(),
         overlayImages,
         signal: abort.current.signal,
+        ...clipOptions,
         onProgress: (p, ph) => {
           setProgress(p);
           setPhase(ph);
         },
       });
       setProgress(null);
-      const { width, height } = canvasSize(project.aspect);
+      const { width, height } = outputSize(project, crop ?? undefined);
       const link = await createShareLink(
         {
           blob,
@@ -244,7 +277,7 @@ export function ExportModal({
           name: project.name,
           width,
           height,
-          duration: timelineDuration(project.segments),
+          duration: exportedSeconds,
           poster,
         },
         (ph, fraction) => {
@@ -314,12 +347,13 @@ export function ExportModal({
         watermark: !isPro(),
         overlayImages,
         signal: abort.current.signal,
+        ...clipOptions,
         onProgress: (p, ph) => {
           setProgress(p);
           setPhase(ph);
         },
       });
-      const base = project.name.replace(/[^\w\-]+/g, "_") || SUITE_NAME;
+      const base = fileBase();
       handOff({
         tool: "social",
         file: { bytes: new Uint8Array(await blob.arrayBuffer()), name: `${base}.${ext}`, mime: blob.type || `video/${ext}` },
@@ -389,6 +423,58 @@ export function ExportModal({
             </button>
           ))}
         </div>
+
+        {range ? (
+          <div className="mt-3 flex items-center gap-2 rounded-[12px] border border-teal/40 bg-teal/8 px-3 py-2" data-export-clip>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold">
+                Clip{clipLabel ? `: ${clipLabel}` : ""}
+              </p>
+              <p className="text-xs text-muted">
+                {formatTime(range.start)} → {formatTime(range.end)} · {Math.round(exportedSeconds)} s of the {Math.round(wholeDuration)} s cut
+              </p>
+            </div>
+            <button
+              className="btn btn-ghost !h-7 shrink-0 !px-2 !py-0 text-[11px] text-muted"
+              disabled={busy}
+              title="Export the whole video instead"
+              onClick={() => {
+                setRange(null);
+                setClipLabel(null);
+              }}
+            >
+              Whole video
+            </button>
+          </div>
+        ) : null}
+
+        <div className="mt-3 flex items-center gap-2" data-export-crop>
+          <span className="w-12 shrink-0 text-xs text-muted">Crop</span>
+          <div className="grid flex-1 grid-cols-3 gap-1">
+            {([null, "9:16", "1:1"] as (CropAspect | null)[]).map((c) => (
+              <button
+                key={c ?? "none"}
+                className={`rounded-[10px] border py-1.5 text-xs font-semibold ${
+                  crop === c ? "border-teal bg-teal/10 text-teal-2" : "border-line text-muted"
+                }`}
+                disabled={busy}
+                title={
+                  c === null
+                    ? "Keep the whole composed frame"
+                    : `Fill a ${c} frame with the centre of the picture (${c === "9:16" ? "1080×1920" : "1080×1080"})`
+                }
+                onClick={() => setCrop(c)}
+              >
+                {c === null ? "None" : c === "9:16" ? "9:16 centre" : "1:1 centre"}
+              </button>
+            ))}
+          </div>
+        </div>
+        {crop ? (
+          <p className="mt-1.5 text-[11px] leading-relaxed text-muted">
+            The middle of the {project.aspect} frame fills a {crop} video; the aspect buttons above fit the whole frame instead.
+          </p>
+        ) : null}
 
         {sfxCount > 0 ? (
           <p className="mt-3 text-xs text-muted">
@@ -549,7 +635,7 @@ export function ExportModal({
             {busy ? "Stop" : "Cancel"}
           </button>
           <button className="btn btn-primary flex-1" disabled={busy} onClick={() => void run()}>
-            {busy ? "Exporting…" : canMp4 ? "Save MP4" : "Save video"}
+            {busy ? "Exporting…" : range ? "Save clip" : canMp4 ? "Save MP4" : "Save video"}
           </button>
         </div>
       </div>

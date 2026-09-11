@@ -408,16 +408,172 @@ pub fn mark_executable(app: AppHandle, path: String) -> Result<(), String> {
     Ok(())
 }
 
-/// Where the next transcript goes. `"main"` when the app's own main window is
-/// the foreground window: the pill hands the text to it as an event, so
-/// in-app fields and the board take it directly instead of receiving raw
-/// keystrokes (on the board those would be tool shortcuts). `"other"` for any
-/// other application, which gets the text typed through `type_text`.
+/// Where the next transcript goes, and to whom.
+///
+/// `main` is true when the app's own main window is the foreground window:
+/// the pill hands the text to it as an event, so in-app fields and the board
+/// take it directly instead of receiving raw keystrokes (on the board those
+/// would be tool shortcuts). For any other application — which gets the text
+/// typed through `type_text` — `app` is its process image name ("slack.exe";
+/// the application's name on macOS) and `title` its window title, so the
+/// per-app profiles can tell a chat from an e-mail. Both `None` when the
+/// platform cannot say; the frontend treats that as "no profile".
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DictationTargetInfo {
+    pub main: bool,
+    pub app: Option<String>,
+    pub title: Option<String>,
+}
+
 #[tauri::command]
-pub fn dictation_target(app: AppHandle) -> String {
-    match app.get_webview_window("main") {
-        Some(main) if main_is_foreground(&main) => "main".into(),
-        _ => "other".into(),
+pub fn dictation_target(app: AppHandle) -> DictationTargetInfo {
+    let main = app
+        .get_webview_window("main")
+        .map(|w| main_is_foreground(&w))
+        .unwrap_or(false);
+    let (name, title) = if main { (None, None) } else { foreground_app() };
+    DictationTargetInfo {
+        main,
+        app: name,
+        title,
+    }
+}
+
+/// The process behind the foreground window and that window's title.
+fn foreground_app() -> (Option<String>, Option<String>) {
+    #[cfg(windows)]
+    {
+        use windows::core::PWSTR;
+        use windows::Win32::Foundation::CloseHandle;
+        use windows::Win32::System::Threading::{
+            OpenProcess, QueryFullProcessImageNameW, PROCESS_NAME_WIN32,
+            PROCESS_QUERY_LIMITED_INFORMATION,
+        };
+        use windows::Win32::UI::WindowsAndMessaging::{
+            GetForegroundWindow, GetWindowTextLengthW, GetWindowTextW, GetWindowThreadProcessId,
+        };
+
+        let hwnd = unsafe { GetForegroundWindow() };
+        if hwnd.0.is_null() {
+            return (None, None);
+        }
+        let mut pid = 0u32;
+        unsafe { GetWindowThreadProcessId(hwnd, Some(&mut pid)) };
+        // QUERY_LIMITED_INFORMATION is granted for elevated processes too,
+        // where PROCESS_QUERY_INFORMATION would be refused.
+        let app = (pid != 0)
+            .then(|| unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid) }.ok())
+            .flatten()
+            .and_then(|handle| {
+                let mut buf = [0u16; 1024];
+                let mut len = buf.len() as u32;
+                let ok = unsafe {
+                    QueryFullProcessImageNameW(
+                        handle,
+                        PROCESS_NAME_WIN32,
+                        PWSTR(buf.as_mut_ptr()),
+                        &mut len,
+                    )
+                }
+                .is_ok();
+                unsafe {
+                    let _ = CloseHandle(handle);
+                }
+                ok.then(|| image_basename(&String::from_utf16_lossy(&buf[..len as usize])))
+            })
+            .filter(|name| !name.is_empty());
+        let title = {
+            let len = unsafe { GetWindowTextLengthW(hwnd) };
+            if len > 0 {
+                let mut buf = vec![0u16; len as usize + 1];
+                let n = unsafe { GetWindowTextW(hwnd, &mut buf) };
+                (n > 0).then(|| String::from_utf16_lossy(&buf[..n as usize]))
+            } else {
+                None
+            }
+        };
+        (app, title)
+    }
+    #[cfg(target_os = "macos")]
+    {
+        (crate::mac::frontmost_app(), None)
+    }
+    #[cfg(not(any(windows, target_os = "macos")))]
+    {
+        (None, None)
+    }
+}
+
+/// `C:\Program Files\Slack\slack.exe` → `slack.exe`.
+fn image_basename(path: &str) -> String {
+    path.rsplit(['\\', '/'])
+        .next()
+        .unwrap_or(path)
+        .trim()
+        .to_string()
+}
+
+/// Presses Enter in the focused application — what "send it" and a profile's
+/// auto-send do once the text is typed. The frontend never calls this when our
+/// own window is the target: there the words land in a field, and Enter would
+/// submit whatever form the field belongs to.
+#[tauri::command]
+pub fn press_enter() -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        use windows::Win32::UI::Input::KeyboardAndMouse::{
+            SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYBD_EVENT_FLAGS,
+            KEYEVENTF_KEYUP, VK_RETURN,
+        };
+        let inputs: Vec<INPUT> = [KEYBD_EVENT_FLAGS(0), KEYEVENTF_KEYUP]
+            .into_iter()
+            .map(|flags| INPUT {
+                r#type: INPUT_KEYBOARD,
+                Anonymous: INPUT_0 {
+                    ki: KEYBDINPUT {
+                        wVk: VK_RETURN,
+                        wScan: 0,
+                        dwFlags: flags,
+                        time: 0,
+                        dwExtraInfo: 0,
+                    },
+                },
+            })
+            .collect();
+        let sent = unsafe { SendInput(&inputs, std::mem::size_of::<INPUT>() as i32) };
+        if sent as usize != inputs.len() {
+            return Err("SendInput was blocked by the target application.".into());
+        }
+        Ok(())
+    }
+    #[cfg(target_os = "macos")]
+    {
+        crate::mac::press_enter()
+    }
+    #[cfg(not(any(windows, target_os = "macos")))]
+    {
+        Err("Pressing keys in other apps is not implemented on this platform yet.".into())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn image_basename_keeps_only_the_file_name() {
+        assert_eq!(image_basename(r"C:\Program Files\Slack\slack.exe"), "slack.exe");
+        assert_eq!(image_basename("/Applications/Slack.app/Contents/MacOS/Slack"), "Slack");
+        assert_eq!(image_basename("Code.exe"), "Code.exe");
+        assert_eq!(image_basename(""), "");
+    }
+
+    #[test]
+    fn model_names_stay_inside_the_whisper_folder() {
+        assert_eq!(safe_model_name(" ggml-base.bin ").as_deref(), Some("ggml-base.bin"));
+        assert!(safe_model_name("../ggml-base.bin").is_none());
+        assert!(safe_model_name("notes.txt").is_none());
     }
 }
 

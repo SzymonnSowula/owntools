@@ -24,6 +24,12 @@ export default defineConfig({
       "@feature-social": pkg("feature-social"),
       "@feature-tools": pkg("feature-tools"),
       "@feature-disk": pkg("feature-disk"),
+      "@feature-meet": pkg("feature-meet"),
+      "@feature-capture": pkg("feature-capture"),
+      "@feature-automations": pkg("feature-automations"),
+      "@feature-sync": pkg("feature-sync"),
+      "@feature-privacy": pkg("feature-privacy"),
+      "@feature-llm": pkg("feature-llm"),
     },
   },
   test: {

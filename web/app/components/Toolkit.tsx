@@ -8,6 +8,7 @@ import {
   BarChart3,
   Clapperboard,
   Captions,
+  Crop,
   FileAudio,
   FileText,
   Film,
@@ -29,7 +30,7 @@ import {
 import { DownloadCta } from "./Cta";
 
 /**
- * "the owntools toolkit" — capabilities browsed by job (capture / media /
+ * "the owntools toolkit" — capabilities browsed by job (voice / media /
  * create / focus), yaps.ai-style layout: numbered tinted cards with mini
  * mockups in a right-bleeding row, counter + arrows strip, and a featured
  * capability banner. Every card carries its own hue (Apple system colors).
@@ -99,8 +100,8 @@ function MeetingsMock() {
         <span className="ml-1 font-mono text-[9px] text-muted">42:18</span>
       </div>
       {[
-        ["km", "00:12", "let's lock the pricing this week"],
-        ["ap", "00:19", "i'll clip the demo part next"],
+        ["them", "00:12", "can we lock the pricing this week?"],
+        ["you", "00:19", "yes - one price, paid once."],
       ].map(([who, at, line]) => (
         <div key={at} className="mt-1.5 flex items-center gap-2 rounded-lg border border-line px-2 py-1.5">
           <span className="flex h-5 w-5 items-center justify-center rounded-full bg-line font-mono text-[8px] uppercase">{who}</span>
@@ -264,6 +265,23 @@ function BoardMock() {
   );
 }
 
+function CaptureMock() {
+  return (
+    <div className="relative h-[84px] overflow-hidden rounded-xl border border-line bg-[#0f1424]">
+      <div className="absolute left-[8%] top-[14%] h-[48%] w-[46%] rounded border border-white/20 bg-white/25" />
+      <div className="absolute left-[42%] top-[34%] h-[50%] w-[50%] rounded border border-white/20 bg-white/30" />
+      <div className="absolute left-[38%] top-[28%] h-[52%] w-[52%] rounded-[4px] border-2 border-dashed border-white bg-white shadow-[0_0_0_999px_rgba(15,20,36,0.5)]">
+        <span className="absolute left-1.5 top-1.5 h-1 w-2/3 rounded bg-[#1d1d1f]/30" />
+        <span className="absolute left-1.5 top-[40%] h-[28%] w-[55%] rounded-[2px] border-[1.5px] border-[#ff453a]" />
+        <span className="absolute bottom-1 right-1 flex h-3 w-3 items-center justify-center rounded-full bg-[#ff453a] text-[6px] font-bold text-white">1</span>
+      </div>
+      <span className="absolute bottom-1.5 left-1.5 rounded bg-white/95 px-1.5 py-0.5 font-mono text-[7.5px] text-[#1d1d1f]">
+        text copied · Invoice 2026-041
+      </span>
+    </div>
+  );
+}
+
 function UrlMock() {
   return (
     <MockShell>
@@ -420,7 +438,7 @@ function HeatmapMock() {
 
 /* ------------------------------- data ------------------------------- */
 
-type JobKey = "capture" | "media" | "create" | "focus";
+type JobKey = "voice" | "media" | "create" | "focus";
 
 type Card = { title: string; tags: string; desc: string; tint: string; icon: ReactNode; mock: ReactNode };
 
@@ -432,7 +450,7 @@ const TOOLKIT: Record<
     feature: { icon: ReactNode; tint: string; title: string; tag: string; desc: string; cta: string; href?: string };
   }
 > = {
-  capture: {
+  voice: {
     strip: "voice in, text out",
     cards: [
       {
@@ -452,9 +470,9 @@ const TOOLKIT: Record<
         mock: <VaultMock />,
       },
       {
-        title: "recorded meetings",
-        tags: "import a recording",
-        desc: "A long recording in, usable text out.",
+        title: "meetings, live",
+        tags: "mic + system audio · who said what",
+        desc: "Any call on this machine, written down as it happens.",
         tint: CYAN,
         icon: <Users size={15} />,
         mock: <MeetingsMock />,
@@ -548,6 +566,14 @@ const TOOLKIT: Record<
         tint: BLUE,
         icon: <Shapes size={15} />,
         mock: <BoardMock />,
+      },
+      {
+        title: "screenshots that read",
+        tags: "ctrl+shift+4 · mark up · ocr",
+        desc: "Freeze the screen, mark it up, copy the text out of it.",
+        tint: CYAN,
+        icon: <Crop size={15} />,
+        mock: <CaptureMock />,
       },
       {
         title: "url → video",
@@ -647,12 +673,12 @@ const TOOLKIT: Record<
   },
 };
 
-const TABS: JobKey[] = ["capture", "media", "create", "focus"];
+const TABS: JobKey[] = ["voice", "media", "create", "focus"];
 
 /* ------------------------------ component ------------------------------ */
 
 export function Toolkit() {
-  const [tab, setTab] = useState<JobKey>("capture");
+  const [tab, setTab] = useState<JobKey>("voice");
   const scroller = useRef<HTMLDivElement>(null);
   const t = TOOLKIT[tab];
 

@@ -5,7 +5,9 @@
   "windows": [
     "main",
     "recorder",
-    "dictation"
+    "dictation",
+    "captions",
+    "capture"
   ],
   "permissions": [
     "core:default",
@@ -42,6 +44,7 @@
     "core:window:allow-is-minimized",
     "core:window:allow-set-skip-taskbar",
     "core:window:allow-set-always-on-top",
+    "core:window:allow-set-ignore-cursor-events",
     "core:window:allow-set-fullscreen",
     "core:event:default",
     "core:webview:default",

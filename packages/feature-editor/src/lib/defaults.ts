@@ -1,12 +1,14 @@
 import type {
   AudioSettings,
   BackgroundSettings,
+  Chapter,
   CursorAlign,
   CursorSettings,
   FadeSettings,
   ImageOverlay,
   Project,
   ProgressBarSettings,
+  ScriptState,
   Segment,
   SfxSettings,
   TextOverlay,
@@ -101,6 +103,9 @@ export const DEFAULT_SFX: SfxSettings = {
   removed: [],
 };
 
+/** Nothing accepted yet: every filler and retake the analysis finds is proposed. */
+export const DEFAULT_SCRIPT: ScriptState = { fillersRemoved: [], retakesRemoved: [] };
+
 export const DEFAULT_TEXT: Omit<TextOverlay, "id" | "start" | "end" | "text"> = {
   x: 0.5,
   y: 0.18,
@@ -155,6 +160,25 @@ function migrateSfx(sfx: SfxSettings, schema: number): SfxSettings {
   const next: SfxSettings = { ...sfx, removed };
   if (schema >= 1) return next;
   return { ...next, enabled: DEFAULT_SFX.enabled };
+}
+
+function idList(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((id): id is string => typeof id === "string") : [];
+}
+
+/** Accepted Script proposals off disk: two lists of ids, anything else dropped. */
+export function normalizeScript(value: unknown): ScriptState {
+  if (!isRecord(value)) return { ...DEFAULT_SCRIPT, fillersRemoved: [], retakesRemoved: [] };
+  return { fillersRemoved: idList(value.fillersRemoved), retakesRemoved: idList(value.retakesRemoved) };
+}
+
+/** Chapters off disk: a finite start and a string title, sorted by time. */
+export function normalizeChapters(value: unknown): Chapter[] {
+  return list<Chapter>(value, (c) =>
+    isRecord(c) && typeof c.start === "number" && Number.isFinite(c.start) && typeof c.title === "string"
+      ? { start: Math.max(0, c.start), title: c.title }
+      : null,
+  ).sort((a, b) => a.start - b.start);
 }
 
 /**
@@ -239,6 +263,8 @@ export function normalizeProject(raw: Project | (Partial<Project> & Record<strin
     sfx: migrateSfx(merge(DEFAULT_SFX, r.sfx), typeof r.schema === "number" ? r.schema : 0),
     inputs: normalizeInputTrack(r.inputs),
     fade: merge(DEFAULT_FADE, r.fade),
+    chapters: normalizeChapters(r.chapters),
+    script: normalizeScript(r.script),
     cursorAlign: merge(DEFAULT_CURSOR_ALIGN, r.cursorAlign),
     autoZoom: typeof r.autoZoom === "boolean" ? r.autoZoom : true,
     webcamOffset: typeof r.webcamOffset === "number" ? r.webcamOffset : 0,

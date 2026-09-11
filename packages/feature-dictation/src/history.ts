@@ -13,6 +13,18 @@ export interface HistoryTake {
   text: string;
   /** Length of the recording in milliseconds, when known. */
   durationMs?: number;
+  /**
+   * The application the take was typed into ("slack.exe", "Slack"), when the
+   * pill knew it; null when it did not, absent for takes dictated in-app.
+   */
+  app?: string | null;
+  /** One line about what did *not* happen ("formatting skipped: no model"). */
+  note?: string;
+}
+
+export interface HistoryExtra {
+  app?: string | null;
+  note?: string;
 }
 
 export const HISTORY_KEY = "suite-dictation-history";
@@ -59,7 +71,7 @@ export function getHistory(): HistoryTake[] {
   return read().sort((a, b) => b.at - a.at);
 }
 
-export function pushHistory(text: string, durationMs?: number): HistoryTake | null {
+export function pushHistory(text: string, durationMs?: number, extra: HistoryExtra = {}): HistoryTake | null {
   const body = text.trim();
   if (!body) return null;
   counter += 1;
@@ -68,6 +80,8 @@ export function pushHistory(text: string, durationMs?: number): HistoryTake | nu
     at: Date.now(),
     text: body,
     ...(durationMs !== undefined ? { durationMs: Math.max(0, Math.round(durationMs)) } : {}),
+    ...(extra.app !== undefined ? { app: extra.app } : {}),
+    ...(extra.note ? { note: extra.note } : {}),
   };
   write([take, ...getHistory()].slice(0, HISTORY_LIMIT));
   return take;

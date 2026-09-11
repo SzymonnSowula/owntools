@@ -2,6 +2,7 @@ import { DialogHost } from "@ui/Dialog";
 import { lazy, Suspense, useEffect, useState } from "react";
 import { isTauri } from "@core/env";
 import { OPEN_TOOL_EVENT } from "@core/handoff";
+import { OPEN_SETTINGS_SECTION_EVENT } from "@core/llm";
 import { unlockAudio } from "@feature-focus/lib/audio/engine";
 import { VIEWS } from "@feature-focus/types";
 import { useAppStore, type UsageTick } from "@feature-focus/store/useAppStore";
@@ -11,6 +12,7 @@ import { Hub } from "./shell/Hub";
 import { FocusTool } from "./shell/FocusTool";
 import { FocusTimerOverlay } from "./shell/FocusTimerOverlay";
 import { SuiteTitleBar } from "./shell/SuiteTitleBar";
+import { ToolRail } from "./shell/ToolRail";
 import { Onboarding, isOnboarded } from "./shell/Onboarding";
 import { SessionSheet } from "./shell/SessionSheet";
 import { WorkspaceSetup } from "./shell/WorkspaceSetup";
@@ -22,7 +24,18 @@ import { logError } from "@core/errors";
 import { listenForDictation } from "@feature-dictation/insert";
 import { initLicense } from "@licensing/license";
 
-const TOOLS: readonly Tool[] = ["hub", "focus", "create", "launch", "dictate", "board", "social", "disk"];
+const TOOLS: readonly Tool[] = [
+  "hub",
+  "focus",
+  "create",
+  "capture",
+  "launch",
+  "dictate",
+  "meet",
+  "board",
+  "social",
+  "disk",
+];
 
 const CreateModule = lazy(() => import("./shell/CreateModule"));
 const HubToolModals = lazy(() => import("./shell/HubToolModals"));
@@ -31,6 +44,8 @@ const DictateModule = lazy(() => import("@feature-dictation/DictateView"));
 const BoardModule = lazy(() => import("@feature-board/BoardView"));
 const SocialModule = lazy(() => import("@feature-social/SocialView"));
 const DiskModule = lazy(() => import("@feature-disk/DiskView"));
+const MeetModule = lazy(() => import("@feature-meet/MeetView"));
+const CaptureModule = lazy(() => import("@feature-capture/CaptureView"));
 
 function LazyPane({ children }: { children: React.ReactNode }) {
   return (
@@ -156,6 +171,21 @@ export default function App() {
       };
       window.addEventListener(OPEN_TOOL_EVENT, onOpenTool);
       unsubs.push(() => window.removeEventListener(OPEN_TOOL_EVENT, onOpenTool));
+      // "Set up a model" / "see the privacy log" links from any tool land on
+      // the app-wide settings, which live in focus → Settings.
+      const onOpenSettings = (e: Event) => {
+        const section = (e as CustomEvent<{ section?: string }>).detail?.section;
+        useShellStore.getState().setTool("focus");
+        useShellStore.getState().setFocusOverview(false);
+        useAppStore.getState().setView("settings");
+        if (section) {
+          window.setTimeout(() => {
+            document.querySelector(`[data-settings-section="${section}"]`)?.scrollIntoView({ block: "start", behavior: "smooth" });
+          }, 120);
+        }
+      };
+      window.addEventListener(OPEN_SETTINGS_SECTION_EVENT, onOpenSettings);
+      unsubs.push(() => window.removeEventListener(OPEN_SETTINGS_SECTION_EVENT, onOpenSettings));
       // ...and hands the transcript over when this window is the one in front
       // (focused field, the board, or the clipboard — see feature-dictation/insert.ts).
       unsubs.push(await listenForDictation());
@@ -240,43 +270,60 @@ export default function App() {
   return (
     <div className="app mod-focus">
       <SuiteTitleBar />
-      {!ready ? (
-        <div className="loading">{SUITE_NAME}</div>
-      ) : tool === "hub" ? (
-        <Hub />
-      ) : tool === "focus" ? (
-        <FocusTool />
-      ) : tool === "create" ? (
-        <LazyPane>
-          <CreateModule />
-        </LazyPane>
-      ) : tool === "launch" ? (
-        <LazyPane>
-          <LaunchModule />
-        </LazyPane>
-      ) : tool === "board" ? (
-        <main className="create-main mod-board">
-          <Suspense fallback={<div className="board-loading">Loading board…</div>}>
-            <BoardModule />
-          </Suspense>
-        </main>
-      ) : tool === "social" ? (
-        <main className="create-main">
-          <Suspense fallback={<div className="grid flex-1 place-items-center text-sm">Loading social…</div>}>
-            <SocialModule />
-          </Suspense>
-        </main>
-      ) : tool === "disk" ? (
-        <main className="create-main mod-disk">
-          <Suspense fallback={<div className="grid flex-1 place-items-center text-sm">Loading disk…</div>}>
-            <DiskModule />
-          </Suspense>
-        </main>
-      ) : (
-        <LazyPane>
-          <DictateModule />
-        </LazyPane>
-      )}
+      {/* The rail is the app's navigation: always there, one click between
+          tools. The pane beside it is whatever tool is open. */}
+      <div className="app-body">
+        <ToolRail />
+        {!ready ? (
+          <div className="loading">{SUITE_NAME}</div>
+        ) : tool === "hub" ? (
+          <Hub />
+        ) : tool === "focus" ? (
+          <FocusTool />
+        ) : tool === "create" ? (
+          <LazyPane>
+            <CreateModule />
+          </LazyPane>
+        ) : tool === "launch" ? (
+          <LazyPane>
+            <LaunchModule />
+          </LazyPane>
+        ) : tool === "board" ? (
+          <main className="create-main mod-board">
+            <Suspense fallback={<div className="board-loading">Loading board…</div>}>
+              <BoardModule />
+            </Suspense>
+          </main>
+        ) : tool === "social" ? (
+          <main className="create-main">
+            <Suspense fallback={<div className="grid flex-1 place-items-center text-sm">Loading social…</div>}>
+              <SocialModule />
+            </Suspense>
+          </main>
+        ) : tool === "meet" ? (
+          <main className="create-main mod-meet">
+            <Suspense fallback={<div className="grid flex-1 place-items-center text-sm">Loading meet…</div>}>
+              <MeetModule />
+            </Suspense>
+          </main>
+        ) : tool === "capture" ? (
+          <main className="create-main mod-capture">
+            <Suspense fallback={<div className="grid flex-1 place-items-center text-sm">Loading capture…</div>}>
+              <CaptureModule />
+            </Suspense>
+          </main>
+        ) : tool === "disk" ? (
+          <main className="create-main mod-disk">
+            <Suspense fallback={<div className="grid flex-1 place-items-center text-sm">Loading disk…</div>}>
+              <DiskModule />
+            </Suspense>
+          </main>
+        ) : (
+          <LazyPane>
+            <DictateModule />
+          </LazyPane>
+        )}
+      </div>
       {hubTool !== null ? (
         <div className="mod-create">
           <Suspense fallback={null}>

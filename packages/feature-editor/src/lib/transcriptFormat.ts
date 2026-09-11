@@ -26,7 +26,7 @@ export const GROUPINGS: { value: TranscriptGrouping; label: string; hint: string
 ];
 
 /** Sentence-final punctuation, optionally followed by a closing quote/bracket. */
-const SENTENCE_END = /[.!?…。！？]["'”’)\]]*$/;
+export const SENTENCE_END = /[.!?…。！？]["'”’)\]]*$/;
 
 /**
  * Safety valve for transcripts without punctuation (whisper often returns

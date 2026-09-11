@@ -17,6 +17,7 @@ function Slot({
   now,
   onOpen,
   onAdd,
+  onApprove,
 }: {
   day: Date;
   hour: number;
@@ -26,6 +27,7 @@ function Slot({
   now: Date;
   onOpen: (post: Post) => void;
   onAdd: (at: Date) => void;
+  onApprove?: (post: Post) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: slotKey(day, hour), data: { day, hour } });
   const past = isPastSlot(day, hour, now);
@@ -35,7 +37,7 @@ function Slot({
     <div ref={setNodeRef} className={`sc-slot${past ? " past" : ""}${today ? " today" : ""}${isOver ? " over" : ""}`}>
       {nowLine !== null ? <div className="sc-now" style={{ top: `${nowLine * 100}%` }} /> : null}
       {posts.map((p) => (
-        <PostCard key={p.id} post={p} channels={channels} tags={tags} onOpen={onOpen} showTime />
+        <PostCard key={p.id} post={p} channels={channels} tags={tags} onOpen={onOpen} onApprove={onApprove} showTime />
       ))}
       {posts.length === 0 ? (
         <button className="sc-slot-add" aria-label={`New post ${formatHour(hour)}`} onClick={() => onAdd(slotDate(day, hour))}>
@@ -57,6 +59,7 @@ export function WeekView({
   tags,
   onOpen,
   onAdd,
+  onApprove,
 }: {
   days: Date[];
   posts: Post[];
@@ -64,6 +67,7 @@ export function WeekView({
   tags: Tag[];
   onOpen: (post: Post) => void;
   onAdd: (at: Date) => void;
+  onApprove?: (post: Post) => void;
 }) {
   const [now, setNow] = useState(() => new Date());
   const scroller = useRef<HTMLDivElement>(null);
@@ -123,6 +127,7 @@ export function WeekView({
                 now={now}
                 onOpen={onOpen}
                 onAdd={onAdd}
+                onApprove={onApprove}
               />
             ))}
           </div>

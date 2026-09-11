@@ -8,7 +8,7 @@
  * illustration, and the copy says so.
  */
 
-import { Cpu, SlidersHorizontal } from "lucide-react";
+import { Captions, Cpu, MessageSquare, SlidersHorizontal } from "lucide-react";
 import { ClaudeCodeMock } from "./ClaudeCodeMock";
 import { Reveal } from "./Reveal";
 
@@ -75,6 +75,16 @@ const POINTS = [
     title: "less typing, more building.",
     desc: "Talk through the change out loud and the agent gets the context you would not have bothered to type.",
   },
+  {
+    icon: <MessageSquare size={15} />,
+    title: "say what you mean, literally.",
+    desc: "\"new line\", \"scratch that\", \"send it\" - spoken commands, in English and Polish. A profile per app decides the rest: fillers gone in Slack, e-mail tone in Outlook.",
+  },
+  {
+    icon: <Captions size={15} />,
+    title: "captions for anything.",
+    desc: "A live caption overlay for whatever your machine plays or hears - a call, a lecture, a video - with a translation to English under it.",
+  },
 ];
 
 export function DictateAnywhere() {
@@ -91,7 +101,8 @@ export function DictateAnywhere() {
                 </h2>
                 <p className="mt-4 max-w-md text-[15px] leading-7 text-muted">
                   A mail window, a doc, a chat box, a form, a terminal. Press the hotkey, say it,
-                  press again - owntools types it into whatever had your cursor.
+                  press again - owntools types it into whatever had your cursor. The text is decoded
+                  while you speak, so when you stop only the tail is left to wait for.
                 </p>
 
                 <ul className="mt-6 flex flex-wrap items-center gap-2">

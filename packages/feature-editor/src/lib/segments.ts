@@ -1,4 +1,5 @@
-import type { Segment } from "../types";
+import type { Segment, TimeRange } from "../types";
+import { uid } from "./id";
 
 export function timelineDuration(segments: Segment[]): number {
   return segments.reduce((sum, s) => sum + Math.max(0, s.end - s.start), 0);
@@ -111,4 +112,121 @@ export function removeSegment(segments: Segment[], id: string): Segment[] {
 
 export function updateSegment(segments: Segment[], id: string, patch: Partial<Segment>): Segment[] {
   return segments.map((s) => (s.id === id ? { ...s, ...patch } : s));
+}
+
+/** Pieces shorter than this are not worth keeping — a few frames of a word. */
+export const MIN_PIECE = 0.15;
+
+/** Sorted, non-overlapping copy of `ranges`; empty and inverted ones dropped, touching ones joined. */
+export function mergeRanges(ranges: TimeRange[]): TimeRange[] {
+  const sorted = ranges
+    .filter((r) => Number.isFinite(r.start) && Number.isFinite(r.end) && r.end > r.start)
+    .map((r) => ({ start: r.start, end: r.end }))
+    .sort((a, b) => a.start - b.start);
+  const out: TimeRange[] = [];
+  for (const r of sorted) {
+    const last = out[out.length - 1];
+    if (last && r.start <= last.end + 1e-6) last.end = Math.max(last.end, r.end);
+    else out.push(r);
+  }
+  return out;
+}
+
+/**
+ * Whether a source time is on the cutting-room floor — inside no kept clip.
+ * A hair of tolerance so a word ending exactly on a cut still counts as kept.
+ */
+export function isCutAt(source: number, segments: Segment[], epsilon = 1e-3): boolean {
+  for (const seg of segments) {
+    if (source >= seg.start - epsilon && source <= seg.end + epsilon) return false;
+  }
+  return true;
+}
+
+/** Whether every part of the range is already cut. */
+export function isRangeCut(range: TimeRange, segments: Segment[]): boolean {
+  return !segments.some((seg) => seg.end > range.start + 1e-3 && seg.start < range.end - 1e-3);
+}
+
+function pieceList(segments: Segment[], pieces: Map<Segment, TimeRange[]>): Segment[] {
+  const out: Segment[] = [];
+  for (const seg of segments) {
+    const kept = (pieces.get(seg) ?? []).filter((p) => p.end - p.start >= MIN_PIECE);
+    if (kept.length === 1 && kept[0].start === seg.start && kept[0].end === seg.end) {
+      out.push(seg);
+      continue;
+    }
+    kept.forEach((p, i) => {
+      // The first piece keeps the clip's identity — its id (so a selection
+      // survives) and its transition, which leads into it from the clip before.
+      out.push(i === 0 ? { ...seg, start: p.start, end: p.end } : { id: uid("seg"), start: p.start, end: p.end });
+    });
+  }
+  return out;
+}
+
+/**
+ * Takes source-time ranges out of the kept clips: the text-based "Cut". The
+ * sound-effect plan keys on source time, so a click that sat at 12.4 s in the
+ * recording is still the same sound after the sentence before it is gone.
+ */
+export function cutSourceRanges(segments: Segment[], ranges: TimeRange[]): Segment[] {
+  const cuts = mergeRanges(ranges);
+  const pieces = new Map<Segment, TimeRange[]>();
+  for (const seg of segments) {
+    let current: TimeRange[] = [{ start: seg.start, end: seg.end }];
+    for (const cut of cuts) {
+      const next: TimeRange[] = [];
+      for (const p of current) {
+        if (cut.end <= p.start || cut.start >= p.end) {
+          next.push(p);
+          continue;
+        }
+        if (cut.start > p.start) next.push({ start: p.start, end: cut.start });
+        if (cut.end < p.end) next.push({ start: cut.end, end: p.end });
+      }
+      current = next;
+    }
+    pieces.set(seg, current);
+  }
+  return pieceList(segments, pieces);
+}
+
+/** Keeps only what overlaps `ranges` — "Keep only" on a selection of sentences. */
+export function keepOnlySourceRanges(segments: Segment[], ranges: TimeRange[]): Segment[] {
+  const keep = mergeRanges(ranges);
+  const pieces = new Map<Segment, TimeRange[]>();
+  for (const seg of segments) {
+    const kept: TimeRange[] = [];
+    for (const k of keep) {
+      const start = Math.max(seg.start, k.start);
+      const end = Math.min(seg.end, k.end);
+      if (end > start) kept.push({ start, end });
+    }
+    pieces.set(seg, kept);
+  }
+  return pieceList(segments, pieces);
+}
+
+/**
+ * The clips that make up a stretch of the *cut timeline*, as a new segment
+ * list whose own timeline starts at 0 — how a short clip is exported: slice
+ * the segments, then render exactly as the whole video would be. The first
+ * piece drops its transition (there is nothing before it to blend from).
+ */
+export function sliceSegmentsToTimelineRange(segments: Segment[], range: TimeRange): Segment[] {
+  const out: Segment[] = [];
+  let t = 0;
+  for (const seg of segments) {
+    const dur = Math.max(0, seg.end - seg.start);
+    const from = Math.max(range.start, t);
+    const to = Math.min(range.end, t + dur);
+    if (to - from > 1e-6) {
+      const piece: Segment = { ...seg, start: seg.start + (from - t), end: seg.start + (to - t) };
+      if (!out.length) delete piece.transition;
+      out.push(piece);
+    }
+    t += dur;
+  }
+  return out;
 }

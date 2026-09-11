@@ -1,6 +1,8 @@
 import { create } from "zustand";
 import type {
   Caption,
+  Chapter,
+  CropAspect,
   ImageOverlay,
   MediaUrls,
   Project,
@@ -8,6 +10,7 @@ import type {
   Selection,
   SpeechLang,
   TextOverlay,
+  TimeRange,
   Toast,
   Transition,
   View,
@@ -22,6 +25,7 @@ import {
   DEFAULT_FADE,
   DEFAULT_OVERLAY,
   DEFAULT_PROGRESS_BAR,
+  DEFAULT_SCRIPT,
   DEFAULT_SFX,
   DEFAULT_TEXT,
   DEFAULT_WEBCAM,
@@ -38,7 +42,15 @@ import { captureRectSuspect, listDisplaySources, reconcileCaptureRect } from "..
 import { estimateCaptureRect, zoomRect } from "../lib/cursorMap";
 import { applyLook, type LookSettings } from "../lib/presets";
 import { generateZoomKeyframes } from "../lib/zoom";
-import { removeSegment, splitSegment, timelineDuration, timelineToSource } from "../lib/segments";
+import {
+  cutSourceRanges as cutRangesFromSegments,
+  keepOnlySourceRanges as keepRangesInSegments,
+  removeSegment,
+  sourceToTimeline,
+  splitSegment,
+  timelineDuration,
+  timelineToSource,
+} from "../lib/segments";
 import { clampTransitionDuration } from "../lib/transitions";
 
 const HISTORY_LIMIT = 50;
@@ -70,6 +82,8 @@ export function emptyProject(partial?: Partial<Project>): Project {
     audio: { ...DEFAULT_AUDIO },
     sfx: { ...DEFAULT_SFX },
     fade: { ...DEFAULT_FADE },
+    chapters: [],
+    script: { ...DEFAULT_SCRIPT, fillersRemoved: [], retakesRemoved: [] },
     cursorAlign: { ...DEFAULT_CURSOR_ALIGN },
     aspect: "16:9",
     speechLang: "pl-PL",
@@ -90,6 +104,8 @@ interface EditorSnapshot {
   audio: Project["audio"];
   sfx: Project["sfx"];
   fade: Project["fade"];
+  chapters: Project["chapters"];
+  script: Project["script"];
   captureRect: Project["captureRect"];
   captureSource: Project["captureSource"];
   captureLabel: Project["captureLabel"];
@@ -112,6 +128,8 @@ function snap(project: Project): EditorSnapshot {
     audio: project.audio,
     sfx: project.sfx,
     fade: project.fade,
+    chapters: project.chapters,
+    script: project.script,
     captureRect: project.captureRect,
     captureSource: project.captureSource,
     captureLabel: project.captureLabel,
@@ -128,6 +146,43 @@ function applySnap(project: Project, s: EditorSnapshot): Project {
 /** What a click on the timeline does: pick things, or cut them. */
 export type EditorTool = "select" | "cut";
 
+/** Which list the Script panel shows. */
+export type ScriptView = "transcript" | "fillers" | "retakes" | "chapters" | "shorts";
+
+/** What the export dialog opens pre-set to — a short clip, cropped vertical. */
+export interface ExportRequest {
+  /** Timeline seconds. */
+  range?: TimeRange;
+  crop?: CropAspect;
+  /** Shown on the dialog's clip row. */
+  label?: string;
+}
+
+/** What an accepted Script proposal records on the project, so it is not proposed again. */
+export interface ScriptAccept {
+  fillers?: string[];
+  retakes?: string[];
+}
+
+const SCRIPT_OPEN_KEY = "owntools-editor-script-open";
+
+/** The panel is open until someone closes it — a feature that hides is a feature nobody finds. */
+function readScriptOpen(): boolean {
+  try {
+    return localStorage.getItem(SCRIPT_OPEN_KEY) !== "0";
+  } catch {
+    return true;
+  }
+}
+
+function writeScriptOpen(open: boolean): void {
+  try {
+    localStorage.setItem(SCRIPT_OPEN_KEY, open ? "1" : "0");
+  } catch {
+    /* private mode / tests */
+  }
+}
+
 interface AppState {
   view: View;
   compactChrome: boolean;
@@ -142,7 +197,10 @@ interface AppState {
   toast: Toast | null;
   exportOpen: boolean;
   exportProgress: number | null;
+  exportRequest: ExportRequest | null;
   transcribeOpen: boolean;
+  scriptOpen: boolean;
+  scriptView: ScriptView;
   history: EditorSnapshot[];
   historyIndex: number;
   speechLang: SpeechLang;
@@ -162,8 +220,24 @@ interface AppState {
   setTimelineTime: (t: number) => void;
   setSelection: (s: Selection | null) => void;
   setExportOpen: (v: boolean) => void;
+  /** Opens the export dialog, optionally pre-set to a clip and a crop. */
+  openExport: (request?: ExportRequest) => void;
   setExportProgress: (v: number | null) => void;
   setTranscribeOpen: (v: boolean) => void;
+  setScriptOpen: (v: boolean) => void;
+  /** Opens the Script panel on a given list; no list keeps the current one. */
+  showScript: (view?: ScriptView) => void;
+  setScriptView: (view: ScriptView) => void;
+  /** Pauses and puts the playhead on a source time (the cut point when that time is cut). */
+  seekSource: (source: number) => void;
+  /**
+   * Removes source-time ranges from the kept clips in one undo step, recording
+   * which proposals were accepted. Returns the seconds removed from the timeline.
+   */
+  cutSourceRanges: (ranges: TimeRange[], accept?: ScriptAccept) => number;
+  /** Keeps only the given source-time ranges, one undo step. Returns the seconds removed. */
+  keepOnlySourceRanges: (ranges: TimeRange[]) => number;
+  setChapters: (chapters: Chapter[]) => void;
   undo: () => void;
   redo: () => void;
   splitAtPlayhead: () => void;
@@ -187,7 +261,34 @@ interface AppState {
   restoreSfx: (ids?: string[]) => void;
 }
 
-export const useAppStore = create<AppState>((set, get) => ({
+export const useAppStore = create<AppState>((set, get) => {
+  /**
+   * One undo step for a text-based cut: the new clips, the accepted proposal
+   * ids, the playhead kept on the same moment of the recording (or the cut
+   * point when that moment is gone) and a selection that no longer exists
+   * dropped.
+   */
+  function applyCut(project: Project, segments: Project["segments"], accept?: ScriptAccept): void {
+    const { timelineTime, selection } = get();
+    const source = timelineToSource(timelineTime, project.segments);
+    const script = project.script ?? { ...DEFAULT_SCRIPT, fillersRemoved: [], retakesRemoved: [] };
+    const next = {
+      segments,
+      script: {
+        fillersRemoved: [...new Set([...script.fillersRemoved, ...(accept?.fillers ?? [])])],
+        retakesRemoved: [...new Set([...script.retakesRemoved, ...(accept?.retakes ?? [])])],
+      },
+    };
+    get().updateProject(next, true);
+    set({
+      playing: false,
+      timelineTime: Math.min(timelineDuration(segments), sourceToTimeline(source, segments)),
+      selection:
+        selection?.type === "segment" && !segments.some((s) => s.id === selection.id) ? null : selection,
+    });
+  }
+
+  return {
   view: "home",
   compactChrome: false,
   tool: "select",
@@ -201,7 +302,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   toast: null,
   exportOpen: false,
   exportProgress: null,
+  exportRequest: null,
   transcribeOpen: false,
+  scriptOpen: readScriptOpen(),
+  scriptView: "transcript",
   history: [],
   historyIndex: -1,
   speechLang: "pl-PL",
@@ -310,9 +414,59 @@ export const useAppStore = create<AppState>((set, get) => ({
   setPlaying: (playing) => set({ playing }),
   setTimelineTime: (timelineTime) => set({ timelineTime }),
   setSelection: (selection) => set({ selection }),
-  setExportOpen: (exportOpen) => set({ exportOpen }),
+  setExportOpen: (exportOpen) => set({ exportOpen, exportRequest: exportOpen ? get().exportRequest : null }),
+  openExport: (request) => set({ exportOpen: true, exportRequest: request ?? null }),
   setExportProgress: (exportProgress) => set({ exportProgress }),
   setTranscribeOpen: (transcribeOpen) => set({ transcribeOpen }),
+  setScriptOpen: (scriptOpen) => {
+    writeScriptOpen(scriptOpen);
+    set({ scriptOpen });
+  },
+  showScript: (view) => {
+    writeScriptOpen(true);
+    set({ scriptOpen: true, scriptView: view ?? get().scriptView });
+  },
+  setScriptView: (scriptView) => set({ scriptView }),
+
+  seekSource: (source) => {
+    const { project } = get();
+    if (!project) return;
+    set({ playing: false, timelineTime: Math.max(0, sourceToTimeline(source, project.segments)) });
+  },
+
+  cutSourceRanges: (ranges, accept) => {
+    const { project } = get();
+    if (!project || !ranges.length) return 0;
+    const segments = cutRangesFromSegments(project.segments, ranges);
+    if (!segments.length) {
+      get().showToast("That would remove the whole video.", "info");
+      return 0;
+    }
+    const removed = timelineDuration(project.segments) - timelineDuration(segments);
+    if (removed <= 0.005) return 0;
+    applyCut(project, segments, accept);
+    return removed;
+  },
+
+  keepOnlySourceRanges: (ranges) => {
+    const { project } = get();
+    if (!project || !ranges.length) return 0;
+    const segments = keepRangesInSegments(project.segments, ranges);
+    if (!segments.length) {
+      get().showToast("Nothing of the video would be left.", "info");
+      return 0;
+    }
+    const removed = timelineDuration(project.segments) - timelineDuration(segments);
+    if (removed <= 0.005) return 0;
+    applyCut(project, segments);
+    return removed;
+  },
+
+  setChapters: (chapters) => {
+    const { project } = get();
+    if (!project) return;
+    get().updateProject({ chapters: [...chapters].sort((a, b) => a.start - b.start) }, true);
+  },
 
   undo: () => {
     const { project, history, historyIndex } = get();
@@ -542,7 +696,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     const removed = ids ? had.filter((id) => !ids.includes(id)) : [];
     get().updateProject({ sfx: { ...project.sfx, removed } }, true);
   },
-}));
+  };
+});
 
 export function timelineLen(project: Project | null): number {
   if (!project) return 0;

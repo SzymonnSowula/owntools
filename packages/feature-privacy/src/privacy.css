@@ -1,0 +1,472 @@
+/* Settings → Privacy. Un-layered `pv-*` classes on the suite's tokens
+ * (`--color-*`, overridden per theme at the end of suite.css) so the card
+ * follows Day / Night / nature / ocean / sunset without a block per theme.
+ * The frame is the focus `.card`; these only style what sits inside it. */
+
+.pv-card {
+  container-type: inline-size;
+}
+
+.pv-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* Month picker: a two-stop segmented control. */
+.pv-seg {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--color-line, #e3e3e6);
+  border-radius: 999px;
+  background: var(--color-paper, #f5f5f7);
+  flex: none;
+}
+
+.pv-seg button {
+  border: 0;
+  background: transparent;
+  color: var(--color-muted, #6e6e73);
+  font: inherit;
+  font-size: 12px;
+  line-height: 1;
+  padding: 6px 11px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.pv-seg button[aria-pressed="true"] {
+  background: var(--color-card, #fff);
+  color: var(--color-ink, #1d1d1f);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+/* Headline panel. Zero is the proud state, so it gets the display face. */
+.pv-hero {
+  border-radius: 12px;
+  padding: 18px 20px;
+  border: 1px solid color-mix(in srgb, var(--color-accent, #0a84ff) 22%, transparent);
+  background:
+    radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--color-accent, #0a84ff) 12%, transparent), transparent 60%),
+    color-mix(in srgb, var(--color-accent, #0a84ff) 5%, var(--color-card, #fff));
+}
+
+.pv-hero-title {
+  font-family: "Outfit", Inter, system-ui, sans-serif;
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.15;
+  color: var(--color-ink, #1d1d1f);
+}
+
+.pv-hero-sub {
+  margin-top: 6px;
+  font-size: 12.5px;
+  color: var(--color-muted, #6e6e73);
+  font-variant-numeric: tabular-nums;
+}
+
+.pv-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.pv-stat-n {
+  font-family: "Outfit", Inter, system-ui, sans-serif;
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  color: var(--color-ink, #1d1d1f);
+  font-variant-numeric: tabular-nums;
+}
+
+.pv-stat-l {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--color-muted, #6e6e73);
+}
+
+.pv-hero-note {
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--color-muted, #6e6e73);
+}
+
+.pv-hero-note b {
+  color: var(--color-ink, #1d1d1f);
+  font-weight: 600;
+}
+
+/* By host + purpose. */
+.pv-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+  table-layout: fixed;
+}
+
+.pv-table th {
+  text-align: left;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-muted, #6e6e73);
+  padding: 4px 8px 8px;
+  border-bottom: 1px solid var(--color-line, #e3e3e6);
+}
+
+.pv-table td {
+  padding: 8px;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-line, #e3e3e6) 60%, transparent);
+  vertical-align: top;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pv-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.pv-table .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  width: 64px;
+}
+
+.pv-table .when {
+  color: var(--color-muted, #6e6e73);
+  width: 118px;
+}
+
+.pv-host {
+  font-weight: 600;
+  color: var(--color-ink, #1d1d1f);
+}
+
+.pv-purpose {
+  color: var(--color-muted, #6e6e73);
+}
+
+.pv-fail {
+  color: #ff453a;
+  font-size: 11px;
+  margin-left: 6px;
+}
+
+@container (max-width: 560px) {
+  .pv-table .when,
+  .pv-table th.when {
+    display: none;
+  }
+}
+
+/* Collapsibles. */
+.pv-details > summary {
+  list-style: none;
+  cursor: pointer;
+  font-size: 12.5px;
+  color: var(--color-muted, #6e6e73);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  user-select: none;
+}
+
+.pv-details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.pv-details > summary::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform 0.15s;
+  flex: none;
+  margin-left: 2px;
+}
+
+.pv-details[open] > summary::before {
+  transform: rotate(45deg);
+}
+
+.pv-details > summary:hover {
+  color: var(--color-ink, #1d1d1f);
+}
+
+.pv-details > .pv-body {
+  margin-top: 8px;
+}
+
+/* Recent requests: time · method host purpose · sizes. */
+.pv-recent {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  max-height: 320px;
+  overflow: auto;
+  border: 1px solid var(--color-line, #e3e3e6);
+  border-radius: 10px;
+}
+
+.pv-recent li {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: baseline;
+  padding: 7px 10px;
+  font-size: 12px;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-line, #e3e3e6) 60%, transparent);
+}
+
+.pv-recent li:last-child {
+  border-bottom: 0;
+}
+
+.pv-recent .when {
+  color: var(--color-muted, #6e6e73);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.pv-recent .what {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pv-recent .what .pv-purpose {
+  margin-left: 6px;
+}
+
+.pv-recent .size {
+  color: var(--color-muted, #6e6e73);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.pv-method {
+  font-family: ui-monospace, "Cascadia Mono", Menlo, Consolas, monospace;
+  font-size: 10.5px;
+  color: var(--color-muted, #6e6e73);
+  margin-right: 6px;
+}
+
+.pv-kind {
+  display: inline-block;
+  font-size: 10px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--color-line, #e3e3e6);
+  color: var(--color-muted, #6e6e73);
+  margin-left: 6px;
+  vertical-align: 1px;
+}
+
+.pv-recent li[data-ok="false"] .what::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #ff453a;
+  margin-right: 6px;
+  vertical-align: 1px;
+}
+
+/* What never leaves / what does. */
+.pv-two {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+@container (max-width: 560px) {
+  .pv-two {
+    grid-template-columns: 1fr;
+  }
+}
+
+.pv-h {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-ink, #1d1d1f);
+  margin-bottom: 6px;
+}
+
+.pv-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12.5px;
+  color: var(--color-muted, #6e6e73);
+}
+
+.pv-list li {
+  padding-left: 14px;
+  position: relative;
+}
+
+.pv-list li::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 8px;
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--color-accent, #0a84ff);
+  opacity: 0.85;
+}
+
+.pv-list.dim li::before {
+  background: var(--color-muted, #6e6e73);
+  opacity: 0.6;
+}
+
+/* Offline mode. */
+.pv-offline {
+  border: 1px solid var(--color-line, #e3e3e6);
+  border-radius: 12px;
+  padding: 14px 16px;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.pv-offline[data-on="true"] {
+  border-color: color-mix(in srgb, var(--color-accent, #0a84ff) 45%, transparent);
+  background: color-mix(in srgb, var(--color-accent, #0a84ff) 6%, transparent);
+}
+
+.pv-offline-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.pv-offline-state {
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-accent, #0a84ff);
+  font-weight: 600;
+  margin-left: 8px;
+}
+
+.pv-switch {
+  position: relative;
+  width: 38px;
+  height: 22px;
+  flex: none;
+  border: 0;
+  padding: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-ink, #1d1d1f) 18%, transparent);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.pv-switch[aria-checked="true"] {
+  background: var(--color-accent, #0a84ff);
+}
+
+.pv-switch:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.pv-switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  transition: transform 0.15s;
+}
+
+.pv-switch[aria-checked="true"]::after {
+  transform: translateX(16px);
+}
+
+.pv-switch:focus-visible {
+  outline: 2px solid var(--color-accent, #0a84ff);
+  outline-offset: 2px;
+}
+
+/* Footer actions + status line. */
+.pv-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.pv-msg {
+  font-size: 12px;
+  color: var(--color-muted, #6e6e73);
+}
+
+.pv-path {
+  font-family: ui-monospace, "Cascadia Mono", Menlo, Consolas, monospace;
+  font-size: 11px;
+}
+
+/* The badge: a chip for the hub or the titlebar. */
+.pv-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px 3px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--color-line, #e3e3e6);
+  background: var(--color-card, #fff);
+  color: var(--color-muted, #6e6e73);
+  font: inherit;
+  font-size: 11.5px;
+  line-height: 1.3;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.pv-badge:hover {
+  color: var(--color-ink, #1d1d1f);
+  border-color: color-mix(in srgb, var(--color-ink, #1d1d1f) 25%, var(--color-line, #e3e3e6));
+}
+
+.pv-badge::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--color-muted, #6e6e73);
+  opacity: 0.6;
+}
+
+.pv-badge[data-zero="true"]::before,
+.pv-badge[data-offline="true"]::before {
+  background: var(--color-accent, #0a84ff);
+  opacity: 1;
+}

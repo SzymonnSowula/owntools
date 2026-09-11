@@ -156,3 +156,11 @@ export const HomeGlyph = () => (
     <path d="M4 8.4v4.2a.8.8 0 0 0 .8.8h6.4a.8.8 0 0 0 .8-.8V8.4" />
   </Glyph>
 );
+
+/** Lines of text with one struck through: the Script panel. */
+export const ScriptGlyph = () => (
+  <Glyph>
+    <path d="M3 4h10M3 8h10M3 12h6" />
+    <path d="M9.5 7.2 6.5 8.8" />
+  </Glyph>
+);

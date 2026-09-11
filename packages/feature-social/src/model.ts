@@ -11,8 +11,10 @@ import type {
   MediaRef,
   Post,
   PostContent,
+  PostSource,
   PostStatus,
   PublishResult,
+  QueueSlot,
   SocialSettings,
   Tag,
   TagsFile,
@@ -57,7 +59,8 @@ export const DEFAULT_TAGS: Tag[] = [
   { id: "tag_product", name: "Product", color: "#0a84ff" },
 ];
 
-const POST_STATUSES: PostStatus[] = ["draft", "scheduled", "publishing", "published", "failed", "cancelled"];
+const POST_STATUSES: PostStatus[] = ["draft", "needs_review", "scheduled", "publishing", "published", "failed", "cancelled"];
+const POST_SOURCES: PostSource[] = ["app", "agent", "repeat", "automation", "meet", "capture", "screeni"];
 
 const str = (v: unknown, fallback = ""): string => (typeof v === "string" ? v : fallback);
 const num = (v: unknown, fallback = 0): number => (typeof v === "number" && Number.isFinite(v) ? v : fallback);
@@ -162,7 +165,8 @@ export function parsePost(raw: unknown): Post | null {
     if (parsed) results[cid] = parsed;
   }
   const status = POST_STATUSES.includes(r.status as PostStatus) ? (r.status as PostStatus) : "draft";
-  const source = r.source === "agent" || r.source === "repeat" ? r.source : "app";
+  const source = POST_SOURCES.includes(r.source as PostSource) ? (r.source as PostSource) : "app";
+  const clientRef = typeof r.clientRef === "string" && r.clientRef ? r.clientRef : typeof r.client_ref === "string" && r.client_ref ? r.client_ref : null;
   return {
     id,
     version: Math.max(1, Math.round(num(r.version, 1))),
@@ -183,7 +187,25 @@ export function parsePost(raw: unknown): Post | null {
     publishedAt: typeof r.publishedAt === "string" ? r.publishedAt : null,
     source,
     repeatOf: typeof r.repeatOf === "string" ? r.repeatOf : null,
+    clientRef,
   };
+}
+
+/** Queue slots from JSON: days 0–6 (unique, sorted), a valid "HH:MM"; anything else is dropped. */
+export function parseSlots(raw: unknown): QueueSlot[] {
+  if (!Array.isArray(raw)) return [];
+  const out: QueueSlot[] = [];
+  for (const item of raw) {
+    const r = record(item);
+    const days = Array.from(
+      new Set((Array.isArray(r.days) ? r.days : []).filter((d): d is number => typeof d === "number" && Number.isInteger(d) && d >= 0 && d <= 6)),
+    ).sort((a, b) => a - b);
+    const time = str(r.time).trim();
+    const m = /^(\d{1,2}):(\d{2})$/.exec(time);
+    if (!days.length || !m || Number(m[1]) > 23 || Number(m[2]) > 59) continue;
+    out.push({ days, time: `${m[1]!.padStart(2, "0")}:${m[2]}` });
+  }
+  return out.sort((a, b) => a.time.localeCompare(b.time));
 }
 
 export function parseChannel(raw: unknown): Channel | null {
@@ -218,6 +240,8 @@ export function parseChannel(raw: unknown): Channel | null {
   if (Array.isArray(prefs.defaultTags)) channel.preferences.defaultTags = strList(prefs.defaultTags);
   if (typeof prefs.charLimit === "number" && prefs.charLimit > 0) channel.preferences.charLimit = prefs.charLimit;
   if (r.stub === true) channel.stub = true;
+  const slots = parseSlots(r.slots);
+  if (slots.length) channel.slots = slots;
   return channel;
 }
 
@@ -310,6 +334,7 @@ export function defaultSettings(): SocialSettings {
     calendarView: "week",
     notifications: true,
     lateToleranceMinutes: 10,
+    agentPostsNeedApproval: true,
     agent: defaultAgentSettings(),
     ai: defaultAiSettings(),
     unsplashKey: "",
@@ -331,6 +356,7 @@ export function parseSettings(raw: unknown): SocialSettings {
     calendarView: r.calendarView === "month" || r.calendarView === "list" ? r.calendarView : "week",
     notifications: bool(r.notifications, true),
     lateToleranceMinutes: Math.min(720, Math.max(1, Math.round(num(r.lateToleranceMinutes, d.lateToleranceMinutes)))),
+    agentPostsNeedApproval: bool(r.agentPostsNeedApproval, true),
     agent: {
       enabled: bool(agent.enabled, true),
       port: Math.min(65535, Math.max(1024, Math.round(num(agent.port, DEFAULT_AGENT_PORT)))),

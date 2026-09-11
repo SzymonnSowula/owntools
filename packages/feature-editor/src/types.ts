@@ -315,6 +315,35 @@ export interface ShareLink {
   expiresAt?: number;
 }
 
+/** A stretch of time in seconds, `start` inclusive, `end` exclusive. */
+export interface TimeRange {
+  start: number;
+  end: number;
+}
+
+/**
+ * A chapter marker. `start` is in *source* time like every other clip, so it
+ * survives cuts; the YouTube export converts it to the cut timeline.
+ */
+export interface Chapter {
+  start: number;
+  title: string;
+}
+
+/**
+ * What the Script panel has already acted on: ids of the filler and retake
+ * candidates the person accepted. Re-analysis skips them, so a take never
+ * re-proposes something that was just removed — and because this sits in the
+ * undo snapshot, undoing the cut brings the proposal back too.
+ */
+export interface ScriptState {
+  fillersRemoved: string[];
+  retakesRemoved: string[];
+}
+
+/** A centre crop applied on export, on top of the project's own aspect. */
+export type CropAspect = "9:16" | "1:1";
+
 export interface Project {
   id: string;
   /**
@@ -364,6 +393,10 @@ export interface Project {
   sfx: SfxSettings;
   fade: FadeSettings;
   shares: ShareLink[];
+  /** Chapter markers, source time; see `lib/chapters.ts`. Always present after `normalizeProject`. */
+  chapters?: Chapter[];
+  /** Accepted Script-panel proposals; always present after `normalizeProject`. */
+  script?: ScriptState;
   aspect: AspectRatio;
   speechLang: SpeechLang;
 }

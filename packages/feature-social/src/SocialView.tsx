@@ -1,5 +1,5 @@
 import "./social.css";
-import { BarChart3, Bot, Calendar, Image as ImageIcon, Plug, Settings } from "lucide-react";
+import { BarChart3, Bot, Calendar, Image as ImageIcon, Plug, Settings, ShieldCheck } from "lucide-react";
 import { useEffect, type ReactElement } from "react";
 import { isTauri } from "@core/env";
 import { onHandoff, takeHandoff } from "@core/handoff";
@@ -7,6 +7,7 @@ import { AgentsPage } from "./components/AgentsPage";
 import { AnalyticsPage } from "./components/AnalyticsPage";
 import { CatchUpSheet } from "./components/CatchUpSheet";
 import { MediaPage } from "./components/MediaPage";
+import { ReviewPage } from "./components/ReviewPage";
 import { SettingsPage } from "./components/SettingsPage";
 import { Toasts } from "./components/Toasts";
 import { CalendarPage } from "./components/calendar/CalendarPage";
@@ -30,6 +31,7 @@ import { addDays, addMonths } from "date-fns";
 
 const RAIL: { id: Page; label: string; icon: ReactElement }[] = [
   { id: "calendar", label: "Calendar", icon: <Calendar /> },
+  { id: "review", label: "Review", icon: <ShieldCheck /> },
   { id: "channels", label: "Channels", icon: <Plug /> },
   { id: "media", label: "Media", icon: <ImageIcon /> },
   { id: "analytics", label: "Analytics", icon: <BarChart3 /> },
@@ -48,6 +50,7 @@ export default function SocialView() {
   const channels = useSocialStore((s) => s.channels);
   const posts = useSocialStore((s) => s.posts);
   const failed = useSocialStore((s) => s.posts.filter((p) => p.status === "failed").length);
+  const review = useSocialStore((s) => s.posts.filter((p) => p.status === "needs_review").length);
   const catchUp = useSocialStore((s) => s.catchUp.length);
   const page = useUi((s) => s.page);
   const setPage = useUi((s) => s.setPage);
@@ -121,12 +124,12 @@ export default function SocialView() {
       <div className="mod-social">
         <nav className="sc-rail" aria-label="Social">
           {RAIL.map((item) => {
-            const badge = item.id === "calendar" ? failed + catchUp : 0;
+            const badge = item.id === "calendar" ? failed + catchUp : item.id === "review" ? review : 0;
             return (
-              <Tip key={item.id} label={`${item.label}${item.id === "calendar" ? " (C)" : ""}`}>
+              <Tip key={item.id} label={`${item.label}${item.id === "calendar" ? " (C)" : item.id === "review" && review ? ` — ${review} waiting for approval` : ""}`}>
                 <button className={`sc-rail-btn${page === item.id ? " active" : ""}`} aria-label={item.label} aria-current={page === item.id ? "page" : undefined} onClick={() => setPage(item.id)}>
                   {item.icon}
-                  {badge ? <span className="sc-rail-badge">{badge}</span> : null}
+                  {badge ? <span className={`sc-rail-badge${item.id === "review" ? " review" : ""}`}>{badge}</span> : null}
                 </button>
               </Tip>
             );
@@ -147,6 +150,8 @@ export default function SocialView() {
           </div>
         ) : page === "calendar" ? (
           <CalendarPage />
+        ) : page === "review" ? (
+          <ReviewPage />
         ) : page === "channels" ? (
           <ChannelsPage />
         ) : page === "media" ? (

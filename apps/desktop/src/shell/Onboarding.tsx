@@ -225,7 +225,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
               <p className="onb-lead">everything you say, record and write — kept on this device.</p>
               <ul className="onb-list">
                 <li>No accounts, no cloud — everything stays on this device.</li>
-                <li>Seven tools, one desk: dictation, recording, a quiet desk, launch videos, a whiteboard, a social scheduler, a disk analyzer.</li>
+                <li>Nine tools, one desk: dictation, recording, screenshots, a quiet desk, launch videos, call transcripts, a whiteboard, a social scheduler, a disk analyzer.</li>
                 <li>Workspaces are sessions: one click opens your apps, links and timer.</li>
                 <li>Free to use; Pro unlocks watermark-free exports.</li>
               </ul>
@@ -234,7 +234,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
 
           {step === 1 ? (
             <>
-              <h2 className="onb-title">one desk, seven tools</h2>
+              <h2 className="onb-title">one desk, nine tools</h2>
               <div className="onb-tools">
                 {TOOL_ROWS.map((t) => (
                   <div key={t.name} className="onb-tool">

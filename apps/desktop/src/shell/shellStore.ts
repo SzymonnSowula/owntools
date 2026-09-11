@@ -1,7 +1,17 @@
 import { create } from "zustand";
 import type { QuickToolKey } from "@feature-tools/keys";
 
-export type Tool = "hub" | "focus" | "create" | "launch" | "dictate" | "board" | "social" | "disk";
+export type Tool =
+  | "hub"
+  | "focus"
+  | "create"
+  | "capture"
+  | "launch"
+  | "dictate"
+  | "meet"
+  | "board"
+  | "social"
+  | "disk";
 
 /** A quick tool opened over the hub (`@feature-tools/catalogue`), or null. */
 export type HubTool = QuickToolKey | null;

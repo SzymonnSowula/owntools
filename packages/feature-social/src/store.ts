@@ -1,6 +1,8 @@
 import { create } from "zustand";
 import { isTauri } from "@core/env";
-import { logError } from "@core/errors";
+import { logError, logInfo } from "@core/errors";
+import { ACTIVITY_LIMIT, makeEntry, parseActivity, serializeEntry, trimActivity, undoPlan } from "./activity";
+import { hasErrors, validatePost } from "./limits";
 import {
   DEFAULT_COLLECTION,
   defaultSettings,
@@ -16,8 +18,11 @@ import {
   parseTagsFile,
   TAG_COLORS,
 } from "./model";
+import { approvePlan, type ApprovalOutcome } from "./review";
+import { nextFreeSlot } from "./slots";
 import { getSocialStorage, PATHS, postPath, safeId, type SocialStorage } from "./storage";
 import type {
+  ActivityEntry,
   Channel,
   ChannelCredentials,
   ChannelsFile,
@@ -64,6 +69,10 @@ export interface SocialState {
   toasts: Toast[];
   /** In-flight publishes (post ids), so two ticks never publish the same post. */
   publishing: Set<string>;
+  /** The newest lines of activity.jsonl, newest first (agents, automations, review decisions). */
+  activity: ActivityEntry[];
+  /** voice.md — the brand voice every agent reads. */
+  voice: string;
 
   load(): Promise<void>;
   reload(): Promise<void>;
@@ -72,6 +81,17 @@ export interface SocialState {
   updatePost(id: string, change: (post: Post) => Post): Promise<Post | null>;
   deletePost(id: string): Promise<void>;
   getPost(id: string): Post | undefined;
+  /** Writes `post` back as a new version — how undo restores a changed or deleted post. */
+  restorePost(post: Post, note?: string): Promise<Post>;
+
+  /** Approves a post waiting for review: on the calendar at its time, or at the next free slot. */
+  approvePost(id: string): Promise<ApprovalOutcome>;
+  /** Rejects a post waiting for review: deleted, the reason kept in the activity log. */
+  rejectPost(id: string, reason: string): Promise<void>;
+  appendActivity(entry: ActivityEntry): Promise<void>;
+  /** Undoes one activity row when the log allows it; the outcome is what the toast says. */
+  undoActivity(entry: ActivityEntry): Promise<{ ok: boolean; message: string }>;
+  saveVoice(markdown: string): Promise<void>;
 
   addChannel(channel: Omit<Channel, "id" | "createdAt" | "updatedAt">, creds: ChannelCredentials, avatar?: { bytes: Uint8Array; mime: string } | null): Promise<Channel>;
   updateChannel(id: string, patch: Partial<Channel>): Promise<void>;
@@ -174,6 +194,8 @@ export const useSocialStore = create<SocialState>((set, get) => ({
   catchUp: [],
   toasts: [],
   publishing: new Set(),
+  activity: [],
+  voice: "",
 
   async load() {
     if (get().ready) return;
@@ -183,13 +205,15 @@ export const useSocialStore = create<SocialState>((set, get) => ({
   async reload() {
     const { storage } = get();
     try {
-      const [channelsFile, credsFile, tagsFile, mediaFile, settingsRaw, posts] = await Promise.all([
+      const [channelsFile, credsFile, tagsFile, mediaFile, settingsRaw, posts, activityText, voice] = await Promise.all([
         readJson(storage, PATHS.channels, parseChannelsFile),
         readJson(storage, PATHS.credentials, parseCredentialsFile),
         readJson(storage, PATHS.tags, parseTagsFile),
         readJson(storage, PATHS.media, parseMediaFile),
         readJson(storage, PATHS.settings, parseSettings),
         readAllPosts(storage),
+        storage.readText(PATHS.activity).catch(() => null),
+        storage.readText(PATHS.voice).catch(() => null),
       ]);
       let settings = settingsRaw;
       if (!isTauri() && !settings.simulate) settings = { ...settings, simulate: true };
@@ -203,6 +227,8 @@ export const useSocialStore = create<SocialState>((set, get) => ({
         media: mediaFile.items,
         settings,
         posts: sortPosts(posts),
+        activity: parseActivity(activityText, ACTIVITY_LIMIT),
+        voice: voice ?? "",
       });
     } catch (err) {
       logError("social", "load", err);
@@ -248,6 +274,98 @@ export const useSocialStore = create<SocialState>((set, get) => ({
     const { storage } = get();
     await storage.remove(postPath(safeId(id)));
     set((s) => ({ posts: s.posts.filter((p) => p.id !== id), catchUp: s.catchUp.filter((p) => p.id !== id) }));
+  },
+
+  async restorePost(post, note) {
+    const { storage } = get();
+    return withLock(`post:${post.id}`, async () => {
+      const rel = postPath(safeId(post.id));
+      const text = await storage.readText(rel);
+      let currentVersion = 0;
+      if (text) {
+        try {
+          currentVersion = parsePost(JSON.parse(text))?.version ?? 0;
+        } catch {
+          currentVersion = 0;
+        }
+      }
+      const next: Post = { ...post, version: Math.max(currentVersion, post.version) + 1, updatedAt: nowIso() };
+      await writeJson(storage, rel, next);
+      set((s) => ({ posts: sortPosts([...s.posts.filter((p) => p.id !== post.id), next]) }));
+      if (note) logInfo("social", `${note}: ${post.id} → v${next.version}`);
+      return next;
+    });
+  },
+
+  async approvePost(id) {
+    const state = get();
+    const post = state.getPost(id);
+    if (!post) return { ok: false, reason: "not-waiting", message: "This post is gone." };
+    const issues = validatePost(post, state.channels, mediaById(state.media));
+    const plan = approvePlan(
+      post,
+      new Date(),
+      () => nextFreeSlot(post.channelIds, new Date(), { channels: state.channels, posts: state.posts, excludeId: id }),
+      hasErrors(issues),
+    );
+    if (!plan.ok) return plan;
+    const saved = await state.updatePost(id, () => plan.post);
+    if (!saved) return { ok: false, reason: "not-waiting", message: "This post is gone." };
+    await get().appendActivity(makeEntry("user", "approve", id, { before: post, after: saved, note: plan.movedToSlot ? "moved to the next free slot" : undefined }));
+    return { ...plan, post: saved };
+  },
+
+  async rejectPost(id, reason) {
+    const post = get().getPost(id);
+    if (!post) return;
+    await get().deletePost(id);
+    await get().appendActivity(makeEntry("user", "reject", id, { before: post, note: reason.trim() || undefined }));
+  },
+
+  async appendActivity(entry) {
+    const { storage } = get();
+    await withLock("activity", async () => {
+      try {
+        await storage.appendText(PATHS.activity, serializeEntry(entry));
+        // Keep the file bounded: the app is the long-running process, so it does the trimming.
+        const text = await storage.readText(PATHS.activity);
+        if (text) {
+          const trimmed = trimActivity(text);
+          if (trimmed) await storage.writeText(PATHS.activity, trimmed);
+        }
+      } catch (err) {
+        logError("social", "activity append", err);
+      }
+      set((s) => ({ activity: [entry, ...s.activity].slice(0, ACTIVITY_LIMIT) }));
+    });
+  },
+
+  async undoActivity(entry) {
+    const current = get().getPost(entry.postId);
+    const plan = undoPlan(entry, current);
+    if (plan.kind === "none") return { ok: false, message: plan.reason };
+    try {
+      const restored = await get().restorePost(plan.post, "undo");
+      await get().appendActivity(
+        makeEntry("user", plan.recreate ? "create" : "update", entry.postId, {
+          before: current ?? null,
+          after: restored,
+          note: `undo: ${entry.action} by ${entry.actor}${entry.ts ? ` at ${entry.ts}` : ""}`,
+        }),
+      );
+      return { ok: true, message: plan.recreate ? "Post restored" : "Change undone" };
+    } catch (err) {
+      logError("social", "undo", err);
+      return { ok: false, message: err instanceof Error ? err.message : String(err) };
+    }
+  },
+
+  async saveVoice(markdown) {
+    const { storage } = get();
+    await withLock("voice", async () => {
+      await storage.writeText(PATHS.voice, markdown);
+      set({ voice: markdown });
+    });
   },
 
   async addChannel(channel, creds, avatar) {

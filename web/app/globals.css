@@ -496,6 +496,14 @@ body {
   .ts-mock {
     transform: scale(1.15);
   }
+
+  /* a phone holds the stage at ~330px wide, where 16:9 is 187px tall - the
+     taller stand-ins (meet's transcript, capture's frozen screen, ~200px at
+     mockup scale) were losing their bottom line to the clip. 4:3 gives them
+     the room and reads better on a portrait screen anyway. */
+  .ts-stage {
+    aspect-ratio: 4 / 3;
+  }
 }
 
 /* it already sits inside a window, so drop its own title bar: a window inside

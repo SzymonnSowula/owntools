@@ -1,0 +1,266 @@
+/*
+ * Live captions overlay. A transparent, always-on-top, non-focusable window
+ * sitting over other people's applications, so nothing here uses the suite's
+ * tokens: the palette is fixed — near-black glass, white text with a shadow —
+ * the way subtitles are drawn on any background.
+ */
+
+.cap {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: stretch;
+  padding: 0 6px 4px;
+  box-sizing: border-box;
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: #fff;
+  -webkit-font-smoothing: antialiased;
+}
+
+.cap * {
+  box-sizing: border-box;
+}
+
+/* ---- bar ---------------------------------------------------------------- */
+
+.cap-bar {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  height: 26px;
+  width: max-content;
+  max-width: 100%;
+  margin: 0 auto 6px;
+  padding: 0 6px 0 11px;
+  border-radius: 999px;
+  background: rgba(20, 20, 23, 0.86);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  font-size: 10.5px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.82);
+  cursor: grab;
+  user-select: none;
+}
+
+.cap-bar:active {
+  cursor: grabbing;
+}
+
+.cap-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: #ff453a;
+  animation: cap-pulse 1.2s ease-in-out infinite;
+}
+
+.cap-dot.off {
+  background: #8e8e93;
+  animation: none;
+}
+
+.cap-bar .cap-sep {
+  opacity: 0.35;
+}
+
+.cap-bar button {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.cap-bar button:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.cap-bar button svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* ---- lines -------------------------------------------------------------- */
+
+.cap-lines {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 0.12em;
+  min-height: 2.6em;
+  padding: 10px 24px 12px;
+  border-radius: 16px;
+  background: rgba(14, 14, 16, 0.8);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4), inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(14px);
+  text-align: center;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.32;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85), 0 0 14px rgba(0, 0, 0, 0.45);
+}
+
+.cap-lines.empty {
+  background: rgba(14, 14, 16, 0.55);
+}
+
+.cap-line {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: opacity 0.45s ease;
+}
+
+.cap-line.older {
+  font-size: 0.84em;
+  font-weight: 500;
+}
+
+.cap-line.muted {
+  color: rgba(255, 255, 255, 0.55);
+  font-weight: 500;
+  font-style: italic;
+}
+
+.cap-line.error {
+  color: #ff9f8a;
+  font-size: 0.7em;
+  font-weight: 600;
+  white-space: normal;
+}
+
+/* ---- gear --------------------------------------------------------------- */
+
+.cap-gear {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 18px;
+  margin: 0 auto 8px;
+  padding: 12px 16px;
+  width: min(100%, 620px);
+  border-radius: 14px;
+  background: rgba(24, 24, 27, 0.94);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45), inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.cap-gear-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 28px;
+}
+
+.cap-gear-row.wide {
+  grid-column: 1 / -1;
+}
+
+.cap-gear-label {
+  font-weight: 600;
+}
+
+.cap-gear-hint {
+  display: block;
+  margin-top: 1px;
+  font-size: 10.5px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.cap-seg {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.cap-seg button,
+.cap-btn {
+  border: 0;
+  border-radius: 999px;
+  padding: 3px 10px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.7);
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cap-seg button.active {
+  background: #fff;
+  color: #111;
+}
+
+.cap-seg button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.cap-btn {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.cap-btn:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.cap-btn.danger {
+  background: rgba(255, 69, 58, 0.22);
+  color: #ffb4ac;
+}
+
+.cap-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-variant-numeric: tabular-nums;
+}
+
+.cap-step button {
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.cap-step button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+@keyframes cap-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cap-dot {
+    animation: none;
+  }
+  .cap-line {
+    transition: none;
+  }
+}

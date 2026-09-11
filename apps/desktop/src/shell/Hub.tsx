@@ -1,95 +1,16 @@
-import type { ReactElement } from "react";
-import { DICTATION_HOTKEY_LABEL } from "@core/hotkeys";
-import { WinDots, ToolIcons } from "@ui/WinDots";
-import { ToolMark, TOOL_TINT, type ToolMarkName } from "@ui/ToolMark";
+import { WinDots } from "@ui/WinDots";
+import { ToolMark, TOOL_TINT } from "@ui/ToolMark";
 import { BrandMark } from "@ui/BrandMark";
 import { SUITE_NAME } from "@core/branding";
 import { openRecorderOverlay } from "@core/recorderWindow";
 import { formatMs, todayIso } from "@feature-focus/lib/dates";
 import { useAppStore as useFocusStore } from "@feature-focus/store/useAppStore";
 import { ritualOf } from "@feature-focus/store/persist";
-import { useShellStore, type Tool } from "./shellStore";
+import { useShellStore } from "./shellStore";
+import { TOOL_CARDS, openQuickTool } from "./toolCatalogue";
 import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 import { activeSteps, ritualIsEmpty } from "./ritual";
 import { QUICK_TOOLS } from "@feature-tools/catalogue";
-import type { QuickToolKey } from "@feature-tools/keys";
-
-interface ToolCard {
-  tool: Tool;
-  window: string;
-  name: string;
-  desc: string;
-  /** Which app mark the tile paints (`@ui/ToolMark`). */
-  mark: ToolMarkName;
-  dots: ReactElement;
-  tilt: number;
-}
-
-const CARDS: ToolCard[] = [
-  {
-    tool: "focus",
-    window: "focus.app",
-    name: "focus",
-    desc: "A quiet desk: timer, tasks, notebook, habits and a time heatmap.",
-    tilt: -1.1,
-    mark: "focus",
-    dots: ToolIcons.focus,
-  },
-  {
-    tool: "create",
-    window: "screeni.app",
-    name: "screeni",
-    desc: "Screen recordings that follow your cursor. Edit, zoom, export MP4.",
-    tilt: 1.2,
-    mark: "screeni",
-    dots: ToolIcons.video,
-  },
-  {
-    tool: "launch",
-    window: "launch.app",
-    name: "launch",
-    desc: "Paste a URL, get a short video out of it. Rendered on-device.",
-    tilt: -0.9,
-    mark: "launch",
-    dots: ToolIcons.launch,
-  },
-  {
-    tool: "dictate",
-    window: "dictate.app",
-    name: "dictate",
-    desc: `Press ${DICTATION_HOTKEY_LABEL}, speak, press again — an on-device model types for you anywhere.`,
-    tilt: 0.8,
-    mark: "dictate",
-    dots: ToolIcons.dictate,
-  },
-  {
-    tool: "board",
-    window: "board.app",
-    name: "board",
-    desc: "An endless whiteboard: paste screenshots, sketch, think in boxes and arrows.",
-    tilt: -0.7,
-    mark: "board",
-    dots: ToolIcons.board,
-  },
-  {
-    tool: "disk",
-    window: "disk.app",
-    name: "disk",
-    desc: "See where the space went: a treemap of every file, duplicates, quick wins, snapshots.",
-    tilt: -0.8,
-    mark: "disk",
-    dots: ToolIcons.disk,
-  },
-  {
-    tool: "social",
-    window: "social.app",
-    name: "social",
-    desc: "Schedule posts to 30+ networks from a calendar. Agents can drive it over a local API.",
-    tilt: 0.9,
-    mark: "social",
-    dots: ToolIcons.social,
-  },
-];
 
 function greetingFor(hour: number): string {
   if (hour < 5) return "good night";
@@ -101,7 +22,6 @@ function greetingFor(hour: number): string {
 export function Hub() {
   const setTool = useShellStore((s) => s.setTool);
   const setFocusOverview = useShellStore((s) => s.setFocusOverview);
-  const setHubTool = useShellStore((s) => s.setHubTool);
   const tasks = useFocusStore((s) => s.tasks);
   const heatmap = useFocusStore((s) => s.heatmap);
   const timer = useFocusStore((s) => s.timer);
@@ -129,16 +49,6 @@ export function Hub() {
     setTool("focus");
     setFocusOverview(false);
     useFocusStore.getState().setView(view);
-  }
-
-  function runQuickTool(key: QuickToolKey) {
-    if (key === "voicenote") {
-      setTool("focus");
-      setFocusOverview(false);
-      useFocusStore.getState().setView("notes");
-      return;
-    }
-    setHubTool(key);
   }
 
   return (
@@ -203,11 +113,17 @@ export function Hub() {
         </div>
 
         <div className="hub-grid">
-        {CARDS.map((card) => (
+        {TOOL_CARDS.map((card) => (
           <button
             key={card.tool}
-            className="wincard"
-            style={{ transform: `rotate(${card.tilt}deg)` }}
+            className="wincard hub-card"
+            // Tilt and tint are handed to CSS rather than applied here: the card
+            // composes its own transform on hover, and an inline transform would
+            // win over every one of those states.
+            style={{
+              ["--tilt" as string]: `${card.tilt}deg`,
+              ["--tint" as string]: TOOL_TINT[card.mark],
+            }}
             onClick={() => {
               if (card.tool === "focus") setFocusOverview(true);
               setTool(card.tool);
@@ -218,12 +134,7 @@ export function Hub() {
               <span className="wincard-title">{card.window}</span>
             </div>
             <div className="wincard-body">
-              <div
-                className="hub-card-icon"
-                // The tile paints itself; the wrapper only casts its shadow, in the
-                // tool's own colour rather than one blue for all seven.
-                style={{ boxShadow: `0 7px 18px -4px ${TOOL_TINT[card.mark]}66` }}
-              >
+              <div className="hub-card-icon">
                 <ToolMark tool={card.mark} size={38} />
               </div>
               <div className="hub-card-name">{card.name}</div>
@@ -240,7 +151,7 @@ export function Hub() {
             key={tool.key}
             className="wincard"
             style={{ transform: `rotate(${tool.tilt}deg)` }}
-            onClick={() => runQuickTool(tool.key)}
+            onClick={() => openQuickTool(tool.key)}
           >
             <div className="wincard-bar">
               <WinDots icon={tool.dots} />

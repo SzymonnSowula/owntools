@@ -1,9 +1,15 @@
 import { describe, expect, it } from "vitest";
 import type { Segment } from "../types";
 import {
+  cutSourceRanges,
+  isCutAt,
   isJumpCut,
+  isRangeCut,
+  keepOnlySourceRanges,
+  mergeRanges,
   playbackStep,
   segmentAtTimeline,
+  sliceSegmentsToTimelineRange,
   sourceToTimeline,
   splitSegment,
   timelineDuration,
@@ -111,5 +117,68 @@ describe("time mapping stays continuous across a split", () => {
     expect(out[0].end).toBe(3);
     expect(out[1].start).toBe(3);
     expect(isJumpCut(out, 1)).toBe(false);
+  });
+});
+
+describe("source-range cuts", () => {
+  const clips: Segment[] = [
+    { id: "a", start: 0, end: 10 },
+    { id: "b", start: 20, end: 30, transition: { kind: "crossfade", duration: 0.5 } },
+  ];
+
+  it("takes ranges out, keeps the first piece's id and transition, drops slivers", () => {
+    const next = cutSourceRanges(clips, [{ start: 4, end: 6 }, { start: 5, end: 7 }, { start: 22, end: 29.95 }]);
+    expect(next.map((s) => [s.start, s.end])).toEqual([[0, 4], [7, 10], [20, 22]]);
+    expect(next[0].id).toBe("a");
+    expect(next[1].id).not.toBe("a");
+    expect(next[2].id).toBe("b");
+    expect(next[2].transition?.kind).toBe("crossfade");
+  });
+
+  it("leaves untouched clips as the same objects and handles empty input", () => {
+    const next = cutSourceRanges(clips, [{ start: 12, end: 18 }, { start: 3, end: 2 }]);
+    expect(next[0]).toBe(clips[0]);
+    expect(next[1]).toBe(clips[1]);
+    expect(cutSourceRanges(clips, [{ start: 0, end: 100 }])).toEqual([]);
+  });
+
+  it("keeps only what overlaps the given ranges", () => {
+    const next = keepOnlySourceRanges(clips, [{ start: 2, end: 4 }, { start: 8, end: 25 }]);
+    expect(next.map((s) => [s.start, s.end])).toEqual([[2, 4], [8, 10], [20, 25]]);
+    expect(next[0].id).toBe("a");
+    expect(next[2].id).toBe("b");
+  });
+
+  it("merges ranges and knows what is cut", () => {
+    expect(mergeRanges([{ start: 5, end: 6 }, { start: 1, end: 3 }, { start: 3, end: 4 }])).toEqual([
+      { start: 1, end: 4 },
+      { start: 5, end: 6 },
+    ]);
+    expect(isCutAt(15, clips)).toBe(true);
+    expect(isCutAt(5, clips)).toBe(false);
+    expect(isCutAt(10.0005, clips)).toBe(false);
+    expect(isRangeCut({ start: 11, end: 19 }, clips)).toBe(true);
+    expect(isRangeCut({ start: 9, end: 19 }, clips)).toBe(false);
+  });
+});
+
+describe("sliceSegmentsToTimelineRange", () => {
+  const clips: Segment[] = [
+    { id: "a", start: 0, end: 10 },
+    { id: "b", start: 20, end: 30, transition: { kind: "crossfade", duration: 0.5 } },
+  ];
+
+  it("cuts a stretch of the timeline out as its own segment list", () => {
+    // Timeline 7–14 spans the cut at 10: 3 s of clip a, 4 s of clip b.
+    const slice = sliceSegmentsToTimelineRange(clips, { start: 7, end: 14 });
+    expect(slice.map((s) => [s.start, s.end])).toEqual([[7, 10], [20, 24]]);
+    expect(slice[0].transition).toBeUndefined();
+    expect(slice[1].transition?.kind).toBe("crossfade");
+    expect(timelineDuration(slice)).toBeCloseTo(7, 9);
+  });
+
+  it("drops the transition when the slice starts inside the second clip", () => {
+    const slice = sliceSegmentsToTimelineRange(clips, { start: 12, end: 16 });
+    expect(slice).toEqual([{ id: "b", start: 22, end: 26 }]);
   });
 });

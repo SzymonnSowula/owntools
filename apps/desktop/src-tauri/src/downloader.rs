@@ -14,6 +14,8 @@ use sha2::{Digest, Sha256};
 use tauri::{AppHandle, Emitter, Manager};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
+use crate::netlog;
+
 /// Emitted on every download while it runs.
 pub const PROGRESS_EVENT: &str = "download-progress";
 /// The error string a cancelled download resolves with; the frontend keys off it.
@@ -50,6 +52,22 @@ pub struct DownloadRequest {
     pub sha256: Option<String>,
     /// Progress-bar total when the server sends no Content-Length.
     pub expected_size: Option<u64>,
+    /// What the download is for, as the Privacy card should show it
+    /// ("whisper model download"). Without it the id is labelled by prefix
+    /// (`netlog::download_purpose`).
+    #[serde(default)]
+    pub purpose: Option<String>,
+}
+
+/// What one `download_file` call did on the wire, for the network log.
+#[derive(Default)]
+struct Tally {
+    /// A connection was opened (false for "already complete" and Offline mode).
+    sent: bool,
+    started: i64,
+    status: Option<u16>,
+    /// Bytes received by *this* call — a resumed download counts only its own range.
+    received: u64,
 }
 
 #[derive(Clone, Serialize)]
@@ -101,6 +119,33 @@ pub fn download_cancel(id: String) {
 
 #[tauri::command]
 pub async fn download_file(app: AppHandle, request: DownloadRequest) -> Result<String, String> {
+    let mut tally = Tally::default();
+    let result = run_download(&app, &request, &mut tally).await;
+    if tally.sent {
+        let host = netlog::host_of(&request.url);
+        netlog::record(
+            &app,
+            netlog::NetEntry {
+                ts: tally.started,
+                host: host.clone(),
+                method: "GET".into(),
+                bytes_out: Some(0),
+                bytes_in: Some(tally.received),
+                purpose: request
+                    .purpose
+                    .clone()
+                    .filter(|p| !p.trim().is_empty())
+                    .unwrap_or_else(|| netlog::download_purpose(&request.id)),
+                ok: result.is_ok(),
+                status: tally.status,
+                kind: netlog::kind_of_host(&host),
+            },
+        );
+    }
+    result
+}
+
+async fn run_download(app: &AppHandle, request: &DownloadRequest, tally: &mut Tally) -> Result<String, String> {
     let rel = safe_relative(&request.dest)
         .ok_or("Destination must be a plain path inside the app data folder.")?;
     let root = app.path().app_data_dir().map_err(|e| e.to_string())?;
@@ -163,6 +208,12 @@ pub async fn download_file(app: AppHandle, request: DownloadRequest) -> Result<S
         }
     }
 
+    // Nothing leaves the machine in Offline mode — checked after the
+    // "already complete" path above, which needs no network at all.
+    if netlog::offline(app) {
+        return Err("Offline mode is on — turn it off in Settings → Privacy to download.".into());
+    }
+
     let client = reqwest::Client::builder()
         .user_agent(concat!("owntools/", env!("CARGO_PKG_VERSION")))
         .build()
@@ -171,11 +222,14 @@ pub async fn download_file(app: AppHandle, request: DownloadRequest) -> Result<S
     if have > 0 {
         req = req.header(reqwest::header::RANGE, format!("bytes={have}-"));
     }
+    tally.sent = true;
+    tally.started = netlog::now_ms();
     let res = req
         .send()
         .await
         .map_err(|e| format!("Download could not start: {e}"))?;
     let status = res.status();
+    tally.status = Some(status.as_u16());
     let resumed = status == reqwest::StatusCode::PARTIAL_CONTENT;
     if !(status.is_success() || resumed) {
         return Err(format!("Download failed ({status}): {}", request.url));
@@ -233,6 +287,7 @@ pub async fn download_file(app: AppHandle, request: DownloadRequest) -> Result<S
             .map_err(|e| format!("Could not write to disk: {e}"))?;
         hasher.update(&bytes);
         loaded += bytes.len() as u64;
+        tally.received += bytes.len() as u64;
         if last_emit.elapsed() >= Duration::from_millis(150) {
             emit(loaded);
             last_emit = Instant::now();

@@ -23,7 +23,7 @@ const BRAND_GLYPH = (
  * (tiny filled details excepted).
  */
 export const ToolIcons: Record<
-  "focus" | "screeni" | "launch" | "dictate" | "video" | "record" | "board" | "social" | "disk",
+  "focus" | "screeni" | "capture" | "launch" | "dictate" | "meet" | "video" | "record" | "board" | "social" | "disk",
   ReactElement
 > = {
   /* aperture: ring closing on a point — the app mark at 11 px */
@@ -40,6 +40,13 @@ export const ToolIcons: Record<
       <path d="M5 4.6l2.6 1.4L5 7.4V4.6z" fill="currentColor" stroke="none" />
     </svg>
   ),
+  /* viewfinder corners + shutter point (PROVISIONAL, see ToolMark) */
+  capture: (
+    <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" xmlns="http://www.w3.org/2000/svg">
+      <path d="M1.6 3.8V2.6a1 1 0 0 1 1-1h1.2M8.2 1.6h1.2a1 1 0 0 1 1 1v1.2M10.4 8.2v1.2a1 1 0 0 1-1 1H8.2M3.8 10.4H2.6a1 1 0 0 1-1-1V8.2" />
+      <circle cx="6" cy="6" r="1.7" fill="currentColor" stroke="none" />
+    </svg>
+  ),
   /* sail over its wake — not a rocket; the brand sails */
   launch: (
     <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" xmlns="http://www.w3.org/2000/svg">
@@ -52,6 +59,13 @@ export const ToolIcons: Record<
     <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" xmlns="http://www.w3.org/2000/svg">
       <rect x="4.4" y="1.2" width="3.2" height="5.4" rx="1.6" />
       <path d="M2.7 5.7a3.3 3.3 0 006.6 0M6 9v1.8" />
+    </svg>
+  ),
+  /* two speech bubbles: theirs behind and dim, yours in front — the app mark at 11 px */
+  meet: (
+    <svg viewBox="0 0 12 12" fill="currentColor" stroke="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M5.6 1.6h4.2a1.4 1.4 0 0 1 1.4 1.4v1.6a1.4 1.4 0 0 1-1.4 1.4H8.4l1.4 1.6-2.6-1.6H5.6a1.4 1.4 0 0 1-1.4-1.4V3a1.4 1.4 0 0 1 1.4-1.4z" opacity="0.5" />
+      <path d="M2.4 5.2h4.4a1.5 1.5 0 0 1 1.5 1.5v1.8a1.5 1.5 0 0 1-1.5 1.5H4.2L2.6 11.6V10A1.5 1.5 0 0 1 .9 8.5V6.7a1.5 1.5 0 0 1 1.5-1.5z" />
     </svg>
   ),
   /* filmstrip with play */

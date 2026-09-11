@@ -5,6 +5,9 @@ import { Inspector } from "./Inspector";
 import { ExportModal } from "./ExportModal";
 import { CommandPalette, type PaletteCommand } from "./CommandPalette";
 import { Toolbar } from "./Toolbar";
+import { TranscriptPanel } from "./TranscriptPanel";
+import { proposeChapters } from "../lib/chapters";
+import { sentencesFromCaptions } from "../lib/transcriptEdit";
 import { saveProjectAsset } from "../lib/projectIo";
 import { useOverlayImages } from "../lib/useOverlayImages";
 import { ensureFiniteDuration } from "../lib/videoEl";
@@ -31,8 +34,10 @@ export function Editor() {
   const redo = useAppStore((s) => s.redo);
   const updateProject = useAppStore((s) => s.updateProject);
   const showToast = useAppStore((s) => s.showToast);
+  const scriptOpen = useAppStore((s) => s.scriptOpen);
   const [autoCutBusy, setAutoCutBusy] = useState(false);
   const sfxOn = Boolean(project?.sfx.enabled);
+  const hasTranscript = Boolean(project?.captions.length);
 
   const screenRef = useRef<HTMLVideoElement>(null);
   const webcamRef = useRef<HTMLVideoElement>(null);
@@ -186,6 +191,10 @@ export function Editor() {
       if (e.code === "Space") {
         e.preventDefault();
         setPlaying(!state.playing);
+      } else if (key === "s" && e.shiftKey && !e.metaKey && !e.ctrlKey) {
+        // S splits, Shift+S is the Script — the same pairing as Z / Shift+Z.
+        e.preventDefault();
+        state.setScriptOpen(!state.scriptOpen);
       } else if (key === "s" && !e.metaKey && !e.ctrlKey) {
         e.preventDefault();
         splitAtPlayhead();
@@ -297,6 +306,50 @@ export function Editor() {
       },
       { id: "autocut", group: "Cut", label: "Auto-cut the silent pauses", hint: "listens to the audio", disabled: autoCutBusy, run: () => void autoCut() },
       { id: "delete", group: "Cut", label: "Delete the selection", keys: "Del", disabled: !store().selection, run: () => store().deleteSelection() },
+      {
+        id: "script",
+        group: "Script",
+        label: scriptOpen ? "Hide the Script panel" : "Open the Script panel",
+        keys: "Shift+S",
+        hint: "edit the video as text",
+        run: () => store().setScriptOpen(!store().scriptOpen),
+      },
+      {
+        id: "fillers",
+        group: "Script",
+        label: "Remove fillers",
+        hint: hasTranscript ? "um, uh, repeated words — reviewed before they go" : "needs a transcript",
+        run: () => store().showScript("fillers"),
+      },
+      {
+        id: "retakes",
+        group: "Script",
+        label: "Find retakes",
+        hint: hasTranscript ? "sentences said twice — the first attempt goes" : "needs a transcript",
+        run: () => store().showScript("retakes"),
+      },
+      {
+        id: "chapters",
+        group: "Script",
+        label: "Generate chapters",
+        hint: hasTranscript ? "from the pauses in the take" : "needs a transcript",
+        run: () => {
+          const p = store().project;
+          if (p && p.captions.length) {
+            const proposed = proposeChapters(sentencesFromCaptions(p.captions), p.duration);
+            if (proposed.length) store().setChapters(proposed);
+            else store().showToast("The take is too short for chapters, or has too few pauses.", "info");
+          }
+          store().showScript("chapters");
+        },
+      },
+      {
+        id: "shorts",
+        group: "Script",
+        label: "Find short clips",
+        hint: hasTranscript ? "20–60 s stretches worth posting" : "needs a transcript",
+        run: () => store().showScript("shorts"),
+      },
       { id: "zoom-in", group: "Add", label: "Zoom in at the playhead", keys: "Z", run: () => store().addZoom("in") },
       { id: "zoom-out", group: "Add", label: "Zoom back out", keys: "Shift+Z", run: () => store().addZoom("out") },
       { id: "regen-zoom", group: "Add", label: "Regenerate zooms from the cursor", run: () => store().regenerateZooms() },
@@ -323,7 +376,7 @@ export function Editor() {
       { id: "home", group: "Project", label: "Back to the recordings list", run: () => void store().setView("home") },
     ];
     // `store()` is read at run time, so the list only depends on what it shows.
-  }, [playing, autoCutBusy, sfxOn]);
+  }, [playing, autoCutBusy, sfxOn, scriptOpen, hasTranscript]);
 
   async function addImage(file: File) {
     if (!project) return;
@@ -373,6 +426,7 @@ export function Editor() {
       />
 
       <div className="flex min-h-0 flex-1">
+        {scriptOpen ? <TranscriptPanel /> : null}
         <div className="flex min-w-0 min-h-0 flex-1 flex-col">
           <PreviewCanvas
             project={project}

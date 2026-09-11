@@ -51,6 +51,17 @@ describe("history", () => {
     expect(seen).toHaveBeenCalledTimes(4);
   });
 
+  it("remembers which app a take went to and a note about what was skipped", () => {
+    const typed = pushHistory("hello there", 900, { app: "slack.exe", note: "formatting skipped: no model" });
+    const inApp = pushHistory("a note");
+    expect(typed).toMatchObject({ app: "slack.exe", note: "formatting skipped: no model" });
+    expect(inApp).not.toHaveProperty("app");
+    expect(inApp).not.toHaveProperty("note");
+    const unknown = pushHistory("typed somewhere", 500, { app: null });
+    expect(unknown?.app).toBeNull();
+    expect(getHistory().map((t) => t.app)).toEqual([null, undefined, "slack.exe"]);
+  });
+
   it("counts words the way a person would", () => {
     expect(countWords("")).toBe(0);
     expect(countWords("Hello, world — it's anna@x.dev")).toBe(4);

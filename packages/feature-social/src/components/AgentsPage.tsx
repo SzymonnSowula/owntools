@@ -1,9 +1,11 @@
 import { confirmDialog } from "@ui/Dialog";
-import { Bot, Check, Copy, Eye, EyeOff, Loader2, Plug, RefreshCw, Server, Sparkles } from "lucide-react";
+import { Bot, Check, Copy, ExternalLink, Eye, EyeOff, History, Loader2, Plug, RefreshCw, Server, ShieldCheck, Sparkles, Undo2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { logError } from "@core/errors";
+import { describeAction, describeActor, undoPlan } from "../activity";
 import {
   INSTALLABLE,
+  MCP_RESOURCES,
   MCP_TOOLS,
   REST_ROUTES,
   STARTER_PROMPTS,
@@ -18,7 +20,11 @@ import {
   type AgentInfo,
   type AgentTarget,
 } from "../agent";
+import { postSummary } from "../model";
 import { useSocialStore } from "../store";
+import { formatDateTime, fromIso, relativeTime } from "../time";
+import type { ActivityEntry } from "../types";
+import { useUi } from "../ui";
 import { Switch, copyText } from "./primitives";
 
 /**
@@ -45,6 +51,123 @@ function CodeBlock({ code }: { code: string }) {
       </button>
       {code}
     </pre>
+  );
+}
+
+/** One line of activity.jsonl: who did what to which post, with Undo where the log allows it. */
+function ActivityRow({ entry }: { entry: ActivityEntry }) {
+  const getPost = useSocialStore((s) => s.getPost);
+  const posts = useSocialStore((s) => s.posts);
+  const undoActivity = useSocialStore((s) => s.undoActivity);
+  const toast = useSocialStore((s) => s.toast);
+  const openComposer = useUi((s) => s.openComposer);
+  const [busy, setBusy] = useState(false);
+  void posts; // re-render when the post list changes, so "Open" and "Undo" follow the truth
+  const current = getPost(entry.postId);
+  const snapshot = entry.after ?? entry.before ?? null;
+  const plan = undoPlan(entry, current);
+  const when = fromIso(entry.ts);
+  const undo = async () => {
+    setBusy(true);
+    try {
+      const out = await undoActivity(entry);
+      toast({ kind: out.ok ? "success" : "error", title: out.ok ? out.message : "Cannot undo", body: out.ok ? undefined : out.message });
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="sc-activity-row">
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className={`sc-activity-actor ${entry.actor}`}>{entry.actor}</span>
+          <span className="who">
+            {describeActor(entry.actor)} {describeAction(entry)}
+          </span>
+          <span className="when" title={when ? formatDateTime(when) : entry.ts}>
+            {when ? relativeTime(when) : ""}
+          </span>
+        </div>
+        <span className="what">{snapshot ? postSummary(snapshot, 110) : entry.postId}</span>
+        {entry.note ? <span className="note">{entry.note}</span> : null}
+      </div>
+      <div className="flex items-center gap-1">
+        {current ? (
+          <button className="sc-btn ghost sm" onClick={() => openComposer(entry.postId)} title="Open the post">
+            <ExternalLink /> Open
+          </button>
+        ) : null}
+        {plan.kind === "restore" ? (
+          <button className="sc-btn sm" onClick={() => void undo()} disabled={busy} title={plan.note}>
+            {busy ? <Loader2 className="animate-spin" /> : <Undo2 />} Undo
+          </button>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function ActivityCard() {
+  const activity = useSocialStore((s) => s.activity);
+  const [shown, setShown] = useState(12);
+  return (
+    <div className="sc-card">
+      <div className="sc-card-head">
+        <History className="h-4 w-4 text-muted" />
+        <span className="sc-card-title">Activity</span>
+        <span className="ml-auto text-[11.5px] text-muted">{activity.length ? `${activity.length} recent` : "activity.jsonl"}</span>
+      </div>
+      {activity.length === 0 ? (
+        <p className="px-4 py-3 text-[12.5px] leading-5 text-muted">
+          Nothing yet. When an agent or an automation creates, edits or deletes a post it shows up here with a copy of the post before and after — and an Undo. Your approvals and rejections land here too.
+        </p>
+      ) : (
+        <>
+          {activity.slice(0, shown).map((e, i) => (
+            <ActivityRow key={`${e.ts}-${e.postId}-${i}`} entry={e} />
+          ))}
+          {activity.length > shown ? (
+            <button className="sc-btn ghost sm m-3" onClick={() => setShown((n) => n + 20)}>
+              Show more
+            </button>
+          ) : null}
+        </>
+      )}
+    </div>
+  );
+}
+
+function ApprovalCard() {
+  const settings = useSocialStore((s) => s.settings);
+  const saveSettings = useSocialStore((s) => s.saveSettings);
+  const waiting = useSocialStore((s) => s.posts.filter((p) => p.status === "needs_review").length);
+  const setPage = useUi((s) => s.setPage);
+  return (
+    <div className="sc-card">
+      <div className="sc-card-head">
+        <ShieldCheck className="h-4 w-4 text-muted" />
+        <span className="sc-card-title">How approval works</span>
+        {waiting ? (
+          <button className="sc-chip on ml-auto" onClick={() => setPage("review")}>
+            {waiting} waiting for you
+          </button>
+        ) : null}
+      </div>
+      <div className="sc-card-body flex flex-col gap-3">
+        <label className="flex items-center justify-between gap-3 text-[13px]">
+          <span>
+            Agent posts need my approval
+            <span className="block text-[11.5px] leading-[1.45] text-muted">
+              Anything an agent or an automation creates lands in <b>Review</b> as “needs review”. The scheduler never publishes it; you approve, edit or reject. The agent is told so it can tell you.
+            </span>
+          </span>
+          <Switch checked={settings.agentPostsNeedApproval} onCheckedChange={(v) => void saveSettings({ agentPostsNeedApproval: v })} label="Agent posts need my approval" />
+        </label>
+        <p className="text-[11.5px] leading-5 text-muted">
+          Off = an agent's post goes straight onto the calendar, like your own. Either way every agent write is in the activity log below with Undo, and <code>client_ref</code> on a create means a retry never doubles a post.
+        </p>
+      </div>
+    </div>
   );
 }
 
@@ -213,12 +336,22 @@ export function AgentsPage() {
             <div className="sc-card">
               <div className="sc-card-head">
                 <span className="sc-card-title">What agents can do</span>
+                <span className="ml-auto text-[11.5px] text-muted">{MCP_TOOLS.length} tools · {MCP_RESOURCES.length} resources</span>
               </div>
               <ul className="divide-y divide-line text-[12.5px]">
                 {MCP_TOOLS.map((t) => (
                   <li key={t.name} className="flex gap-3 px-4 py-2">
-                    <code className="w-[112px] shrink-0 text-[11.5px] text-accent">{t.name}</code>
+                    <code className="w-[128px] shrink-0 text-[11.5px] text-accent">{t.name}</code>
                     <span className="text-muted">{t.what}</span>
+                  </li>
+                ))}
+              </ul>
+              <div className="border-t border-line px-4 py-2 text-[11.5px] text-muted">Resources</div>
+              <ul className="divide-y divide-line text-[12.5px]">
+                {MCP_RESOURCES.map((r) => (
+                  <li key={r.uri} className="flex flex-col gap-0.5 px-4 py-2">
+                    <code className="text-[11.5px] text-accent">{r.uri}</code>
+                    <span className="text-muted">{r.what}</span>
                   </li>
                 ))}
               </ul>
@@ -226,6 +359,8 @@ export function AgentsPage() {
           </div>
 
           <div className="flex flex-col gap-5">
+            <ApprovalCard />
+            <ActivityCard />
             <div className="sc-card">
               <div className="sc-card-head">
                 <Plug className="h-4 w-4 text-muted" />

@@ -1,16 +1,19 @@
 import { confirmDialog } from "@ui/Dialog";
 import * as Tabs from "@radix-ui/react-tabs";
-import { AlertTriangle, Check, ChevronDown, Globe, Info, Loader2, Plus, Repeat, RotateCcw, Send, Tag as TagIcon, Trash2, X } from "lucide-react";
+import { AlertTriangle, CalendarClock, Check, ChevronDown, Globe, Info, Loader2, Plus, Repeat, RotateCcw, Send, ShieldCheck, Tag as TagIcon, Trash2, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { logError } from "@core/errors";
+import { makeEntry } from "../../activity";
 import { aiConfigured, runAiTask, type AiTask } from "../../ai";
 import { charLimit, hasErrors, resolveContent, validatePost, type Issue } from "../../limits";
 import { newPost, postIsEmpty } from "../../model";
 import { networkById } from "../../networks";
 import { REPEAT_OPTIONS, describeRepeat } from "../../recurrence";
+import { describeSource } from "../../review";
 import { finalContent, publishPost } from "../../scheduler";
+import { nextFreeSlot } from "../../slots";
 import { mediaById as mediaLookup, useSocialStore } from "../../store";
-import { fromIso, toIso } from "../../time";
+import { formatDateTime, fromIso, toIso } from "../../time";
 import type { Channel, ChannelOverride, MediaRef, Post, PostContent, ThreadPart } from "../../types";
 import { useUi } from "../../ui";
 import { Avatar } from "../Avatar";
@@ -90,6 +93,7 @@ export function PostModal() {
   const setPage = useUi((s) => s.setPage);
   const setAddChannelOpen = useUi((s) => s.setAddChannelOpen);
   const channels = useSocialStore((s) => s.channels);
+  const posts = useSocialStore((s) => s.posts);
   const tags = useSocialStore((s) => s.tags);
   const media = useSocialStore((s) => s.media);
   const settings = useSocialStore((s) => s.settings);
@@ -97,6 +101,7 @@ export function PostModal() {
   const createPost = useSocialStore((s) => s.createPost);
   const updatePost = useSocialStore((s) => s.updatePost);
   const deletePost = useSocialStore((s) => s.deletePost);
+  const appendActivity = useSocialStore((s) => s.appendActivity);
   const addTag = useSocialStore((s) => s.addTag);
   const addMedia = useSocialStore((s) => s.addMedia);
   const toast = useSocialStore((s) => s.toast);
@@ -302,8 +307,12 @@ export function PostModal() {
       return;
     setBusy("schedule");
     try {
-      await persist("scheduled");
-      toast({ kind: "success", title: draft.status === "scheduled" ? "Post updated" : "Added to the calendar" });
+      const wasWaiting = composer.postId ? getPost(composer.postId) : null;
+      const saved = await persist("scheduled");
+      if (wasWaiting?.status === "needs_review" && saved) {
+        await appendActivity(makeEntry("user", "approve", saved.id, { before: wasWaiting, after: saved, note: "approved from the composer" }));
+      }
+      toast({ kind: "success", title: wasWaiting?.status === "needs_review" ? "Approved and scheduled" : draft.status === "scheduled" ? "Post updated" : "Added to the calendar" });
       closeComposer();
     } catch (err) {
       toast({ kind: "error", title: "Could not schedule", body: err instanceof Error ? err.message : String(err) });
@@ -349,7 +358,21 @@ export function PostModal() {
   const previewChannels = tab === "all" ? selected.slice(0, MAX_PREVIEWS) : selected.filter((c) => c.id === tab);
   const scheduledDate = fromIso(draft.scheduledAt);
   const isPublished = draft.status === "published";
-  const primaryLabel = isPublished ? "Save changes" : draft.status === "scheduled" ? "Update" : "Add to calendar";
+  const waitingForReview = draft.status === "needs_review";
+  const sourceName = describeSource(draft.source);
+  const primaryLabel = isPublished ? "Save changes" : waitingForReview ? "Approve & schedule" : draft.status === "scheduled" ? "Update" : "Add to calendar";
+
+  // The queue's next free slot for the selected channels (the defaults when
+  // none is picked), ignoring this post's own time.
+  const pickNextFreeSlot = () => {
+    const slot = nextFreeSlot(draft.channelIds, new Date(), { channels, posts, excludeId: draft.id });
+    if (!slot) {
+      toast({ kind: "info", title: "No free slot in the next 60 days", body: "Add queue slots to the channel in Channels → Preferences, or pick a time by hand." });
+      return;
+    }
+    patch((p) => ({ ...p, scheduledAt: toIso(slot) }));
+    toast({ kind: "info", title: "Next free slot", body: formatDateTime(slot) });
+  };
 
   return (
     <Dialog
@@ -364,6 +387,10 @@ export function PostModal() {
         draft.status === "published" || draft.status === "failed" ? (
           <span className={`sc-status mr-2 ${draft.status === "published" ? "ok" : "err"}`}>
             <span className="sc-status-dot" /> {draft.status === "published" ? "Published" : draft.lastError ?? "Failed"}
+          </span>
+        ) : waitingForReview ? (
+          <span className="sc-status mr-2 warn">
+            <span className="sc-status-dot" /> Needs review
           </span>
         ) : null
       }
@@ -461,6 +488,11 @@ export function PostModal() {
             <Trash2 /> {composer.postId && getPost(composer.postId) ? "Delete" : "Discard"}
           </button>
           <div className="ml-auto flex items-center gap-2">
+            {!isPublished ? (
+              <button className="sc-btn" onClick={pickNextFreeSlot} title="The next free queue slot of the selected channels (Channels → Preferences → Queue slots)">
+                <CalendarClock /> Next free slot
+              </button>
+            ) : null}
             <DateTimePicker
               value={scheduledDate}
               onChange={(d) => patch((p) => ({ ...p, scheduledAt: d ? toIso(d) : null }))}
@@ -621,7 +653,16 @@ export function PostModal() {
           <MediaStrip refs={editing.media} onChange={(refs) => setEditing({ media: refs })} pickerOpen={pickerOpen} onPickerOpenChange={setPickerOpen} />
           {editing.thread.length ? <ThreadParts parts={editing.thread} onChange={(thread) => setEditing({ thread })} counter={counter} /> : null}
           <IssueList issues={tab === "all" ? Object.values(issues).flat().filter((i, n, arr) => arr.findIndex((x) => x.message === i.message) === n) : (issues[tab] ?? [])} />
-          {draft.source === "agent" ? <div className="mx-4 mt-3 text-[11.5px] text-muted">Created by an agent over the local API.</div> : null}
+          {waitingForReview ? (
+            <div className="sc-issue warning mx-4 mt-3">
+              <ShieldCheck />
+              <span>
+                Waiting for your approval — created by {sourceName || "an agent"}. Nothing publishes until you press <b>{primaryLabel}</b>; Save as draft keeps it out of the queue.
+              </span>
+            </div>
+          ) : sourceName ? (
+            <div className="mx-4 mt-3 text-[11.5px] text-muted">Created by {sourceName}{draft.source === "agent" ? " over the local API" : ""}.</div>
+          ) : null}
           <div className="h-6" />
         </div>
 

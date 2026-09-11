@@ -1,78 +1,46 @@
+import {
+  cloudConfigured,
+  DEFAULT_CLOUD_MODELS,
+  lastKnownLlmStatus,
+  llmComplete,
+  llmSettings,
+  llmStatus,
+} from "@core/llm";
+import { adoptSocialAiSettings } from "@feature-llm/migrate";
 import { networkById } from "./networks";
-import { describeResponse, sfetch } from "./providers/http";
 import type { AiSettings } from "./types";
 
 /**
- * In-app AI for the composer. Nothing runs unless the user configured a
- * provider and a key in Settings; then the text goes straight from this
- * machine to that provider (Anthropic, or any OpenAI-compatible endpoint —
- * OpenAI, Ollama, LM Studio, OpenRouter…). Raw HTTP on purpose: requests
- * have to travel through the Tauri fetch (no CORS, capability-scoped), which
- * the vendor SDKs do not do out of the box.
+ * In-app AI for the composer — a thin adapter over `@core/llm`, the one
+ * model every tool shares (on-device llama.cpp when a model is installed,
+ * the person's own cloud key otherwise, chosen once in Settings →
+ * Intelligence). The composer's call sites are unchanged: they still pass
+ * social's old `settings.ai`, which is now only read once, to carry a key
+ * configured here over to the shared settings (`adoptSocialAiSettings`).
  */
 
-export const DEFAULT_MODELS: Record<Exclude<AiSettings["provider"], "none">, string> = {
-  anthropic: "claude-opus-5",
-  openai: "gpt-4.1-mini",
-};
+/** Kept for the settings copy that used to name these; the shared defaults. */
+export const DEFAULT_MODELS: Record<Exclude<AiSettings["provider"], "none">, string> = DEFAULT_CLOUD_MODELS;
 
+/**
+ * Synchronous on purpose — it gates a button in render. The last status the
+ * shared module resolved wins; before the first one arrives (it is being
+ * fetched right here), a plausible guess from the settings so the button is
+ * not disabled on the first frame for nothing. `complete` still checks for
+ * real and answers with the reason when the guess was wrong.
+ */
 export function aiConfigured(ai: AiSettings): boolean {
-  if (ai.provider === "none") return false;
-  if (ai.provider === "anthropic") return Boolean(ai.apiKey.trim());
-  // Local OpenAI-compatible servers often need no key.
-  return Boolean(ai.baseUrl.trim());
-}
-
-async function anthropicComplete(ai: AiSettings, system: string, prompt: string, maxTokens: number): Promise<string> {
-  const res = await sfetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": ai.apiKey.trim(),
-      "anthropic-version": "2023-06-01",
-      "anthropic-dangerous-direct-browser-access": "true",
-    },
-    body: JSON.stringify({
-      model: ai.model.trim() || DEFAULT_MODELS.anthropic,
-      max_tokens: maxTokens,
-      system,
-      messages: [{ role: "user", content: prompt }],
-    }),
-  });
-  if (!res.ok) throw new Error(`Anthropic ${await describeResponse(res)}`);
-  const data = (await res.json()) as { content?: { type: string; text?: string }[]; stop_reason?: string };
-  if (data.stop_reason === "refusal") throw new Error("The model declined this request.");
-  return (data.content ?? [])
-    .filter((b) => b.type === "text")
-    .map((b) => b.text ?? "")
-    .join("")
-    .trim();
-}
-
-async function openaiComplete(ai: AiSettings, system: string, prompt: string, maxTokens: number): Promise<string> {
-  const base = ai.baseUrl.trim().replace(/\/+$/, "");
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (ai.apiKey.trim()) headers.Authorization = `Bearer ${ai.apiKey.trim()}`;
-  const res = await sfetch(`${base}/chat/completions`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      model: ai.model.trim() || DEFAULT_MODELS.openai,
-      max_tokens: maxTokens,
-      messages: [
-        { role: "system", content: system },
-        { role: "user", content: prompt },
-      ],
-    }),
-  });
-  if (!res.ok) throw new Error(`AI endpoint ${await describeResponse(res)}`);
-  const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
-  return (data.choices?.[0]?.message?.content ?? "").trim();
+  adoptSocialAiSettings(ai);
+  void llmStatus();
+  const known = lastKnownLlmStatus();
+  if (known) return known.available;
+  const shared = llmSettings();
+  return shared.prefer !== "off" && (cloudConfigured(shared.cloud) || Boolean(shared.local.model));
 }
 
 export async function complete(ai: AiSettings, system: string, prompt: string, maxTokens = 1024): Promise<string> {
-  if (!aiConfigured(ai)) throw new Error("Set up an AI provider in Settings first.");
-  const out = ai.provider === "anthropic" ? await anthropicComplete(ai, system, prompt, maxTokens) : await openaiComplete(ai, system, prompt, maxTokens);
+  adoptSocialAiSettings(ai);
+  const out = await llmComplete({ system, prompt, maxTokens, purpose: "post writing" });
   return stripFences(out);
 }
 

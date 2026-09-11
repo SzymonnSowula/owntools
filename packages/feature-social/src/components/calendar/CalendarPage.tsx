@@ -3,7 +3,7 @@ import { addDays, addMonths, isBefore } from "date-fns";
 import { Calendar, ChevronDown, ChevronLeft, ChevronRight, Filter, Plus, Sparkles, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useSocialStore } from "../../store";
-import { formatMonthTitle, formatWeekTitle, fromIso, monthGrid, moveToDay, nextDefaultSlot, parseHm, slotDate, toIso, weekRange } from "../../time";
+import { formatMonthTitle, formatWeekTitle, fromIso, monthGrid, moveToDay, nextDefaultSlot, parseHm, relativeTime, slotDate, toIso, weekRange } from "../../time";
 import type { Post, PostStatus } from "../../types";
 import { STATUS_LABEL, postMatchesFilters, useUi, type CalendarView } from "../../ui";
 import { Avatar } from "../Avatar";
@@ -19,7 +19,7 @@ const VIEWS: { id: CalendarView; label: string }[] = [
   { id: "list", label: "List" },
 ];
 
-const FILTER_STATUSES: PostStatus[] = ["draft", "scheduled", "published", "failed"];
+const FILTER_STATUSES: PostStatus[] = ["draft", "needs_review", "scheduled", "published", "failed"];
 
 function Sidebar() {
   const channels = useSocialStore((s) => s.channels);
@@ -37,6 +37,7 @@ function Sidebar() {
   const toggle = <T extends string>(list: T[], id: T): T[] => (list.includes(id) ? list.filter((x) => x !== id) : [...list, id]);
   const drafts = posts.filter((p) => p.status === "draft").length;
   const failed = posts.filter((p) => p.status === "failed").length;
+  const review = posts.filter((p) => p.status === "needs_review").length;
 
   return (
     <aside className="sc-sidebar">
@@ -54,8 +55,13 @@ function Sidebar() {
             <Sparkles />
           </button>
         </div>
-        {drafts || failed ? (
+        {drafts || failed || review ? (
           <div className="flex flex-wrap gap-1.5">
+            {review ? (
+              <button className="sc-chip on" onClick={() => setPage("review")} title="Posts from agents waiting for your approval">
+                {review} to review
+              </button>
+            ) : null}
             {drafts ? (
               <button className={`sc-chip${filters.statuses.includes("draft") ? " on" : ""}`} onClick={() => setFilters({ statuses: toggle(filters.statuses, "draft") })}>
                 {drafts} draft{drafts === 1 ? "" : "s"}
@@ -160,6 +166,7 @@ export function CalendarPage() {
   const tags = useSocialStore((s) => s.tags);
   const settings = useSocialStore((s) => s.settings);
   const updatePost = useSocialStore((s) => s.updatePost);
+  const approvePost = useSocialStore((s) => s.approvePost);
   const toast = useSocialStore((s) => s.toast);
   const view = useUi((s) => s.view);
   const setView = useUi((s) => s.setView);
@@ -181,6 +188,18 @@ export function CalendarPage() {
   const step = (dir: -1 | 1) => setAnchor(view === "month" ? addMonths(anchor, dir) : addDays(anchor, dir * 7));
 
   const onOpen = (post: Post) => openComposer(post.id);
+  // The Approve button on a hatched card: onto the calendar at its time, or
+  // the next free slot. Anything that stops it opens the composer instead.
+  const onApprove = async (post: Post) => {
+    const out = await approvePost(post.id);
+    if (out.ok) {
+      const at = fromIso(out.post.scheduledAt);
+      toast({ kind: "success", title: "Approved", body: at ? `Goes out ${relativeTime(at)}${out.movedToSlot ? " — the next free slot" : ""}.` : undefined });
+    } else {
+      toast({ kind: "error", title: "Cannot approve yet", body: out.message });
+      if (out.reason !== "not-waiting") openComposer(post.id);
+    }
+  };
   const onAdd = (at: Date) => {
     let when = at;
     if (isBefore(at, new Date())) {
@@ -289,9 +308,9 @@ export function CalendarPage() {
         ) : (
           <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={(e) => void onDragEnd(e)} onDragCancel={() => setDragging(null)}>
             {view === "week" ? (
-              <WeekView days={week.days} posts={visible} channels={channels} tags={tags} onOpen={onOpen} onAdd={onAdd} />
+              <WeekView days={week.days} posts={visible} channels={channels} tags={tags} onOpen={onOpen} onAdd={onAdd} onApprove={(p) => void onApprove(p)} />
             ) : view === "month" ? (
-              <MonthView rows={rows} anchor={anchor} posts={visible} channels={channels} tags={tags} weekStart={settings.weekStart} defaultTime={settings.defaultTime} onOpen={onOpen} onAdd={onAdd} />
+              <MonthView rows={rows} anchor={anchor} posts={visible} channels={channels} tags={tags} weekStart={settings.weekStart} defaultTime={settings.defaultTime} onOpen={onOpen} onAdd={onAdd} onApprove={(p) => void onApprove(p)} />
             ) : (
               <ListView posts={visible} channels={channels} tags={tags} onOpen={onOpen} onNew={() => openComposer(null, { scheduledAt: toIso(nextDefaultSlot()) })} />
             )}

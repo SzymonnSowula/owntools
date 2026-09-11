@@ -1,10 +1,16 @@
 import { isTauri } from "@core/env";
+import { trackedFetch } from "@core/net";
 
 /**
  * One fetch for every provider. In the desktop app requests go through
  * `@tauri-apps/plugin-http` (no CORS, capability limited to https:// and
  * localhost); in the browser preview they would be blocked by CORS on most
  * APIs, so callers check `networkAvailable()` first and simulate instead.
+ *
+ * Every call goes through `@core/net` `trackedFetch`, which is what puts the
+ * request in Settings → Privacy with a purpose and refuses it in Offline
+ * mode. Providers may pass a `purpose` of their own ("post to Bluesky");
+ * without one the host names the network ("social: Bluesky").
  */
 
 export class HttpError extends Error {
@@ -24,12 +30,35 @@ export function networkAvailable(): boolean {
 
 export const DESKTOP_ONLY = "Connecting to networks needs the desktop app — the browser preview only simulates.";
 
-export async function sfetch(url: string, init: RequestInit = {}): Promise<Response> {
-  if (isTauri()) {
-    const { fetch: tauriFetch } = await import("@tauri-apps/plugin-http");
-    return tauriFetch(url, init);
+/** API hosts → the network a person knows them as; anything else (a Mastodon instance, a Mattermost server) is named by host. */
+const KNOWN_HOSTS: [RegExp, string][] = [
+  [/(^|\.)bsky\.(social|network|app)$/, "Bluesky"],
+  [/^api\.telegram\.org$/, "Telegram"],
+  [/(^|\.)discord(app)?\.com$/, "Discord"],
+  [/(^|\.)slack\.com$/, "Slack"],
+  [/(^|\.)(x|twitter)\.com$/, "X"],
+  [/(^|\.)linkedin\.com$/, "LinkedIn"],
+  [/^dev\.to$/, "Dev.to"],
+  [/(^|\.)medium\.com$/, "Medium"],
+  // The composer's AI assist (ai.ts) shares this door.
+  [/^api\.anthropic\.com$/, "AI assist (Anthropic)"],
+  [/^api\.openai\.com$/, "AI assist (OpenAI)"],
+];
+
+/** "social: Bluesky" for a known API host, "social: mastodon.social" otherwise. */
+export function defaultPurpose(url: string): string {
+  let host = "";
+  try {
+    host = new URL(url).hostname.toLowerCase();
+  } catch {
+    return "social";
   }
-  return fetch(url, init);
+  const known = KNOWN_HOSTS.find(([re]) => re.test(host));
+  return `social: ${known ? known[1] : host}`;
+}
+
+export async function sfetch(url: string, init: RequestInit = {}, purpose?: string): Promise<Response> {
+  return trackedFetch(url, { ...init, purpose: purpose ?? defaultPurpose(url) });
 }
 
 /** Error text for a failed response — the JSON `error`/`message` when there is one. */
@@ -67,38 +96,50 @@ export async function jsonOrThrow<T>(res: Response): Promise<T> {
   }
 }
 
-export async function getJson<T>(url: string, headers: Record<string, string> = {}): Promise<T> {
-  return jsonOrThrow<T>(await sfetch(url, { method: "GET", headers }));
+export async function getJson<T>(url: string, headers: Record<string, string> = {}, purpose?: string): Promise<T> {
+  return jsonOrThrow<T>(await sfetch(url, { method: "GET", headers }, purpose));
 }
 
-export async function postJson<T>(url: string, body: unknown, headers: Record<string, string> = {}): Promise<T> {
+export async function postJson<T>(url: string, body: unknown, headers: Record<string, string> = {}, purpose?: string): Promise<T> {
   return jsonOrThrow<T>(
-    await sfetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...headers },
-      body: JSON.stringify(body),
-    }),
+    await sfetch(
+      url,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...headers },
+        body: JSON.stringify(body),
+      },
+      purpose,
+    ),
   );
 }
 
-export async function postForm<T>(url: string, form: Record<string, string>, headers: Record<string, string> = {}): Promise<T> {
+export async function postForm<T>(url: string, form: Record<string, string>, headers: Record<string, string> = {}, purpose?: string): Promise<T> {
   return jsonOrThrow<T>(
-    await sfetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded", ...headers },
-      body: new URLSearchParams(form).toString(),
-    }),
+    await sfetch(
+      url,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded", ...headers },
+        body: new URLSearchParams(form).toString(),
+      },
+      purpose,
+    ),
   );
 }
 
-export async function postMultipart<T>(url: string, form: FormData, headers: Record<string, string> = {}): Promise<T> {
-  return jsonOrThrow<T>(await sfetch(url, { method: "POST", headers, body: form }));
+export async function postMultipart<T>(url: string, form: FormData, headers: Record<string, string> = {}, purpose?: string): Promise<T> {
+  return jsonOrThrow<T>(await sfetch(url, { method: "POST", headers, body: form }, purpose));
 }
 
 /** Downloads a small image (an avatar) — null on any failure. */
-export async function fetchBytes(url: string, headers: Record<string, string> = {}): Promise<{ bytes: Uint8Array; mime: string } | null> {
+export async function fetchBytes(
+  url: string,
+  headers: Record<string, string> = {},
+  purpose?: string,
+): Promise<{ bytes: Uint8Array; mime: string } | null> {
   try {
-    const res = await sfetch(url, { method: "GET", headers });
+    const res = await sfetch(url, { method: "GET", headers }, purpose);
     if (!res.ok) return null;
     const mime = res.headers.get("content-type")?.split(";")[0]?.trim() || "application/octet-stream";
     return { bytes: new Uint8Array(await res.arrayBuffer()), mime };
