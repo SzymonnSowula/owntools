@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { Fragment, type ReactNode } from "react";
 import {
+  ArrowDown,
   ArrowRight,
   ArrowUpRight,
   Check,
@@ -10,7 +11,6 @@ import {
   EyeOff,
   Highlighter,
   ListOrdered,
-  Play,
   ScanText,
   Sparkles,
   Square,
@@ -39,7 +39,7 @@ import { PRICE, contactEmail, downloadUrl, downloadUrlMac, repoUrl, xUrl } from 
 
 /* The plain verb list from the brand rules: what the app does, never who is
    supposed to be doing it. */
-const HERO_VERBS = ["dictate", "transcribe", "record", "capture", "meet", "take notes", "translate"];
+const HERO_VERBS = ["dictate", "transcribe", "record", "meet", "take notes", "translate"];
 
 const jsonLd = {
   "@context": "https://schema.org",
@@ -48,7 +48,7 @@ const jsonLd = {
   operatingSystem: "Windows, macOS",
   applicationCategory: "MultimediaApplication",
   description:
-    "Dictate into any app, transcribe audio and video, record your screen, record and transcribe your calls, capture and mark up screenshots, take notes, sketch on a whiteboard, schedule social posts, see what is eating your disk, translate, and turn a link into a video - a desktop app that runs entirely on your own machine.",
+    "Dictate into any app, transcribe audio and video, record your screen, record and transcribe your calls, take notes, sketch on a whiteboard, schedule social posts, see what is eating your disk, translate, and turn a link into a video - a desktop app that runs entirely on your own machine.",
   offers: [
     { "@type": "Offer", price: "0", priceCurrency: PRICE.currency, name: "Free (badge on exports)" },
     { "@type": "Offer", price: String(PRICE.amount), priceCurrency: PRICE.currency, name: "Pro (lifetime)" },
@@ -332,89 +332,6 @@ function MeetCard() {
   );
 }
 
-/* the capture row's stand-in: the screen frozen and dimmed, one region lifted
-   out of it with the mark-up already on it, the toolbar, and the text the tool
-   read out of the pixels */
-const CAPTURE_TOOLS: { icon: ReactNode; on?: boolean }[] = [
-  { icon: <ArrowUpRight size={10} />, on: true },
-  { icon: <Square size={10} /> },
-  { icon: <Highlighter size={10} /> },
-  { icon: <EyeOff size={10} /> },
-  { icon: <ListOrdered size={10} /> },
-  { icon: <Copy size={10} /> },
-  { icon: <Download size={10} /> },
-  { icon: <ScanText size={10} /> },
-];
-
-function CaptureCard() {
-  return (
-    <div className="wincard wincard--light w-[300px]">
-      <div className="wincard-bar">
-        <WinDots icon={ToolIcons.capture} />
-        <span className="wincard-title">capture.app</span>
-      </div>
-      <div className="relative h-[196px] overflow-hidden bg-[#0f1424]">
-        {/* the frozen desktop: two windows, dimmed */}
-        <div
-          className="absolute inset-0 opacity-60"
-          style={{
-            background:
-              "radial-gradient(90px 70px at 20% 20%, #0a84ff, transparent 70%), radial-gradient(110px 80px at 85% 30%, #5e5ce6, transparent 70%), #101a2e",
-          }}
-        />
-        <div className="absolute left-[6%] top-[12%] h-[46%] w-[50%] rounded-[5px] border border-white/20 bg-white/30" />
-        <div className="absolute left-[44%] top-[34%] h-[52%] w-[52%] rounded-[5px] border border-white/20 bg-white/35" />
-
-        {/* the toolbar */}
-        <div className="absolute left-1/2 top-2 flex -translate-x-1/2 items-center gap-0.5 rounded-full bg-[#0b0b0d]/92 px-1.5 py-1 text-white shadow-xl">
-          {CAPTURE_TOOLS.map((t, i) => (
-            <span
-              key={i}
-              className={`flex h-4 w-4 items-center justify-center rounded-full ${t.on ? "bg-accent text-white" : "text-white/75"}`}
-            >
-              {t.icon}
-            </span>
-          ))}
-        </div>
-
-        {/* the selection: everything outside it goes dark, everything inside
-            is the shot being marked up */}
-        <div className="absolute left-[40%] top-[30%] h-[52%] w-[54%] rounded-[6px] border-2 border-dashed border-white bg-white shadow-[0_0_0_9999px_rgba(15,20,36,0.45)]">
-          <div className="absolute inset-x-2 top-2 space-y-1.5">
-            <span className="block h-1.5 w-2/3 rounded bg-[#1d1d1f]/30" />
-            <span className="block h-1.5 w-1/2 rounded bg-[#1d1d1f]/15" />
-            <span className="block h-1.5 w-3/5 rounded bg-[#1d1d1f]/15" />
-          </div>
-          <span className="absolute left-1.5 top-[42%] h-[24%] w-[58%] rounded-[3px] border-2 border-[#ff453a]" />
-          <svg className="absolute right-1 top-0.5 h-10 w-12" viewBox="0 0 48 40" fill="none" aria-hidden>
-            <path d="M44 4 C 30 6, 22 14, 14 26" stroke="#ff453a" strokeWidth="2.2" strokeLinecap="round" />
-            <path d="M12 18 L 13.5 27 L 22 25" stroke="#ff453a" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-          <span className="absolute bottom-1.5 left-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-[#ff453a] text-[8px] font-bold text-white">
-            1
-          </span>
-          {/* the name, blurred out */}
-          <span className="absolute bottom-2 right-2 h-2.5 w-14 rounded bg-[#1d1d1f]/35 blur-[2px]" />
-          {["-left-1 -top-1", "-right-1 -top-1", "-left-1 -bottom-1", "-right-1 -bottom-1"].map((c) => (
-            <span key={c} className={`absolute ${c} h-2 w-2 rounded-[2px] border border-[#1d1d1f]/40 bg-white`} />
-          ))}
-        </div>
-
-        {/* the text read out of it */}
-        <div className="absolute bottom-2 left-2 w-[150px] rounded-[8px] border border-white/75 bg-white/97 p-2 shadow-lg">
-          <p className="flex items-center justify-between font-mono text-[7.5px] font-bold uppercase tracking-[0.12em] text-[#6e6e73]">
-            text in this shot <span className="text-accent">copied</span>
-          </p>
-          <p className="mt-1 text-[9.5px] leading-[13px] text-[#1d1d1f]">Invoice 2026-041 · due 30 Sep · net 14 days</p>
-        </div>
-        <span className="absolute bottom-2 right-2 rounded-full bg-[#0b0b0d]/90 px-2 py-0.5 font-mono text-[8.5px] font-semibold text-white/85">
-          ctrl+shift+4
-        </span>
-      </div>
-    </div>
-  );
-}
-
 /* ------------------------------ data ------------------------------ */
 
 /* the studio rows — a spectrum down the page: cyan → blue → indigo */
@@ -439,26 +356,6 @@ const TOOL_ROWS: ShowcaseTool[] = [
     media: shot("screeni"),
     ground: "tide",
     mock: <ScreeniCard />,
-  },
-  {
-    name: "capture",
-    icon: "capture",
-    file: "capture.app",
-    tint: "#28a3ea",
-    trigger: "ctrl + shift + 4",
-    headline: "a screenshot that explains itself",
-    desc: "One shortcut freezes the screen. Drag a region, add the arrows, the boxes, a blur over the name, copy it or save it - or copy the text out of it, read on-device. Every capture lands in a library you can search by what it says.",
-    chips: [
-      "freeze · drag · mark up",
-      "arrows, boxes, highlighter, blur",
-      "numbered steps",
-      "copy the text out of it (on-device OCR)",
-      "send to board or social",
-      "a library searchable by its text",
-    ],
-    media: shot("capture"),
-    ground: "tide",
-    mock: <CaptureCard />,
   },
   {
     name: "dictate",
@@ -570,7 +467,6 @@ const TOOL_ROWS: ShowcaseTool[] = [
     headline: "a launch video from a link",
     desc: "owntools reads the page - name, tagline, colors, hero shot - and cuts a keynote-style video from it. Six style packs, 16:9, 9:16 or 1:1, rendered on your machine.",
     chips: ["URL → video", "6 style packs", "brand color auto-detect", "MP4 in seconds"],
-    link: { href: "/tools/launch-video-maker", label: "try it in your browser" },
     media: shot("launch"),
     ground: "dusk",
     mock: <LaunchCard />,
@@ -625,14 +521,6 @@ const MOMENTS = [
     title: "when the idea won't fit in a line",
     desc: "A plan, a flow, a diagram that keeps changing shape. Put it on an endless board, draw around it, and come back tomorrow to find it exactly where you left it.",
     tools: ["board"],
-  },
-  {
-    ground: "dusk" as const,
-    motif: "capture" as const,
-    window: "three-arrows.you",
-    title: "when a screenshot needs three arrows",
-    desc: "A bug for the developer, a how-to for a colleague, a form somebody filled in wrong. One shortcut freezes the screen: drag the region, add the arrows and a blur over the name, copy it - or copy the text out of it.",
-    tools: ["capture"],
   },
   {
     ground: "mist" as const,
@@ -709,18 +597,6 @@ const MOTIFS: Record<string, ReactNode> = {
       <circle cx="80" cy="34" r="5" fill="#0a84ff" />
     </svg>
   ),
-  play: (
-    <span className="layer absolute inset-0 m-auto flex h-9 w-9 items-center justify-center !rounded-full bg-white/95">
-      <span
-        className="ml-0.5 block h-0 w-0"
-        style={{
-          borderTop: "7px solid transparent",
-          borderBottom: "7px solid transparent",
-          borderLeft: "11px solid #1d1d1f",
-        }}
-      />
-    </span>
-  ),
   caption: (
     <span className="absolute inset-0 flex flex-col items-center justify-center gap-1.5">
       <span className="h-1.5 w-10 rounded-full bg-white/85" />
@@ -764,54 +640,40 @@ const MOTIFS: Record<string, ReactNode> = {
       </span>
     </span>
   ),
-  /* the viewfinder with its shutter point - the capture glyph, blown up */
-  capture: (
-    <svg className="absolute inset-0 h-full w-full" viewBox="0 0 92 92" fill="none" aria-hidden>
-      <path
-        d="M22 34V28a6 6 0 0 1 6-6h6M58 22h6a6 6 0 0 1 6 6v6M70 58v6a6 6 0 0 1-6 6h-6M34 70h-6a6 6 0 0 1-6-6v-6"
-        stroke="#fff"
-        strokeWidth="3.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <circle cx="46" cy="46" r="8" fill="#fff" />
-    </svg>
-  ),
 };
 
 const FREE_TOOLS = [
   {
-    title: "Launch video maker",
-    ground: "dusk" as const,
-    motif: "play" as const,
-    desc: "Keynote-style product video, rendered in your browser. Free, no sign-up.",
-    href: "/tools/launch-video-maker",
-    live: true,
-  },
-  {
     title: "Speech to text",
     ground: "meadow" as const,
     motif: "voice" as const,
-    desc: "Transcribe any audio or video file on-device - in the free desktop app.",
+    desc: "Transcribe any audio or video file, on your own device.",
     href: "#pricing",
-    live: false,
   },
   {
     title: "Subtitle (.srt) generator",
     ground: "tide" as const,
     motif: "caption" as const,
-    desc: "Timed captions from speech, exported as SRT - in the free desktop app.",
+    desc: "Timed captions from speech, exported as SRT.",
     href: "#pricing",
-    live: false,
   },
   {
     title: "Video → audio",
     ground: "dawn" as const,
     motif: "wave" as const,
-    desc: "Pull the audio track out of any video - in the free desktop app.",
+    desc: "Pull the audio track out of any video.",
     href: "#pricing",
-    live: false,
   },
+];
+
+/* the social tile's week: tuesday is today, so monday's post and tuesday's
+   morning one have already gone out (dimmed) and four are still queued */
+const SOCIAL_WEEK: { day: string; posts: { tint: string; sent?: boolean }[] }[] = [
+  { day: "mon", posts: [{ tint: "bg-accent", sent: true }] },
+  { day: "tue", posts: [{ tint: "bg-indigo", sent: true }, { tint: "bg-cyan" }] },
+  { day: "wed", posts: [{ tint: "bg-accent" }] },
+  { day: "thu", posts: [] },
+  { day: "fri", posts: [{ tint: "bg-indigo" }, { tint: "bg-accent" }] },
 ];
 
 /* a friend checks in — the pitch in someone else's words */
@@ -846,7 +708,6 @@ const COURSE: { t: string; state: "done" | "now" | "next" }[] = [
   { t: "social - schedule everywhere", state: "done" },
   { t: "disk - see what fills the drive", state: "done" },
   { t: "meet - any call, written down", state: "done" },
-  { t: "capture - screenshots that read", state: "done" },
   { t: "a model of your own", state: "done" },
   { t: "macOS - coming soon", state: "now" },
   { t: "mate, the agent", state: "next" },
@@ -1068,7 +929,7 @@ export default function Home() {
             <a href="#intelligence" className="hidden transition hover:text-ink md:block">on-device</a>
             <a href="#who" className="hidden transition hover:text-ink md:block">what it’s for</a>
             <a href="#roadmap" className="hidden transition hover:text-ink md:block">roadmap</a>
-            <a href="/tools/launch-video-maker" className="hidden transition hover:text-ink md:block">free tools</a>
+            <a href="#free-tools" className="hidden transition hover:text-ink md:block">free tools</a>
             <a href="#pricing" className="hidden transition hover:text-ink md:block">pricing</a>
             <ThemeToggle />
             {/* before launch this leads to pricing, where the status is spelled out */}
@@ -1150,8 +1011,8 @@ export default function Home() {
                  thing that looks clickable. Two identical dead buttons side by
                  side taught the reader the whole hero was inert. */
               <>
-                <a href="/tools/launch-video-maker" className="btn btn-light">
-                  <Play size={15} /> try a free tool in the browser
+                <a href="#tools" className="btn btn-light">
+                  see the tools <ArrowDown size={15} />
                 </a>
                 <span className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-4 py-2 text-[13px] font-medium text-white/85 backdrop-blur-md">
                   <WindowsGlyph />
@@ -1228,7 +1089,7 @@ export default function Home() {
               </div>
             </Reveal>
 
-            {/* focus + launch, side by side */}
+            {/* focus + social, side by side */}
             <div className="grid gap-5 sm:grid-cols-2">
               <Reveal delay={0.05}>
                 <div className="bento h-full">
@@ -1255,23 +1116,39 @@ export default function Home() {
               <Reveal delay={0.1}>
                 <div className="bento h-full">
                   <Scene ground="dusk" className="h-40 !rounded-none">
-                    <Pane className="absolute left-1/2 top-1/2 w-44 -translate-x-1/2 -translate-y-1/2 px-5 py-4 text-center">
-                      <p className="font-mono text-[8px] font-bold uppercase tracking-[0.14em] text-muted">
-                        introducing
+                    <Pane className="absolute left-1/2 top-[45%] w-52 -translate-x-1/2 -translate-y-1/2 px-3 py-2.5">
+                      <p className="flex items-center justify-between font-mono text-[8px] font-bold uppercase tracking-[0.14em] text-muted">
+                        <span>this week</span>
+                        <span className="text-accent">4 queued</span>
                       </p>
-                      <p className="display text-xl font-extrabold text-ink">yourapp</p>
-                      <span className="mx-auto mt-1.5 block h-1 w-8 rounded-full bg-accent" />
+                      <div className="mt-1.5 grid grid-cols-5 gap-1">
+                        {SOCIAL_WEEK.map(({ day, posts }) => {
+                          const today = day === "tue";
+                          return (
+                            <div
+                              key={day}
+                              className={`h-11 rounded-[5px] border border-line px-0.5 pt-0.5 ${today ? "bg-accent/10" : "bg-paper"}`}
+                            >
+                              <p className={`text-[7px] font-bold ${today ? "text-accent" : "text-muted"}`}>{day}</p>
+                              {posts.map((post, i) => (
+                                <span
+                                  key={i}
+                                  className={`mt-0.5 block h-1.5 rounded-full ${post.tint} ${post.sent ? "opacity-35" : ""}`}
+                                />
+                              ))}
+                            </div>
+                          );
+                        })}
+                      </div>
                     </Pane>
-                    {/* the strip of cuts, sliding off frame */}
-                    <div className="layer absolute -left-4 bottom-3 flex gap-1 !rounded-lg bg-[#0b0b0d]/85 p-1.5">
-                      {[0.55, 0.9, 0.4, 0.75, 0.3].map((o, i) => (
-                        <span key={i} className="h-6 w-7 rounded bg-white" style={{ opacity: o }} />
-                      ))}
-                    </div>
+                    {/* the one that just went out, sliding off frame */}
+                    <span className="layer absolute -left-4 bottom-3 flex items-center gap-1.5 !rounded-full bg-[#0b0b0d]/90 py-1.5 pl-7 pr-3.5 text-[10.5px] font-semibold text-white">
+                      <Check size={12} className="text-[#30d158]" /> posted · tue 09:00
+                    </span>
                   </Scene>
                   <div className="p-5">
-                    <p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-muted">launch</p>
-                    <h3 className="display mt-1.5 text-lg">your url becomes a video.</h3>
+                    <p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-muted">social</p>
+                    <h3 className="display mt-1.5 text-lg">plan the week. it posts itself.</h3>
                   </div>
                 </div>
               </Reveal>
@@ -1304,8 +1181,8 @@ export default function Home() {
                   <span className="absolute bottom-6 right-6 h-11 w-11 rounded-full border-2 border-white/70" aria-hidden />
                 </Scene>
                 <div className="p-5">
-                  <p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-muted">screen recording</p>
-                  <h3 className="display mt-1.5 text-lg">looks edited. isn’t.</h3>
+                  <p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-muted">screeni</p>
+                  <h3 className="display mt-1.5 text-balance text-lg">a screen recorder that automates all the work.</h3>
                   <p className="mt-1.5 text-sm leading-6 text-muted">
                     The zoom follows your cursor. Silence cuts itself. Captions write themselves.
                   </p>
@@ -1343,10 +1220,11 @@ export default function Home() {
                   </div>
                 </Scene>
                 <div className="p-5">
-                  <p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-muted">built native</p>
-                  <h3 className="display mt-1.5 text-lg">windows today. macos next.</h3>
+                  <p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-muted">one-time purchase</p>
+                  <h3 className="display mt-1.5 text-lg">stop renting your tools.</h3>
                   <p className="mt-1.5 text-sm leading-6 text-muted">
-                    A light native app - not a browser wearing a trench coat.
+                    Our goal is to replace as many subscription apps as we can with one app you pay
+                    for once.
                   </p>
                 </div>
               </div>
@@ -1368,9 +1246,9 @@ export default function Home() {
       <section id="tools" className="py-20 md:py-28">
         <div className="mx-auto max-w-7xl px-5">
           <Reveal className="mx-auto max-w-2xl text-center">
-            <h2 className="display text-4xl md:text-5xl">nine tools, one desk, zero cloud</h2>
+            <h2 className="display text-4xl md:text-5xl">eight tools, one desk, zero cloud</h2>
             <p className="mx-auto mt-4 max-w-xl text-muted">
-              Use one of them or all nine - nothing here assumes what your job is.
+              Use one of them or all eight - nothing here assumes what your job is.
             </p>
           </Reveal>
           <div className="mt-16 md:mt-24">
@@ -1439,7 +1317,7 @@ export default function Home() {
       <section id="who" className="mx-auto max-w-6xl px-5 py-16 md:py-24">
         <SectionHead
           kicker="what it's for"
-          title="nine moments, not nine job titles"
+          title="eight moments, not eight job titles"
           sub="There is no niche here. If you talk, record, listen or just need to concentrate, one of these is already your day."
         />
         <div className="mt-12 grid gap-5 sm:grid-cols-2">
@@ -1479,19 +1357,14 @@ export default function Home() {
       {/* free tools */}
       <section id="free-tools" className="dotted border-y border-line px-5 py-14 md:py-20">
         <div className="mx-auto max-w-6xl">
-          <SectionHead kicker="free tools" title="useful on their own" sub="A taste of the studio - no sign-up, no install for the browser ones." />
-          <div className="mx-auto mt-10 grid max-w-4xl gap-4 sm:grid-cols-2">
+          <SectionHead kicker="free tools" title="useful on their own" sub="A taste of the studio - free in the desktop app, no sign-up." />
+          <div className="mx-auto mt-10 grid max-w-xl gap-4 lg:max-w-5xl lg:grid-cols-3">
             {FREE_TOOLS.map((tool, i) => (
-              <Reveal key={tool.title} delay={(i % 2) * 0.07}>
+              <Reveal key={tool.title} delay={i * 0.07}>
                 <a href={tool.href} className="wincard block h-full transition hover:-translate-y-0.5">
                   <div className="wincard-bar">
                     <WinDots />
                     <span className="wincard-title">{tool.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.tool</span>
-                    {tool.live ? (
-                      <span className="ml-auto rounded-full bg-[#30d158]/15 px-2 py-0.5 text-[10px] font-bold text-[#30d158]">
-                        LIVE IN BROWSER
-                      </span>
-                    ) : null}
                   </div>
                   <div className="flex items-center gap-4 p-5">
                     <Scene ground={tool.ground} className="h-[72px] w-[72px] shrink-0 !rounded-xl">
@@ -1499,7 +1372,7 @@ export default function Home() {
                     </Scene>
                     <div className="min-w-0">
                       <h3 className="display text-[15px] font-bold">{tool.title.toLowerCase()}</h3>
-                      <p className="mt-1 text-[13px] text-muted">{tool.desc}</p>
+                      <p className="mt-1 text-pretty text-[13px] text-muted">{tool.desc}</p>
                     </div>
                   </div>
                 </a>
@@ -1577,7 +1450,7 @@ export default function Home() {
                   <p className="text-[13px] text-[#6e6e73]">see what the fuss is about</p>
                   <p className="display mt-3 text-5xl font-extrabold">$0</p>
                   <ul className="mt-5 space-y-2.5 text-sm text-[#6e6e73]">
-                    <li className="flex gap-2"><Check size={15} className="mt-0.5 text-accent" /> all nine tools, no limits</li>
+                    <li className="flex gap-2"><Check size={15} className="mt-0.5 text-accent" /> all eight tools, no limits</li>
                     <li className="flex gap-2"><Check size={15} className="mt-0.5 text-accent" /> 60 fps MP4 export with audio</li>
                     <li className="flex gap-2"><Check size={15} className="mt-0.5 text-accent" /> on-device dictation &amp; captions</li>
                     <li className="flex gap-2"><Check size={15} className="mt-0.5 text-accent" /> small “made with owntools” badge on videos</li>
@@ -1791,7 +1664,6 @@ export default function Home() {
               <div className="mt-3 flex flex-col gap-2 text-muted">
                 <a className="transition hover:text-ink" href="#tools">focus - deep work</a>
                 <a className="transition hover:text-ink" href="#tools">screeni - recording</a>
-                <a className="transition hover:text-ink" href="#tools">capture - screenshots</a>
                 <a className="transition hover:text-ink" href="#tools">launch - announce</a>
                 <a className="transition hover:text-ink" href="#tools">dictate - voice</a>
                 <a className="transition hover:text-ink" href="#tools">meet - calls</a>
@@ -1803,7 +1675,6 @@ export default function Home() {
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted">free tools</p>
               <div className="mt-3 flex flex-col gap-2 text-muted">
-                <a className="transition hover:text-ink" href="/tools/launch-video-maker">launch video maker</a>
                 <a className="transition hover:text-ink" href="#free-tools">speech to text</a>
                 <a className="transition hover:text-ink" href="#free-tools">subtitle generator</a>
                 <a className="transition hover:text-ink" href="#free-tools">video → audio</a>

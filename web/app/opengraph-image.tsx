@@ -52,7 +52,7 @@ export default function OpengraphImage() {
         </div>
 
         <div style={{ marginTop: 40, fontSize: 24, letterSpacing: 0.5, color: "rgba(245,245,247,0.62)" }}>
-          dictate · transcribe · record · capture · meet · take notes · sketch · translate
+          dictate · transcribe · record · meet · take notes · sketch · translate
         </div>
       </div>
     ),

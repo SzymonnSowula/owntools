@@ -4,6 +4,7 @@
 
 use serde_json::{json, Value};
 
+use super::queue;
 use super::plan;
 use super::server::emit_changed;
 use super::store::{self, ApiError, PostFilter};
@@ -199,11 +200,107 @@ fn tools() -> Value {
                 "required": ["text", "channelIds"],
                 "additionalProperties": false
             }
+        },
+        {
+            "name": "add_to_queue",
+            "description": "Schedule a post into the next free posting slot of the given channels (their own slots, or weekdays 09:00 / 13:00 / 17:00). No timestamp reasoning needed. Honours client_ref (idempotent) and the review setting.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "channelIds": { "type": "array", "items": { "type": "string" }, "description": "From list_channels." },
+                    "text": { "type": "string" },
+                    "client_ref": { "type": "string", "description": "Your own id for this post: a retry with the same ref returns the existing post instead of creating a second one." },
+                    "from": { "type": "string", "description": "ISO 8601 earliest time (default: half an hour from now)." },
+                    "tags": { "type": "array", "items": { "type": "string" } }
+                },
+                "required": ["channelIds", "text"],
+                "additionalProperties": false
+            }
+        },
+        {
+            "name": "list_upcoming",
+            "description": "Scheduled and awaiting-review posts in the next N days, soonest first.",
+            "inputSchema": {
+                "type": "object",
+                "properties": { "days": { "type": "integer", "minimum": 1, "maximum": 90, "description": "Default 7." } },
+                "additionalProperties": false
+            }
+        },
+        {
+            "name": "search_posts",
+            "description": "Posts whose text, thread, tags or title contain a phrase (case-insensitive), up to 50.",
+            "inputSchema": {
+                "type": "object",
+                "properties": { "q": { "type": "string" }, "status": { "type": "string", "description": "Optional status filter." } },
+                "required": ["q"],
+                "additionalProperties": false
+            }
+        },
+        {
+            "name": "reschedule",
+            "description": "Move a post to another time. A draft becomes scheduled; a post awaiting review keeps waiting; published posts cannot move (duplicate them).",
+            "inputSchema": {
+                "type": "object",
+                "properties": { "id": { "type": "string" }, "at": { "type": "string", "description": "ISO 8601 date-time." } },
+                "required": ["id", "at"],
+                "additionalProperties": false
+            }
+        },
+        {
+            "name": "duplicate_post",
+            "description": "A new draft with the same content and media, for the same or other channels.",
+            "inputSchema": {
+                "type": "object",
+                "properties": { "id": { "type": "string" }, "channelIds": { "type": "array", "items": { "type": "string" } } },
+                "required": ["id"],
+                "additionalProperties": false
+            }
+        },
+        {
+            "name": "list_needs_review",
+            "description": "Posts waiting for the person's approval (agent-made posts land here while the review setting is on). Approval itself happens in owntools → social → Review, never through the API.",
+            "inputSchema": { "type": "object", "properties": {}, "additionalProperties": false }
+        },
+        {
+            "name": "get_brand_voice",
+            "description": "The person's brand-voice notes (markdown) — read it before writing anything.",
+            "inputSchema": { "type": "object", "properties": {}, "additionalProperties": false }
+        },
+        {
+            "name": "set_brand_voice",
+            "description": "Replace the brand-voice notes. Only when the person asked you to.",
+            "inputSchema": {
+                "type": "object",
+                "properties": { "markdown": { "type": "string" } },
+                "required": ["markdown"],
+                "additionalProperties": false
+            }
+        },
+        {
+            "name": "adapt_post",
+            "description": "One variant of a text per channel, cut to fit each network's limit (trailing sentences first). Rule-based; check the `changed` flag and rewrite by hand where a cut reads badly.",
+            "inputSchema": {
+                "type": "object",
+                "properties": { "text": { "type": "string" }, "channelIds": { "type": "array", "items": { "type": "string" } } },
+                "required": ["text", "channelIds"],
+                "additionalProperties": false
+            }
+        },
+        {
+            "name": "get_activity",
+            "description": "The activity log: what agents and automations did (create / update / delete / publish / approve / reject), newest first.",
+            "inputSchema": {
+                "type": "object",
+                "properties": { "limit": { "type": "integer", "minimum": 1, "maximum": 500, "description": "Default 50." } },
+                "additionalProperties": false
+            }
         }
     ])
 }
 
 const GUIDE_URI: &str = "owntools://social/guide";
+const WEEK_URI: &str = "owntools://social/week";
+const VOICE_URI: &str = "owntools://social/voice";
 
 /// Ready-made jobs, so "what can this thing do" has an answer in the client's
 /// own prompt menu instead of in a README.
@@ -237,7 +334,7 @@ fn prompt_text(name: &str, params: &Value) -> Option<String> {
     };
     match name {
         "plan_a_week" => Some(format!(
-            "Plan a week of social posts about: {}.\n\nUse list_channels for the channels, write one post per free slot from suggest_times (count 5), run check_post on each before creating it, and create them as scheduled posts. Keep each one in the voice of the existing posts you can see through list_posts. Report back as a list of times and first lines.",
+            "Plan a week of social posts about: {}.\n\nRead get_brand_voice first. Use list_channels for the channels, write five posts in that voice, run check_post on each, then add_to_queue them one by one (it picks the next free posting slot; pass a client_ref so a retry never double-posts). If the answer says needs_review, tell the person the posts wait in social → Review. Report back as a list of times and first lines.",
             arg("topic")
         )),
         "post_this_video" => Some(format!(
@@ -288,9 +385,9 @@ fn call_tool(state: &SocialState, name: &str, args: &Value) -> Result<Value, Api
             store::read_post(root, &id).ok_or_else(|| ApiError::not_found(format!("no post `{id}`")))
         }
         "create_post" => {
-            let post = store::create_post(root, args)?;
-            emit_changed(state, "post", post.get("id").and_then(Value::as_str), "create");
-            Ok(post)
+            let created = store::create_post(root, args)?;
+            emit_changed(state, "post", created.post.get("id").and_then(Value::as_str), "create");
+            Ok(created.response())
         }
         "update_post" => {
             let id = id()?;
@@ -344,14 +441,68 @@ fn call_tool(state: &SocialState, name: &str, args: &Value) -> Result<Value, Api
             emit_changed(state, "media", item.get("id").and_then(Value::as_str), "create");
             Ok(item)
         }
+        "add_to_queue" => {
+            let post = queue::add_to_queue(root, args)?;
+            emit_changed(state, "post", post.get("id").and_then(Value::as_str), "create");
+            Ok(post)
+        }
+        "list_upcoming" => Ok(json!({ "posts": queue::list_upcoming(root, arg("days").as_i64().unwrap_or(7)) })),
+        "search_posts" => Ok(json!({
+            "posts": queue::search_posts(root, arg("q").as_str().unwrap_or(""), arg("status").as_str())
+        })),
+        "reschedule" => {
+            let id = id()?;
+            let at = arg("at")
+                .as_str()
+                .map(String::from)
+                .ok_or_else(|| ApiError::bad("`at` is required (ISO 8601)"))?;
+            let post = queue::reschedule(root, &id, &at)?;
+            emit_changed(state, "post", Some(&id), "update");
+            Ok(post)
+        }
+        "duplicate_post" => {
+            let id = id()?;
+            let channels = arg("channelIds")
+                .as_array()
+                .map(|a| a.iter().filter_map(Value::as_str).map(String::from).collect::<Vec<_>>());
+            let post = queue::duplicate_post(root, &id, channels)?;
+            emit_changed(state, "post", post.get("id").and_then(Value::as_str), "create");
+            Ok(post)
+        }
+        "list_needs_review" => Ok(json!({
+            "posts": store::list_posts(root, &PostFilter { status: Some("needs_review".into()), from: None, to: None, limit: None }),
+            "note": "Approval is the person's: owntools → social → Review."
+        })),
+        "get_brand_voice" => Ok(json!({ "markdown": store::read_voice(root) })),
+        "set_brand_voice" => {
+            let markdown = arg("markdown")
+                .as_str()
+                .map(String::from)
+                .ok_or_else(|| ApiError::bad("`markdown` is required"))?;
+            store::write_voice(root, &markdown).map_err(ApiError::internal)?;
+            emit_changed(state, "voice", None, "update");
+            Ok(json!({ "ok": true, "chars": markdown.chars().count() }))
+        }
+        "adapt_post" => {
+            let text = arg("text").as_str().unwrap_or("").to_string();
+            let channels: Vec<String> = arg("channelIds")
+                .as_array()
+                .map(|a| a.iter().filter_map(Value::as_str).map(String::from).collect())
+                .unwrap_or_default();
+            if text.trim().is_empty() || channels.is_empty() {
+                return Err(ApiError::bad("`text` and `channelIds` are required"));
+            }
+            Ok(queue::adapt(root, &text, &channels))
+        }
+        "get_activity" => Ok(json!({ "entries": store::read_activity(root, arg("limit").as_u64().unwrap_or(50) as usize) })),
         "post_now" => {
             let mut body = args.clone();
             if let Some(obj) = body.as_object_mut() {
                 obj.insert("status".into(), json!("scheduled"));
                 obj.insert("scheduledAt".into(), json!(store::local_now_iso()));
             }
-            let post = store::create_post(root, &body)?;
-            let id = post.get("id").and_then(Value::as_str).unwrap_or_default().to_string();
+            let created = store::create_post(root, &body)?;
+            let id = created.post.get("id").and_then(Value::as_str).unwrap_or_default().to_string();
             let post = store::publish_now(root, &id)?;
             emit_changed(state, "post", Some(&id), "publish");
             Ok(json!({ "accepted": true, "post": post, "note": "publishing now; call get_post in a few seconds for the results" }))
@@ -396,19 +547,42 @@ pub fn handle(state: &SocialState, msg: &Value) -> Option<Value> {
             }
         }
         "resources/list" => Ok(json!({
-            "resources": [{
-                "uri": GUIDE_URI,
-                "name": "How to drive owntools social",
-                "description": "The order to call things in, what each network takes, and the mistakes worth not making.",
-                "mimeType": "text/markdown"
-            }]
+            "resources": [
+                {
+                    "uri": GUIDE_URI,
+                    "name": "How to drive owntools social",
+                    "description": "The order to call things in, what each network takes, and the mistakes worth not making.",
+                    "mimeType": "text/markdown"
+                },
+                {
+                    "uri": WEEK_URI,
+                    "name": "This week's calendar",
+                    "description": "Scheduled and awaiting-review posts for the next seven days, by day.",
+                    "mimeType": "text/markdown"
+                },
+                {
+                    "uri": VOICE_URI,
+                    "name": "Brand voice",
+                    "description": "The person's own notes on how their posts should sound. Read before writing.",
+                    "mimeType": "text/markdown"
+                }
+            ]
         })),
         "resources/read" => {
             let uri = params.get("uri").and_then(Value::as_str).unwrap_or("");
-            if uri == GUIDE_URI {
-                Ok(json!({ "contents": [{ "uri": GUIDE_URI, "mimeType": "text/markdown", "text": plan::guide(&state.root) }] }))
-            } else {
-                Err((-32602, format!("unknown resource `{uri}`")))
+            match uri {
+                GUIDE_URI => Ok(json!({ "contents": [{ "uri": GUIDE_URI, "mimeType": "text/markdown", "text": plan::guide(&state.root) }] })),
+                WEEK_URI => Ok(json!({ "contents": [{ "uri": WEEK_URI, "mimeType": "text/markdown", "text": queue::week_markdown(&state.root) }] })),
+                VOICE_URI => {
+                    let voice = store::read_voice(&state.root);
+                    let text = if voice.trim().is_empty() {
+                        "No brand-voice notes yet. Ask the person how their posts should sound, or read a few with list_posts and match them.".to_string()
+                    } else {
+                        voice
+                    };
+                    Ok(json!({ "contents": [{ "uri": VOICE_URI, "mimeType": "text/markdown", "text": text }] }))
+                }
+                _ => Err((-32602, format!("unknown resource `{uri}`"))),
             }
         }
         "prompts/list" => Ok(json!({ "prompts": prompts() })),

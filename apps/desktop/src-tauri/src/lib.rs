@@ -1,6 +1,7 @@
 mod audio_capture;
 mod automations;
 mod capture;
+mod capture_tool;
 mod cursor;
 mod diagnostics;
 mod dictation;
@@ -167,8 +168,26 @@ pub fn run() {
 
     builder
         .manage(disk::DiskState::default())
+        .manage(capture_tool::CaptureState::default())
         .invoke_handler(tauri::generate_handler![
             quit_app,
+            capture_tool::capture_grab,
+            capture_tool::capture_current,
+            capture_tool::capture_pixels,
+            capture_tool::capture_put,
+            capture_tool::capture_finish,
+            capture_tool::capture_ocr,
+            capture_tool::capture_copy_image,
+            capture_tool::capture_copy_text,
+            capture_tool::capture_list,
+            capture_tool::capture_delete,
+            capture_tool::capture_set_title,
+            capture_tool::capture_open_folder,
+            capture_tool::capture_reveal,
+            capture_tool::capture_cancel,
+            capture_tool::capture_hide,
+            capture_tool::capture_show_main,
+            capture_tool::capture_hotkey_registered,
             automations::automations_watch_set,
             automations::automations_allow_folder,
             automations::automations_allowed_folders,
@@ -297,6 +316,7 @@ pub fn run() {
             #[cfg(windows)]
             usage::start(app.handle().clone());
             hotkeys::register_dictation_hotkey(app.handle());
+            hotkeys::register_capture_hotkey(app.handle());
             // The social agent server (127.0.0.1, bearer token) + OAuth loopback.
             social::start(app.handle());
             // The pill can never show WebView2's own microphone prompt (see

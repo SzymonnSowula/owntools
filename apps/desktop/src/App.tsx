@@ -84,6 +84,12 @@ export default function App() {
   // open: the runtime (30 s runner, catch-up, agent events) starts with the app.
   useEffect(() => {
     void import("@feature-social/runtime").then((m) => m.startSocialRuntime()).catch((err) => logError("main", "social runtime", err));
+    // The engines that act while nobody is looking: rules, the sync folder and
+    // the capture window's bridge into this one. Same shape as the social
+    // runtime: lazy chunks, one log line when they fail, never a crash here.
+    void import("@feature-automations/engine").then((m) => m.startAutomations()).catch((err) => logError("main", "automations", err));
+    void import("@feature-sync/engine").then((m) => m.startSync()).catch((err) => logError("main", "sync", err));
+    void import("@feature-capture/bridge").then((m) => m.startCaptureBridge()).catch((err) => logError("main", "capture bridge", err));
   }, []);
 
   useEffect(() => {
@@ -107,8 +113,33 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!isTauri()) return;
     const unsubs: Array<() => void> = [];
+    // DOM-level: same window, no Tauri — so the browser preview switches tools too.
+    // One tool handing its output to another (screeni → social) asks the
+    // shell to switch with a DOM event: same window, no Tauri round trip,
+    // and it works in the browser preview too.
+    const onOpenTool = (e: Event) => {
+      const tool = (e as CustomEvent<{ tool?: string }>).detail?.tool;
+      if (tool && (TOOLS as readonly string[]).includes(tool)) useShellStore.getState().setTool(tool as Tool);
+    };
+    window.addEventListener(OPEN_TOOL_EVENT, onOpenTool);
+    unsubs.push(() => window.removeEventListener(OPEN_TOOL_EVENT, onOpenTool));
+    // "Set up a model" / "see the privacy log" links from any tool land on
+    // the app-wide settings, which live in focus → Settings.
+    const onOpenSettings = (e: Event) => {
+      const section = (e as CustomEvent<{ section?: string }>).detail?.section;
+      useShellStore.getState().setTool("focus");
+      useShellStore.getState().setFocusOverview(false);
+      useAppStore.getState().setView("settings");
+      if (section) {
+        window.setTimeout(() => {
+          document.querySelector(`[data-settings-section="${section}"]`)?.scrollIntoView({ block: "start", behavior: "smooth" });
+        }, 120);
+      }
+    };
+    window.addEventListener(OPEN_SETTINGS_SECTION_EVENT, onOpenSettings);
+    unsubs.push(() => window.removeEventListener(OPEN_SETTINGS_SECTION_EVENT, onOpenSettings));
+    if (!isTauri()) return () => unsubs.forEach((u) => u());
     void (async () => {
       const { listen } = await import("@tauri-apps/api/event");
       unsubs.push(
@@ -162,30 +193,6 @@ export default function App() {
           }
         }),
       );
-      // One tool handing its output to another (screeni → social) asks the
-      // shell to switch with a DOM event: same window, no Tauri round trip,
-      // and it works in the browser preview too.
-      const onOpenTool = (e: Event) => {
-        const tool = (e as CustomEvent<{ tool?: string }>).detail?.tool;
-        if (tool && (TOOLS as readonly string[]).includes(tool)) useShellStore.getState().setTool(tool as Tool);
-      };
-      window.addEventListener(OPEN_TOOL_EVENT, onOpenTool);
-      unsubs.push(() => window.removeEventListener(OPEN_TOOL_EVENT, onOpenTool));
-      // "Set up a model" / "see the privacy log" links from any tool land on
-      // the app-wide settings, which live in focus → Settings.
-      const onOpenSettings = (e: Event) => {
-        const section = (e as CustomEvent<{ section?: string }>).detail?.section;
-        useShellStore.getState().setTool("focus");
-        useShellStore.getState().setFocusOverview(false);
-        useAppStore.getState().setView("settings");
-        if (section) {
-          window.setTimeout(() => {
-            document.querySelector(`[data-settings-section="${section}"]`)?.scrollIntoView({ block: "start", behavior: "smooth" });
-          }, 120);
-        }
-      };
-      window.addEventListener(OPEN_SETTINGS_SECTION_EVENT, onOpenSettings);
-      unsubs.push(() => window.removeEventListener(OPEN_SETTINGS_SECTION_EVENT, onOpenSettings));
       // ...and hands the transcript over when this window is the one in front
       // (focused field, the board, or the clipboard — see feature-dictation/insert.ts).
       unsubs.push(await listenForDictation());

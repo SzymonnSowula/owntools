@@ -271,7 +271,7 @@ describe("validation and templates", () => {
   it("the four starters are complete except for the folders the person picks", () => {
     expect(TEMPLATES.map((t) => t.id)).toEqual(["meeting-note", "export-draft", "downloads-transcript", "daily-dictation"]);
     for (const t of TEMPLATES) {
-      const problems = validateRule({ conditions: [], ...t.make() });
+      const problems = validateRule(t.make());
       for (const p of problems) expect(p).toMatch(/pick (the|a) folder/i);
     }
   });

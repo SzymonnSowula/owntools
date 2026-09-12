@@ -79,13 +79,6 @@ export default function PrivacyPage() {
           and referrers. When it is on, its script loads from plausible.io.
         </li>
         <li>
-          <strong>The free launch video maker.</strong> When you paste a URL, your browser sends it
-          to our server, which fetches that page and returns its text, colours and images to you -
-          browsers cannot read other sites directly, so we have to. The URL and the page are
-          processed in memory and not stored. The video itself is rendered in your browser and is
-          never uploaded.
-        </li>
-        <li>
           <strong>Hosting.</strong> Like every website, the server that hosts this one keeps
           ordinary access logs (IP address, time, page requested) for a short time to run the
           service.

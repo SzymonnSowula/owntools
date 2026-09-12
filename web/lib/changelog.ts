@@ -32,7 +32,6 @@ export const CHANGELOG: ChangelogEntry[] = [
       "focus - fullscreen timer and stopwatch, tasks, notes, habits, screen-time heatmap, ambient records, scroll guard, workspaces that start your setup.",
       "launch - paste a URL, get a launch video in six styles and three formats, plus store-screenshot prompts.",
       "board - an endless whiteboard (Excalidraw inside): paste or drop screenshots, sketch boxes and arrows, keep many boards, export PNG, SVG or .excalidraw. Every board is a folder on your disk.",
-      "free launch video maker on the web - the same engine in the browser, no sign-up.",
     ],
   },
 ];

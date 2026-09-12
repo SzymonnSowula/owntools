@@ -10,6 +10,10 @@ use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 /// instead of repeating the string.
 pub const DICTATION_HOTKEY: &str = "ctrl+shift+space";
 const CANCEL_HOTKEY: &str = "escape";
+/// Ctrl+Shift+4 — the macOS screenshot chord, moved to Ctrl. Handled in Rust
+/// end to end (`capture_tool::on_hotkey`), so the overlay is up before any
+/// JavaScript wakes; the label lives in `@core/hotkeys` (`CAPTURE_HOTKEY_LABEL`).
+pub const CAPTURE_HOTKEY: &str = "ctrl+shift+4";
 
 pub fn register_dictation_hotkey(app: &AppHandle) {
     let result = app
@@ -23,6 +27,22 @@ pub fn register_dictation_hotkey(app: &AppHandle) {
         Ok(()) => log::info!("dictation hotkey {DICTATION_HOTKEY} registered"),
         Err(e) => log::error!(
             "could not register the dictation hotkey {DICTATION_HOTKEY} (another app owns it?): {e}"
+        ),
+    }
+}
+
+pub fn register_capture_hotkey(app: &AppHandle) {
+    let result = app
+        .global_shortcut()
+        .on_shortcut(CAPTURE_HOTKEY, |app, _shortcut, event| {
+            if event.state() == ShortcutState::Pressed {
+                crate::capture_tool::on_hotkey(app);
+            }
+        });
+    match result {
+        Ok(()) => log::info!("capture hotkey {CAPTURE_HOTKEY} registered"),
+        Err(e) => log::error!(
+            "could not register the capture hotkey {CAPTURE_HOTKEY} (another app owns it?): {e}"
         ),
     }
 }

@@ -1,7 +1,7 @@
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { emitTo, listen } from "@tauri-apps/api/event";
 import type { CaptureBackend } from "./backend";
-import type { CaptureFrame, CaptureIndex, CaptureItem, FinishMeta, FinishResult, OcrResult } from "./types";
+import type { CaptureFrame, CaptureIndex, CaptureItem, FinishResult, OcrResult } from "./types";
 
 /**
  * The Rust side (`src-tauri/src/capture_tool.rs`).
@@ -65,8 +65,12 @@ export const tauriBackend: CaptureBackend = {
     const data = new ImageData(new Uint8ClampedArray(buffer), frame.width, frame.height);
     return createImageBitmap(data);
   },
-  finish: (png, meta) =>
-    invoke<FinishResult>("capture_finish", png, { headers: { "x-capture-meta": JSON.stringify(meta) } }),
+  finish: async (png, meta) => {
+    // Two steps on purpose: `capture_put` only copies the bytes (a sync command
+    // runs on the main thread), `capture_finish` does the files + OCR off it.
+    await invoke<string>("capture_put", png, { headers: { "x-capture-meta": JSON.stringify(meta) } });
+    return invoke<FinishResult>("capture_finish", { id: meta.id });
+  },
   cancel: (id) => invoke("capture_cancel", { id }),
   hide: () => invoke("capture_hide"),
   grab: async () => {

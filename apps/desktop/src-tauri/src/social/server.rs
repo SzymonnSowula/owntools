@@ -156,9 +156,9 @@ async fn posts_list(State(state): State<Shared>, Query(q): Query<ListQuery>) -> 
 }
 
 async fn posts_create(State(state): State<Shared>, Json(body): Json<Value>) -> Result<(StatusCode, Json<Value>), ApiError> {
-    let post = store::create_post(&state.root, &body)?;
-    emit_changed(&state, "post", post.get("id").and_then(Value::as_str), "create");
-    Ok((StatusCode::CREATED, Json(post)))
+    let created = store::create_post(&state.root, &body)?;
+    emit_changed(&state, "post", created.post.get("id").and_then(Value::as_str), "create");
+    Ok((StatusCode::CREATED, Json(created.response())))
 }
 
 async fn post_get(State(state): State<Shared>, Path(id): Path<String>) -> Result<Json<Value>, ApiError> {
@@ -198,7 +198,7 @@ async fn posts_now(State(state): State<Shared>, Json(mut body): Json<Value>) -> 
         obj.insert("scheduledAt".into(), json!(store::local_now_iso()));
     }
     let created = store::create_post(&state.root, &body)?;
-    let id = created.get("id").and_then(Value::as_str).unwrap_or_default().to_string();
+    let id = created.post.get("id").and_then(Value::as_str).unwrap_or_default().to_string();
     let post = store::publish_now(&state.root, &id)?;
     emit_changed(&state, "post", Some(&id), "publish");
     Ok((

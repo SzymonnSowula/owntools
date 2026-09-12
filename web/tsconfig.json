@@ -25,12 +25,6 @@
     "paths": {
       "@/*": [
         "./*"
-      ],
-      "@owntools/launch-engine": [
-        "../packages/feature-launch/src/engine/index.ts"
-      ],
-      "@owntools/launch-engine/*": [
-        "../packages/feature-launch/src/engine/*"
       ]
     }
   },

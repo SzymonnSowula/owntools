@@ -180,7 +180,7 @@ describe("engine", () => {
     const { backend, saved, fileAdded } = fakeBackend(rules);
     const log: string[] = [];
     await startAutomations({ backend, actions: fakeActions(log), tickMs: 1e9 });
-    expect(saved.watch.at(-1)).toEqual([
+    expect(saved.watch[saved.watch.length - 1]).toEqual([
       { ruleId: "a", folder: "D:\\a", extensions: ["mp3"] },
       { ruleId: "b", folder: "D:\\b", extensions: [] },
     ]);
@@ -196,7 +196,7 @@ describe("engine", () => {
   it("saving, disabling and deleting a rule re-syncs the watched folders", async () => {
     const { backend, saved } = fakeBackend([]);
     await startAutomations({ backend, actions: fakeActions([]), tickMs: 1e9 });
-    expect(saved.watch.at(-1)).toEqual([]);
+    expect(saved.watch[saved.watch.length - 1]).toEqual([]);
 
     const rule = newRule({
       id: "w",
@@ -205,12 +205,12 @@ describe("engine", () => {
     });
     await saveRule(rule);
     expect(saved.rules.map((r) => r.id)).toEqual(["w"]);
-    expect(saved.watch.at(-1)).toEqual([{ ruleId: "w", folder: "D:\\in", extensions: ["wav"] }]);
+    expect(saved.watch[saved.watch.length - 1]).toEqual([{ ruleId: "w", folder: "D:\\in", extensions: ["wav"] }]);
 
     await setRuleEnabled("w", false);
-    expect(saved.watch.at(-1)).toEqual([]);
+    expect(saved.watch[saved.watch.length - 1]).toEqual([]);
     await setRuleEnabled("w", true);
-    expect(saved.watch.at(-1)).toHaveLength(1);
+    expect(saved.watch[saved.watch.length - 1]).toHaveLength(1);
 
     await saveRule({ ...rule, name: "Renamed" });
     expect(saved.rules).toHaveLength(1);
@@ -218,7 +218,7 @@ describe("engine", () => {
 
     await deleteRule("w");
     expect(saved.rules).toEqual([]);
-    expect(saved.watch.at(-1)).toEqual([]);
+    expect(saved.watch[saved.watch.length - 1]).toEqual([]);
   });
 
   it("running by hand returns the record, honestly skipped when the moment carries nothing", async () => {

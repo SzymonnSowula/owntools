@@ -337,36 +337,21 @@ importers:
 
   web:
     dependencies:
-      '@remotion/player':
-        specifier: ^4.0.519
-        version: 4.0.519(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
-      '@remotion/web-renderer':
-        specifier: ^4.0.519
-        version: 4.0.519(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
-      '@owntools/launch-engine':
-        specifier: workspace:*
-        version: link:../packages/feature-launch
       aws4fetch:
         specifier: ^1.0.20
         version: 1.0.20
       lucide-react:
         specifier: ^1.38.0
         version: 1.38.0(react@19.2.8)
-      mediabunny:
-        specifier: ^1.55.4
-        version: 1.55.4
       next:
         specifier: 16.3.2
-        version: 16.3.2(@types/node@20.19.43)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(sass@1.51.0)
+        version: 16.3.2(@babel/core@7.29.7)(@types/node@20.19.43)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(sass@1.51.0)
       react:
         specifier: 19.2.8
         version: 19.2.8
       react-dom:
         specifier: 19.2.8
         version: 19.2.8(react@19.2.8)
-      remotion:
-        specifier: ^4.0.519
-        version: 4.0.519(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
     devDependencies:
       '@tailwindcss/postcss':
         specifier: ^4
@@ -8441,7 +8426,7 @@ snapshots:
 
   natural-compare@1.4.0: {}
 
-  next@16.3.2(@types/node@20.19.43)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(sass@1.51.0):
+  next@16.3.2(@babel/core@7.29.7)(@types/node@20.19.43)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(sass@1.51.0):
     dependencies:
       '@next/env': 16.3.2
       '@swc/helpers': 0.5.23
@@ -8450,7 +8435,7 @@ snapshots:
       postcss: 8.5.23
       react: 19.2.8
       react-dom: 19.2.8(react@19.2.8)
-      styled-jsx: 5.1.6(react@19.2.8)
+      styled-jsx: 5.1.6(@babel/core@7.29.7)(react@19.2.8)
     optionalDependencies:
       '@next/swc-darwin-arm64': 16.3.2
       '@next/swc-darwin-x64': 16.3.2
@@ -9024,10 +9009,12 @@ snapshots:
     dependencies:
       js-tokens: 9.0.1
 
-  styled-jsx@5.1.6(react@19.2.8):
+  styled-jsx@5.1.6(@babel/core@7.29.7)(react@19.2.8):
     dependencies:
       client-only: 0.0.1
       react: 19.2.8
+    optionalDependencies:
+      '@babel/core': 7.29.7
 
   stylis@4.4.0: {}
 

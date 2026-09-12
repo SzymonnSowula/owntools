@@ -1,5 +1,4 @@
 import { emitSyncApplied, onSyncTouch } from "../events";
-import type { Shadow } from "../merge";
 import type { CollectionId, ItemsDoc, ScanEntry } from "../types";
 import { combine, poll, type AdapterContext, type ItemsAdapter } from "./adapter";
 

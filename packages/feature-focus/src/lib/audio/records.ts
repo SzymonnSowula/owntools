@@ -12,6 +12,11 @@ import { createVinylChain, type VinylChain, type VinylCharacter } from "./vinyl"
  * Everything is synthesised on device. No samples ship with the app, so a
  * record costs a few hundred bytes of parameters instead of forty megabytes of
  * audio, and licensing never enters the picture.
+ *
+ * Two halves: `createRecordEngine` builds the graph and plays beats on demand
+ * against *any* context (an OfflineAudioContext renders a record for a test or
+ * a level check exactly the way it plays), and the player below runs that
+ * engine on the live clock.
  */
 
 export type RecordId =
@@ -56,6 +61,8 @@ export interface RecordMusic {
   bass: number;
   /** pad filter brightness multiplier */
   brightness?: number;
+  /** how far the melody sits above the bed, 0..1 (default 1 = `MELODY_LEVEL`) */
+  melody?: number;
 }
 
 export interface RecordDef {
@@ -99,7 +106,7 @@ export const RECORDS: RecordDef[] = [
       bpm: 52,
       chordBeats: 16,
       density: 0.3,
-      register: [64, 84],
+      register: [60, 81],
       voice: "keys",
       pad: 0.16,
       bass: 0.14,
@@ -127,9 +134,10 @@ export const RECORDS: RecordDef[] = [
       bpm: 58,
       chordBeats: 12,
       density: 0.26,
-      register: [72, 93],
+      register: [67, 86],
       voice: "bells",
       pad: 0.12,
+      melody: 0.8,
       bass: 0.08,
       brightness: 1.25,
     },
@@ -182,7 +190,7 @@ export const RECORDS: RecordDef[] = [
       bpm: 68,
       chordBeats: 8,
       density: 0.42,
-      register: [62, 84],
+      register: [60, 81],
       voice: "pluck",
       pad: 0.1,
       bass: 0.1,
@@ -209,7 +217,7 @@ export const RECORDS: RecordDef[] = [
       bpm: 46,
       chordBeats: 20,
       density: 0.18,
-      register: [65, 88],
+      register: [62, 84],
       voice: "keys",
       pad: 0.08,
       bass: 0.06,
@@ -237,7 +245,7 @@ export const RECORDS: RecordDef[] = [
       bpm: 44,
       chordBeats: 20,
       density: 0.2,
-      register: [64, 83],
+      register: [62, 81],
       voice: "strings",
       pad: 0.18,
       bass: 0.14,
@@ -264,9 +272,10 @@ export const RECORDS: RecordDef[] = [
       bpm: 74,
       chordBeats: 10,
       density: 0.4,
-      register: [70, 94],
+      register: [65, 86],
       voice: "bells",
       pad: 0.13,
+      melody: 0.8,
       bass: 0.1,
       brightness: 1.3,
     },
@@ -306,95 +315,268 @@ export function recordById(id: string | null | undefined): RecordDef | null {
   return RECORDS.find((r) => r.id === id) ?? null;
 }
 
+/* --------------------------------- master --------------------------------- */
+
+export interface Master {
+  /** the record's mix connects here */
+  input: AudioNode;
+  /** the level knob */
+  setVolume(volume: number, when: number, timeConstant: number): void;
+  /** the knob's current position */
+  volume(): number;
+  stop(when: number): void;
+  disconnect(): void;
+}
+
+/**
+ * The Web Audio compressor adds make-up gain of its own — (1 / gain at 0 dBFS)
+ * ^ 0.6 in the WebKit-derived implementation every engine ships — so a quiet
+ * record would come out 8.7 dB louder than it went in. Measured in Chromium
+ * 152 for exactly the limiter settings below: +8.73 dB across the linear
+ * region, -0.12 dB at a -6 dBFS peak. `LIMITER_TRIM` takes it back out, so the
+ * level knob means what it always meant.
+ */
+const LIMITER_MAKEUP_DB = 8.73;
+const LIMITER_TRIM = Math.pow(10, -LIMITER_MAKEUP_DB / 20);
+
+/** tanh: unity below about -12 dBFS, nothing above 0 dBFS, no corner in between. */
+function softCeiling(): Float32Array {
+  const n = 2049;
+  const curve = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    const x = (i / (n - 1)) * 2 - 1;
+    curve[i] = Math.tanh(x);
+  }
+  return curve;
+}
+
+/**
+ * The last thing before the speakers. A record is a background: nothing on it
+ * may ever jump out, so the mix meets a limiter and a soft ceiling *before*
+ * the level knob — the knob scales a signal that already has a lid on it. With
+ * the mix designed to peak around -14 dBFS the limiter only shaves the odd
+ * two-note overlap; the ceiling is there for whatever nobody planned.
+ */
+export function createMaster(ctx: BaseAudioContext, dest: AudioNode, volume: number): Master {
+  const limiter = ctx.createDynamicsCompressor();
+  limiter.threshold.value = -18;
+  limiter.knee.value = 6;
+  limiter.ratio.value = 12;
+  limiter.attack.value = 0.003;
+  limiter.release.value = 0.25;
+  const trim = ctx.createGain();
+  trim.gain.value = LIMITER_TRIM;
+  const ceiling = ctx.createWaveShaper();
+  ceiling.curve = softCeiling();
+  ceiling.oversample = "2x";
+  const level = ctx.createGain();
+  level.gain.value = 0.0001;
+  limiter.connect(trim);
+  trim.connect(ceiling);
+  ceiling.connect(level);
+  level.connect(dest);
+  level.gain.setTargetAtTime(Math.max(0.0001, volume), ctx.currentTime, 0.8);
+  return {
+    input: limiter,
+    setVolume(next, when, timeConstant) {
+      level.gain.setTargetAtTime(Math.max(0.0001, next), when, timeConstant);
+    },
+    volume: () => level.gain.value,
+    stop(when) {
+      level.gain.cancelScheduledValues(when);
+      level.gain.setValueAtTime(Math.max(0.0001, level.gain.value), when);
+      level.gain.setTargetAtTime(0.0001, when, 0.3);
+    },
+    disconnect() {
+      level.disconnect();
+      limiter.disconnect();
+    },
+  };
+}
+
+/* --------------------------------- engine --------------------------------- */
+
+export interface RecordEngine {
+  /** seconds per beat */
+  readonly beatLength: number;
+  /** Plays the next beat at `when` (audio-clock seconds). Call once per beat, in order. */
+  scheduleBeat(when: number): void;
+  /** Beats that went by unplayed — a stall is a hole in the music, never a pile-up. */
+  skip(beats: number): void;
+  stop(when: number): void;
+}
+
+export interface RecordEngineOptions {
+  /** the dice — injectable so an offline render is repeatable */
+  rng?: () => number;
+}
+
+/**
+ * Where the melody sits. The voices are written to peak around -8 dBFS on
+ * their own (the piano tab plays them dry); on a record they are ornaments on
+ * the bed, not the reason it is on, so every note is scaled down here before
+ * a record's own `melody` knob. Tuned against the offline level check: the
+ * loudest tenth of a second of a record should sit within about 8 dB of its
+ * median, where it used to be 15-20 dB above it.
+ */
+const MELODY_LEVEL = 0.4;
+
+/**
+ * Builds a record's whole signal chain into `dest` and hands back the beat
+ * generator. Nothing in here reads a clock: the caller says when each beat
+ * lands, so the same code plays live and renders offline.
+ */
+export function createRecordEngine(
+  ctx: BaseAudioContext,
+  dest: AudioNode,
+  def: RecordDef,
+  opts: RecordEngineOptions = {},
+): RecordEngine {
+  const rng = opts.rng ?? Math.random;
+  const { music } = def;
+  const beatLength = 60 / music.bpm;
+  const now = ctx.currentTime;
+
+  const vinyl: VinylChain = createVinylChain(ctx, dest, def.vinyl);
+  vinyl.dropNeedle(now + 0.05);
+  const bed: Layer[] = (Object.keys(def.bed) as NoiseId[]).map((layerId) =>
+    createNoiseLayer(ctx, layerId, vinyl.input, def.bed[layerId] ?? 0),
+  );
+  const pad: Pad = createPad(ctx, vinyl.input, music.pad, music.brightness ?? 1);
+  const drone: Drone = createDrone(ctx, vinyl.input, music.bass);
+
+  let beat = 0;
+  let lastMidi = music.register[0] + 7;
+  let chordIndex = -1;
+
+  const pickNote = (chord: number[]): number => {
+    const { root, scale, register } = music;
+    // Chord tones most of the time, scale tones for the passing notes.
+    const pool = rng() < 0.7 ? chord : scale;
+    const candidates: number[] = [];
+    for (const offset of pool) {
+      for (let octave = -2; octave <= 3; octave++) {
+        const midi = root + offset + octave * 12;
+        if (midi >= register[0] && midi <= register[1]) candidates.push(midi);
+      }
+    }
+    if (!candidates.length) return register[0];
+    // Prefer a step away from the last note; a melody that leaps every time
+    // reads as random, which is exactly what the old generator sounded like.
+    const near = candidates.filter((m) => Math.abs(m - lastMidi) <= 7 && m !== lastMidi);
+    const from = near.length && rng() < 0.72 ? near : candidates;
+    return from[Math.floor(rng() * from.length)];
+  };
+
+  return {
+    beatLength,
+    scheduleBeat(when) {
+      const index = Math.floor(beat / music.chordBeats) % music.chords.length;
+      const chord = music.chords[index];
+      const beatInChord = beat % music.chordBeats;
+      beat += 1;
+
+      // Compared by index, not by `beatInChord === 0`, so a change that fell
+      // into a skipped stretch still happens on the first beat that plays.
+      if (index !== chordIndex) {
+        chordIndex = index;
+        pad.setChord(
+          chord.map((offset) => music.root + offset),
+          when,
+        );
+        drone.setNote(music.root + chord[0] - 12, when);
+      }
+
+      // Downbeats are likelier, so the melody has some shape to it.
+      const accent = beatInChord === 0 ? 1.5 : beatInChord % 4 === 0 ? 1.15 : 1;
+      if (rng() >= music.density * accent) return;
+
+      const midi = pickNote(chord);
+      lastMidi = midi;
+      const length = beatLength * (1.5 + rng() * 3);
+      const level = MELODY_LEVEL * (music.melody ?? 1) * (0.5 + rng() * 0.4);
+      const humanize = (rng() - 0.5) * 0.05;
+      playVoice(ctx, music.voice, vinyl.input, midi, when + humanize, level, length);
+
+      // Now and then a second note a chord tone above — a two-note phrase.
+      if (rng() < 0.22) {
+        const second = pickNote(chord);
+        playVoice(
+          ctx,
+          music.voice,
+          vinyl.input,
+          second,
+          when + humanize + beatLength * (0.5 + rng()),
+          level * 0.75,
+          length * 0.7,
+        );
+      }
+    },
+    skip(beats) {
+      beat += Math.max(0, beats);
+    },
+    stop(when) {
+      bed.forEach((layer) => stopNoiseLayer(layer, when));
+      pad.stop(when);
+      drone.stop(when);
+      vinyl.stop(when);
+    },
+  };
+}
+
 /* -------------------------------- playback -------------------------------- */
 
 interface Session {
   def: RecordDef;
-  master: GainNode;
-  vinyl: VinylChain;
-  bed: Layer[];
-  pad: Pad;
-  drone: Drone;
+  master: Master;
+  engine: RecordEngine;
   timer: number;
   /** audio-clock time of the next beat */
   nextBeat: number;
-  beat: number;
-  lastMidi: number;
 }
 
 let session: Session | null = null;
 
-const LOOKAHEAD_MS = 40;
-const SCHEDULE_AHEAD = 0.45;
+const TICK_MS = 100;
+/**
+ * How far ahead beats are booked. A hidden window (tray, minimised, another
+ * app in front) gets its timers once a second, so this has to cover that with
+ * room to spare — 0.45 s used to leave every beat late the moment the window
+ * went away.
+ */
+const SCHEDULE_AHEAD = 1.5;
+/** a beat this little late is still played; anything later is a stall */
+const STALL_TOLERANCE = 0.1;
 
-function pickNote(def: RecordDef, chord: number[], lastMidi: number): number {
-  const { root, scale, register } = def.music;
-  // Chord tones most of the time, scale tones for the passing notes.
-  const pool = Math.random() < 0.7 ? chord : scale;
-  const candidates: number[] = [];
-  for (const offset of pool) {
-    for (let octave = -2; octave <= 3; octave++) {
-      const midi = root + offset + octave * 12;
-      if (midi >= register[0] && midi <= register[1]) candidates.push(midi);
-    }
-  }
-  if (!candidates.length) return register[0];
-  // Prefer a step away from the last note; a melody that leaps every time
-  // reads as random, which is exactly what the old generator sounded like.
-  const near = candidates.filter((m) => Math.abs(m - lastMidi) <= 7 && m !== lastMidi);
-  const from = near.length && Math.random() < 0.72 ? near : candidates;
-  return from[Math.floor(Math.random() * from.length)];
-}
-
-function scheduleBeat(s: Session, when: number): void {
-  const { music } = s.def;
-  const chordIndex = Math.floor(s.beat / music.chordBeats) % music.chords.length;
-  const chord = music.chords[chordIndex];
-  const beatInChord = s.beat % music.chordBeats;
-
-  if (beatInChord === 0) {
-    s.pad.setChord(
-      chord.map((offset) => music.root + offset),
-      when,
-    );
-    s.drone.setNote(music.root + chord[0] - 12, when);
-  }
-
-  // Downbeats are likelier, so the melody has some shape to it.
-  const accent = beatInChord === 0 ? 1.5 : beatInChord % 4 === 0 ? 1.15 : 1;
-  if (Math.random() < music.density * accent) {
-    const midi = pickNote(s.def, chord, s.lastMidi);
-    s.lastMidi = midi;
-    const beatLength = 60 / music.bpm;
-    const length = beatLength * (1.5 + Math.random() * 3);
-    const level = 0.5 + Math.random() * 0.4;
-    const humanize = (Math.random() - 0.5) * 0.05;
-    playVoice(music.voice, s.vinyl.input, midi, when + humanize, level, length);
-
-    // Now and then a second note a chord tone above — a two-note phrase.
-    if (Math.random() < 0.22) {
-      const second = pickNote(s.def, chord, midi);
-      playVoice(
-        music.voice,
-        s.vinyl.input,
-        second,
-        when + humanize + beatLength * (0.5 + Math.random()),
-        level * 0.75,
-        length * 0.7,
-      );
-    }
-  }
+/**
+ * A stall — the machine asleep, a heavy export on the main thread, a window
+ * hidden longer than the lookahead — leaves beats behind the clock. They are
+ * dropped, never played all at once: a bar that has passed has passed, and a
+ * pile of catch-up notes is exactly the burst a background must never make.
+ */
+export function advancePastStall(
+  nextBeat: number,
+  now: number,
+  beatLength: number,
+): { skip: number; nextBeat: number } {
+  if (nextBeat >= now - STALL_TOLERANCE) return { skip: 0, nextBeat };
+  const skip = Math.ceil((now - nextBeat) / beatLength);
+  return { skip, nextBeat: nextBeat + skip * beatLength };
 }
 
 function tick(): void {
   const s = session;
   if (!s) return;
-  const ctx = getAudioContext();
-  const beatLength = 60 / s.def.music.bpm;
-  while (s.nextBeat < ctx.currentTime + SCHEDULE_AHEAD) {
-    scheduleBeat(s, s.nextBeat);
+  const now = getAudioContext().currentTime;
+  const { beatLength } = s.engine;
+  const stall = advancePastStall(s.nextBeat, now, beatLength);
+  if (stall.skip) {
+    s.engine.skip(stall.skip);
+    s.nextBeat = stall.nextBeat;
+  }
+  while (s.nextBeat < now + SCHEDULE_AHEAD) {
+    s.engine.scheduleBeat(s.nextBeat);
     s.nextBeat += beatLength;
-    s.beat += 1;
   }
 }
 
@@ -407,32 +589,16 @@ export async function playRecord(id: string, volume: number): Promise<void> {
   const ctx = getAudioContext();
   const now = ctx.currentTime;
 
-  const master = ctx.createGain();
-  master.gain.value = 0.0001;
-  master.connect(ctx.destination);
-  master.gain.setTargetAtTime(Math.max(0.0001, volume), now, 0.8);
-
-  const vinyl = createVinylChain(master, def.vinyl);
-  vinyl.dropNeedle(now + 0.05);
-
-  const bed = (Object.keys(def.bed) as NoiseId[]).map((layerId) =>
-    createNoiseLayer(layerId, vinyl.input, def.bed[layerId] ?? 0),
-  );
-  const pad = createPad(vinyl.input, def.music.pad, def.music.brightness ?? 1);
-  const drone = createDrone(vinyl.input, def.music.bass);
+  const master = createMaster(ctx, ctx.destination, volume);
+  const engine = createRecordEngine(ctx, master.input, def);
 
   session = {
     def,
     master,
-    vinyl,
-    bed,
-    pad,
-    drone,
-    timer: window.setInterval(tick, LOOKAHEAD_MS),
+    engine,
+    timer: window.setInterval(tick, TICK_MS),
     // A beat of run-up, so the first note lands after the needle settles.
     nextBeat: now + 0.6,
-    beat: 0,
-    lastMidi: def.music.register[0] + 7,
   };
   tick();
 }
@@ -443,15 +609,9 @@ export function stopRecord(): void {
   if (!s) return;
   session = null;
   window.clearInterval(s.timer);
-  const ctx = getAudioContext();
-  const now = ctx.currentTime;
-  s.master.gain.cancelScheduledValues(now);
-  s.master.gain.setValueAtTime(Math.max(0.0001, s.master.gain.value), now);
-  s.master.gain.setTargetAtTime(0.0001, now, 0.3);
-  s.bed.forEach((layer) => stopNoiseLayer(layer, now));
-  s.pad.stop(now);
-  s.drone.stop(now);
-  s.vinyl.stop(now);
+  const now = getAudioContext().currentTime;
+  s.master.stop(now);
+  s.engine.stop(now);
   window.setTimeout(() => {
     try {
       s.master.disconnect();
@@ -463,8 +623,7 @@ export function stopRecord(): void {
 
 export function setRecordVolume(volume: number): void {
   if (!session) return;
-  const ctx = getAudioContext();
-  session.master.gain.setTargetAtTime(Math.max(0.0001, volume), ctx.currentTime, 0.15);
+  session.master.setVolume(volume, getAudioContext().currentTime, 0.15);
 }
 
 export function playingRecordId(): RecordId | null {

@@ -9,16 +9,11 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@remotion/player": "^4.0.519",
-    "@remotion/web-renderer": "^4.0.519",
-    "@owntools/launch-engine": "workspace:*",
     "aws4fetch": "^1.0.20",
     "lucide-react": "^1.38.0",
-    "mediabunny": "^1.55.4",
     "next": "16.3.2",
     "react": "19.2.8",
-    "react-dom": "19.2.8",
-    "remotion": "^4.0.519"
+    "react-dom": "19.2.8"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

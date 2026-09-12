@@ -1,5 +1,3 @@
-import { getAudioContext } from "./context";
-
 /**
  * The vinyl chain. Everything a record plays goes through it, so a generated
  * ambient bed picks up the things that make a pressing sound like a pressing:
@@ -29,7 +27,7 @@ export interface VinylChain {
   stop(when: number): void;
 }
 
-function crackleBuffer(ctx: AudioContext, seconds: number, popsPerSecond: number): AudioBuffer {
+function crackleBuffer(ctx: BaseAudioContext, seconds: number, popsPerSecond: number): AudioBuffer {
   const len = Math.floor(ctx.sampleRate * seconds);
   const buffer = ctx.createBuffer(1, len, ctx.sampleRate);
   const data = buffer.getChannelData(0);
@@ -56,7 +54,7 @@ function crackleBuffer(ctx: AudioContext, seconds: number, popsPerSecond: number
   return buffer;
 }
 
-function loop(ctx: AudioContext, buffer: AudioBuffer, rate: number): AudioBufferSourceNode {
+function loop(ctx: BaseAudioContext, buffer: AudioBuffer, rate: number): AudioBufferSourceNode {
   const src = ctx.createBufferSource();
   src.buffer = buffer;
   src.loop = true;
@@ -64,8 +62,15 @@ function loop(ctx: AudioContext, buffer: AudioBuffer, rate: number): AudioBuffer
   return src;
 }
 
-export function createVinylChain(dest: AudioNode, character: VinylCharacter): VinylChain {
-  const ctx = getAudioContext();
+/** crackle bus level at `crackle: 1` — pops are impulses, so this is a peak, not a loudness */
+const CRACKLE_LEVEL = 0.4;
+
+export function createVinylChain(
+  ctx: BaseAudioContext,
+  dest: AudioNode,
+  character: VinylCharacter,
+): VinylChain {
+  let current = character;
   const input = ctx.createGain();
   const output = ctx.createGain();
 
@@ -111,20 +116,25 @@ export function createVinylChain(dest: AudioNode, character: VinylCharacter): Vi
     loop(ctx, crackleBuffer(ctx, 7.3, 9), 1),
     loop(ctx, crackleBuffer(ctx, 11.9, 6), 0.97),
   ];
+  // Never a looping buffer source straight into a filter — see noise.ts
+  // `noiseSource` for the Chromium 152 blow-up this sidesteps.
+  const crackleFeed = ctx.createGain();
   sources.forEach((s) => {
-    s.connect(crackleTone);
+    s.connect(crackleFeed);
     s.start();
   });
+  crackleFeed.connect(crackleTone);
   crackleTone.connect(crackleGain);
   crackleGain.connect(output);
 
   output.connect(dest);
 
   const apply = (c: VinylCharacter, when: number) => {
-    warmth.frequency.setTargetAtTime(9500 - c.warmth * 6200, when, 0.3);
+    current = c;
+    warmth.frequency.setTargetAtTime(8500 - c.warmth * 5600, when, 0.3);
     wowDepth.gain.setTargetAtTime(0.0004 + c.wow * 0.0016, when, 0.3);
     flutterDepth.gain.setTargetAtTime(0.00005 + c.wow * 0.0002, when, 0.3);
-    crackleGain.gain.setTargetAtTime(c.crackle * 0.55, when, 0.5);
+    crackleGain.gain.setTargetAtTime(c.crackle * CRACKLE_LEVEL, when, 0.5);
   };
   apply(character, ctx.currentTime);
 
@@ -133,10 +143,14 @@ export function createVinylChain(dest: AudioNode, character: VinylCharacter): Vi
     output,
     setCharacter: apply,
     dropNeedle(when) {
-      // A short swell of extra surface noise, the way a needle lands.
-      const level = crackleGain.gain.value;
+      // A short swell of extra surface noise, the way a needle lands — then
+      // back to the pressing's own crackle. (This used to read the gain's
+      // *current* value as the level to return to, which was still 0 a few
+      // milliseconds after `apply`, so the surface noise faded out for good
+      // and every record played on a silent pressing.)
+      const level = current.crackle * CRACKLE_LEVEL;
       crackleGain.gain.cancelScheduledValues(when);
-      crackleGain.gain.setValueAtTime(Math.max(level, 0.18) * 2.6, when);
+      crackleGain.gain.setValueAtTime(Math.max(level, 0.12) * 2.6, when);
       crackleGain.gain.setTargetAtTime(level, when + 0.12, 0.35);
     },
     stop(when) {

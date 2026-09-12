@@ -339,9 +339,9 @@ button.wincard:hover {
   max-width: 880px;
 }
 
-.hub-grid > .wincard {
-  flex: 0 1 260px;
-  min-width: 230px;
+.hub-grid > .hub-card {
+  flex: 0 1 262px;
+  min-width: 232px;
 }
 
 .hub-card-name {
@@ -2167,11 +2167,9 @@ button.wincard:hover {
   height: 24px;
   border-radius: 999px;
   background: var(--color-accent, #0a84ff);
-  box-shadow: 0 0 10px color-mix(in srgb, var(--color-accent, #0a84ff) 55%, transparent);
   transition: transform 0.34s cubic-bezier(0.34, 1.28, 0.52, 1), opacity 0.18s ease;
   pointer-events: none;
 }
-
 .rail-marker[data-on="0"] { opacity: 0; }
 
 .rail-tool {
@@ -2187,41 +2185,24 @@ button.wincard:hover {
   cursor: pointer;
   position: relative;
   flex: none;
-  /* Held back until wanted, so the active tile is the lit thing here - but
-     only just: taken further (0.58/0.72 was the first try) the marks stop
-     reading as resting and start reading as disabled. */
-  opacity: 0.74;
-  filter: saturate(0.88);
-  transition: opacity 0.16s ease, filter 0.16s ease, transform 0.16s ease;
+  /* Line glyphs in the muted ink; the active one takes the tool's colour on
+     a faint pill of the same colour. No shadows anywhere on the rail. */
+  color: var(--text-muted, #6b6b6b);
+  transition: color 0.16s ease, background 0.16s ease, transform 0.16s ease;
 }
-
 .rail-tool > svg {
-  border-radius: 10px;
-  transition: filter 0.2s ease;
   position: relative;
   z-index: 1;
+  display: block;
 }
-
-.rail-tool:hover,
-.rail-tool.active {
-  opacity: 1;
-  filter: saturate(1);
+.rail-tool:hover {
+  color: var(--text, #111);
+  background: var(--fill, #f4f4f4);
+  transform: translateY(-1px);
 }
-
-.rail-tool:hover { transform: translateY(-1px); }
 .rail-tool:active { transform: scale(0.93); }
-
-.rail-tool:hover > svg,
-.rail-tool.active > svg {
-  filter: drop-shadow(0 6px 14px color-mix(in srgb, var(--tint, #0a84ff) 52%, transparent));
-}
-
-/* A wash of the tool's own colour behind the active tile. */
-.rail-tool.active::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: 12px;
+.rail-tool.active {
+  color: var(--tint, #0a84ff);
   background: color-mix(in srgb, var(--tint, #0a84ff) 13%, transparent);
 }
 
@@ -2329,172 +2310,101 @@ button.wincard:hover {
 }
 
 /* ══ Hub cards ═══════════════════════════════════════════════════════════
-   The rail made the grid optional, so the grid had to earn its place: these
-   are the tool's storefront, not a second navigation. Each card is lit in
-   its own colour (--tint, from the same mark the tile paints) and sits at a
-   slight angle until you reach for it, when it straightens and lifts.    */
-
+   The tool's storefront: a flat white card, the app mark top-left, a round
+   arrow top-right, the name and one sentence. No tilt, no window chrome, no
+   tinted glow — the earlier "lit card" pass read as a sticker sheet next to
+   the rest of the UI. The tool's colour appears only when you reach for the
+   card (a faint wash, the arrow), so the marks stay the only colour at rest.
+   Reduced-motion rules for the rail and cards sit at the end of the block. */
 .hub-card {
+  appearance: none;
   position: relative;
-  transform: rotate(var(--tilt, 0deg));
-  border-radius: 16px;
-  border-color: color-mix(in srgb, var(--tint, #0a84ff) 14%, var(--border, #e8e8e8));
-  /* Three shadows, not one: contact, ambient, and a far tinted pool that is
-     what actually makes the card look lit rather than pasted on. */
+  text-align: left;
+  cursor: pointer;
+  padding: 18px 18px 20px;
+  border-radius: 20px;
+  border: 1px solid var(--border-subtle, #ececef);
+  background: var(--bg-elevated, #fff);
   box-shadow:
-    0 1px 2px rgba(17, 17, 17, 0.05),
-    0 12px 24px -14px rgba(17, 17, 17, 0.18),
-    0 26px 46px -26px color-mix(in srgb, var(--tint, #0a84ff) 72%, transparent);
+    0 1px 2px rgba(17, 17, 17, 0.04),
+    0 14px 30px -22px rgba(17, 17, 17, 0.28);
   transition:
-    transform 0.3s cubic-bezier(0.2, 0.85, 0.3, 1),
-    box-shadow 0.3s ease,
+    transform 0.26s cubic-bezier(0.2, 0.85, 0.3, 1),
+    box-shadow 0.26s ease,
     border-color 0.2s ease;
 }
-
-/* Light falling from the top-left, in the tool's colour. */
-.hub-card::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  pointer-events: none;
-  background:
-    radial-gradient(120% 78% at 10% -6%, color-mix(in srgb, var(--tint, #0a84ff) 11%, transparent), transparent 60%),
-    linear-gradient(to bottom, color-mix(in srgb, #fff 55%, transparent), transparent 34%);
-  opacity: 0.9;
-  transition: opacity 0.3s ease;
-}
-
 .hub-card:hover,
 .hub-card:focus-visible {
-  /* Straightens as you reach for it. */
-  transform: rotate(0deg) translateY(-7px) scale(1.022);
-  border-color: color-mix(in srgb, var(--tint, #0a84ff) 34%, var(--border, #e8e8e8));
+  transform: translateY(-3px);
+  border-color: color-mix(in srgb, var(--tint, #0a84ff) 22%, var(--border-subtle, #ececef));
   box-shadow:
-    0 2px 4px rgba(17, 17, 17, 0.05),
-    0 18px 34px -16px rgba(17, 17, 17, 0.2),
-    0 46px 80px -34px color-mix(in srgb, var(--tint, #0a84ff) 78%, transparent);
+    0 2px 4px rgba(17, 17, 17, 0.04),
+    0 22px 40px -24px rgba(17, 17, 17, 0.32);
 }
-
-.hub-card:hover::after { opacity: 1; }
-
+.hub-card:focus-visible {
+  outline: 2px solid var(--color-accent, #0a84ff);
+  outline-offset: 2px;
+}
 .hub-card:active {
-  transform: rotate(0deg) translateY(-2px) scale(0.995);
+  transform: translateY(-1px);
   transition-duration: 0.08s;
 }
-
-.hub-card .wincard-body {
-  position: relative;
-  z-index: 1;
-  padding: 16px 18px 18px;
-}
-
-.hub-card .hub-card-icon {
-  box-shadow: 0 8px 18px -5px color-mix(in srgb, var(--tint, #0a84ff) 62%, transparent);
-  transition: transform 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.25), box-shadow 0.3s ease;
-}
-
-.hub-card:hover .hub-card-icon {
-  transform: translateY(-2px) scale(1.05);
-  box-shadow: 0 16px 30px -8px color-mix(in srgb, var(--tint, #0a84ff) 72%, transparent);
-}
-
-.hub-card .hub-card-name {
+.hub-card-top {
   display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 18px;
-  letter-spacing: -0.025em;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
 }
-
-/* The affordance: an arrow that arrives only when the card is live. */
-.hub-card .hub-card-name::after {
-  content: "→";
-  font-size: 14px;
+.hub-card .hub-card-icon {
+  width: 52px;
+  height: 52px;
+  margin: 0;
+  border-radius: 12px;
+  box-shadow: none;
+  transition: transform 0.26s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+.hub-card:hover .hub-card-icon { transform: translateY(-1px) scale(1.03); }
+/* The affordance: a quiet grey disc at rest, the tool's colour when live. */
+.hub-card-arrow {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  background: var(--fill, #f1f2f5);
+  color: var(--text-muted, #5f6470);
+  transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+.hub-card:hover .hub-card-arrow,
+.hub-card:focus-visible .hub-card-arrow {
+  background: color-mix(in srgb, var(--tint, #0a84ff) 14%, var(--bg-elevated, #fff));
   color: var(--tint, #0a84ff);
-  opacity: 0;
-  transform: translateX(-5px);
-  transition: opacity 0.22s ease, transform 0.22s cubic-bezier(0.2, 0.9, 0.3, 1);
+  transform: translateX(2px);
 }
-
-.hub-card:hover .hub-card-name::after,
-.hub-card:focus-visible .hub-card-name::after {
-  opacity: 1;
-  transform: translateX(0);
+.hub-card .hub-card-name {
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  color: var(--text, #111);
 }
-
+.hub-card .hub-card-desc {
+  margin-top: 6px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-muted, #6b6b6b);
+  max-width: 30ch;
+}
 @media (prefers-reduced-motion: reduce) {
   .rail-marker,
   .rail-tool,
   .rail-tip,
   .hub-card,
-  .hub-card::after,
   .hub-card .hub-card-icon,
-  .hub-card .hub-card-name::after {
+  .hub-card-arrow {
     transition-duration: 0.01ms;
   }
   .rail-pop { animation: none; }
   .hub-card:hover,
-  .hub-card:focus-visible { transform: rotate(0deg); }
-}
-
-/* ── Hub cards, second pass ──────────────────────────────────────────────
-   The first pass only animated the hover, which left seven identical white
-   rectangles sitting there at rest - the state they are actually in almost
-   all of the time. These rules do the resting state: the tint has to be
-   visible without being a colour swatch, and the fake window chrome has to
-   stop eating a quarter of the card.                                     */
-
-.hub-card {
-  /* Slightly cooler than the page so the card lifts off the scenery even
-     before a shadow is involved. */
-  background:
-    linear-gradient(
-      to bottom,
-      color-mix(in srgb, var(--tint, #0a84ff) 4%, var(--bg-elevated, #fff)),
-      var(--bg-elevated, #fff) 42%
-    );
-}
-
-.hub-card::after {
-  background:
-    radial-gradient(120% 78% at 10% -8%, color-mix(in srgb, var(--tint, #0a84ff) 17%, transparent), transparent 58%),
-    /* A hairline of light along the top edge, the way a real card catches it.
-       Kept low: at 60% it stopped being a bevel and became a grey haze on
-       every card in the Night theme. */
-    linear-gradient(to bottom, color-mix(in srgb, #fff 26%, transparent), transparent 24%);
-}
-
-/* The window bar is brand furniture, not a header: it should read as a thin
-   strip of chrome, not as a second surface with its own fill and rule. */
-.hub-card .wincard-bar {
-  background: transparent;
-  border-bottom: 0;
-  padding: 10px 14px 2px;
-}
-
-.hub-card .wincard-title {
-  color: color-mix(in srgb, var(--tint, #0a84ff) 62%, var(--text-faint, #9a9a9a));
-  letter-spacing: 0.01em;
-}
-
-.hub-card .wincard-body {
-  padding: 12px 18px 20px;
-}
-
-/* A little more room around the mark - at 38px flush inside a 38px box it
-   read as a sticker rather than an app icon on a desk. */
-.hub-card .hub-card-icon {
-  width: 44px;
-  height: 44px;
-  border-radius: 11px;
-  margin-bottom: 14px;
-}
-
-.hub-card .hub-card-desc {
-  margin-top: 7px;
-  font-size: 12.5px;
-  line-height: 1.55;
-  color: var(--text-muted, #6b6b6b);
-  max-width: 30ch;
+  .hub-card:focus-visible { transform: none; }
 }

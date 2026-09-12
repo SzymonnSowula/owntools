@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { BrandMark } from "@ui/BrandMark";
-import { ToolMark, TOOL_TINT } from "@ui/ToolMark";
+import { ToolGlyph, TOOL_TINT } from "@ui/ToolMark";
 import { QUICK_TOOLS } from "@feature-tools/catalogue";
 import { useShellStore } from "./shellStore";
 import { TOOL_CARDS, openQuickTool } from "./toolCatalogue";
@@ -64,7 +64,7 @@ export function ToolRail() {
         onClick={() => setTool("hub")}
         aria-current={tool === "hub" ? "page" : undefined}
       >
-        <BrandMark size={19} filled />
+        <BrandMark size={20} />
         <span className="rail-tip">
           <b>hub</b>
           <i>alt 0</i>
@@ -89,7 +89,7 @@ export function ToolRail() {
             onClick={() => setTool(card.tool)}
             aria-current={card.tool === tool ? "page" : undefined}
           >
-            <ToolMark tool={card.mark} size={30} />
+            <ToolGlyph tool={card.mark} size={23} />
             <span className="rail-tip">
               <b>{card.name}</b>
               <em>{card.blurb}</em>

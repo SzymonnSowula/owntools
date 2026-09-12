@@ -45,7 +45,7 @@ function SiteShot() {
             download for windows
           </span>
           <span className="rounded-full border border-white/40 bg-white/15 px-3 py-1 text-[9px] font-semibold text-white sm:text-[10px]">
-            try a free tool
+            download for mac
           </span>
         </div>
       </div>

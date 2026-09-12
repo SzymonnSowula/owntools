@@ -13,7 +13,7 @@ let layers = new Map<NoiseId, Layer>();
 let running = false;
 
 function makeBuffer(
-  ctx: AudioContext,
+  ctx: BaseAudioContext,
   seconds: number,
   fill: (data: Float32Array) => void,
 ): AudioBuffer {
@@ -57,14 +57,32 @@ function fillBrown(data: Float32Array) {
   }
 }
 
-function loopSource(ctx: AudioContext, buffer: AudioBuffer): AudioBufferSourceNode {
+function loopSource(ctx: BaseAudioContext, buffer: AudioBuffer): AudioBufferSourceNode {
   const src = ctx.createBufferSource();
   src.buffer = buffer;
   src.loop = true;
   return src;
 }
 
-function buildLayer(ctx: AudioContext, id: NoiseId, dest: AudioNode): Layer {
+/**
+ * Chromium 152 (Chrome 152.0.7977, WebView2 152.0.4191) blows up a
+ * BiquadFilterNode or IIRFilterNode whose single input is a *looping*
+ * AudioBufferSourceNode: at the buffer's first loop point the filter state
+ * turns to garbage and grows exponentially, and the speakers render that as
+ * a full-scale squeal at the cutoff frequency. Measured offline: |x| > 1 at
+ * 2.22 s for a 2.2 s buffer, three runs out of three, NaN a second later;
+ * with a GainNode between the source and the filter, or a second connection,
+ * or an explicit channel count, stable three out of three. So every source
+ * goes through `feed` first, and nothing may call `source.connect(filter)`.
+ */
+function noiseSource(ctx: BaseAudioContext, buffer: AudioBuffer): { source: AudioBufferSourceNode; feed: GainNode } {
+  const source = loopSource(ctx, buffer);
+  const feed = ctx.createGain();
+  source.connect(feed);
+  return { source, feed };
+}
+
+function buildLayer(ctx: BaseAudioContext, id: NoiseId, dest: AudioNode): Layer {
   const gain = ctx.createGain();
   gain.gain.value = 0;
   const extras: AudioNode[] = [];
@@ -86,15 +104,17 @@ function buildLayer(ctx: AudioContext, id: NoiseId, dest: AudioNode): Layer {
 
   if (id === "white" || id === "pink" || id === "brown") {
     const fill = id === "white" ? fillWhite : id === "pink" ? fillPink : fillBrown;
-    source = loopSource(ctx, makeBuffer(ctx, 2.2, fill));
+    const noise = noiseSource(ctx, makeBuffer(ctx, 2.2, fill));
+    source = noise.source;
     const filter = ctx.createBiquadFilter();
     filter.type = id === "white" ? "highshelf" : "lowpass";
     filter.frequency.value = id === "white" ? 8000 : id === "pink" ? 4000 : 800;
-    source.connect(filter);
+    noise.feed.connect(filter);
     filter.connect(gain);
-    extras.push(filter);
+    extras.push(noise.feed, filter);
   } else if (id === "rain") {
-    source = loopSource(ctx, makeBuffer(ctx, 2.5, fillWhite));
+    const noise = noiseSource(ctx, makeBuffer(ctx, 2.5, fillWhite));
+    source = noise.source;
     const hp = ctx.createBiquadFilter();
     hp.type = "highpass";
     hp.frequency.value = 700;
@@ -102,42 +122,45 @@ function buildLayer(ctx: AudioContext, id: NoiseId, dest: AudioNode): Layer {
     bp.type = "bandpass";
     bp.frequency.value = 1800;
     bp.Q.value = 0.7;
-    source.connect(hp);
+    noise.feed.connect(hp);
     hp.connect(bp);
     bp.connect(gain);
     connectLfo(0.15, 0.12, gain.gain, 0);
-    extras.push(hp, bp);
+    extras.push(noise.feed, hp, bp);
   } else if (id === "fan") {
-    source = loopSource(ctx, makeBuffer(ctx, 2.8, fillBrown));
+    const noise = noiseSource(ctx, makeBuffer(ctx, 2.8, fillBrown));
+    source = noise.source;
     const lp = ctx.createBiquadFilter();
     lp.type = "lowpass";
     lp.frequency.value = 420;
-    source.connect(lp);
+    noise.feed.connect(lp);
     lp.connect(gain);
     connectLfo(0.08, 0.06, gain.gain, 0);
-    extras.push(lp);
+    extras.push(noise.feed, lp);
   } else if (id === "ocean") {
-    source = loopSource(ctx, makeBuffer(ctx, 3, fillBrown));
+    const noise = noiseSource(ctx, makeBuffer(ctx, 3, fillBrown));
+    source = noise.source;
     const lp = ctx.createBiquadFilter();
     lp.type = "lowpass";
     lp.frequency.value = 500;
     lp.Q.value = 0.4;
-    source.connect(lp);
+    noise.feed.connect(lp);
     lp.connect(gain);
     connectLfo(0.05, 280, lp.frequency, 500);
     connectLfo(0.04, 0.08, gain.gain, 0);
-    extras.push(lp);
+    extras.push(noise.feed, lp);
   } else {
-    source = loopSource(ctx, makeBuffer(ctx, 2.4, fillPink));
+    const noise = noiseSource(ctx, makeBuffer(ctx, 2.4, fillPink));
+    source = noise.source;
     const bp = ctx.createBiquadFilter();
     bp.type = "bandpass";
     bp.frequency.value = 900;
     bp.Q.value = 0.8;
-    source.connect(bp);
+    noise.feed.connect(bp);
     bp.connect(gain);
     connectLfo(0.07, 0.05, gain.gain, 0);
     connectLfo(0.21, 180, bp.frequency, 900);
-    extras.push(bp);
+    extras.push(noise.feed, bp);
   }
 
   gain.connect(dest);
@@ -212,8 +235,12 @@ export function isMixerRunning(): boolean {
  * One noise layer routed wherever the caller wants — the record player uses
  * this to put a bed inside the vinyl chain instead of the mixer's bus.
  */
-export function createNoiseLayer(id: NoiseId, dest: AudioNode, level: number): Layer {
-  const ctx = getAudioContext();
+export function createNoiseLayer(
+  ctx: BaseAudioContext,
+  id: NoiseId,
+  dest: AudioNode,
+  level: number,
+): Layer {
   const layer = buildLayer(ctx, id, dest);
   layer.gain.gain.setTargetAtTime(level, ctx.currentTime, 1.2);
   return layer;

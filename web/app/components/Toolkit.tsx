@@ -447,7 +447,7 @@ const TOOLKIT: Record<
   {
     strip: string;
     cards: Card[];
-    feature: { icon: ReactNode; tint: string; title: string; tag: string; desc: string; cta: string; href?: string };
+    feature: { icon: ReactNode; tint: string; title: string; tag: string; desc: string; cta: string };
   }
 > = {
   voice: {
@@ -620,10 +620,9 @@ const TOOLKIT: Record<
       icon: <Rocket size={16} />,
       tint: INDIGO,
       title: "launch video maker",
-      tag: "url → mp4 · free in the browser",
-      desc: "Paste your URL and render a keynote-style launch video in your own colors - try it right now, no sign-up, no upload.",
-      cta: "try it free",
-      href: "/tools/launch-video-maker",
+      tag: "url → mp4 · on your machine",
+      desc: "Paste your URL and render a keynote-style launch video in your own colors - no sign-up, no upload.",
+      cta: "get the launch studio",
     },
   },
   focus: {
@@ -793,15 +792,9 @@ export function Toolkit() {
           </div>
         </div>
         <p className="flex-1 text-sm leading-6 text-muted">{t.feature.desc}</p>
-        {t.feature.href ? (
-          <a href={t.feature.href} className="btn btn-primary !h-10 shrink-0 !px-5 text-[13px]">
-            {t.feature.cta} <ArrowRight size={14} />
-          </a>
-        ) : (
-          <DownloadCta className="btn btn-primary !h-10 shrink-0 !px-5 text-[13px]">
-            {t.feature.cta} <ArrowRight size={14} />
-          </DownloadCta>
-        )}
+        <DownloadCta className="btn btn-primary !h-10 shrink-0 !px-5 text-[13px]">
+          {t.feature.cta} <ArrowRight size={14} />
+        </DownloadCta>
       </div>
     </div>
   );

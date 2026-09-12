@@ -116,30 +116,27 @@ export function Hub() {
         {TOOL_CARDS.map((card) => (
           <button
             key={card.tool}
-            className="wincard hub-card"
-            // Tilt and tint are handed to CSS rather than applied here: the card
-            // composes its own transform on hover, and an inline transform would
-            // win over every one of those states.
-            style={{
-              ["--tilt" as string]: `${card.tilt}deg`,
-              ["--tint" as string]: TOOL_TINT[card.mark],
-            }}
+            className="hub-card"
+            // The tint only colours the hover wash and the arrow; the mark
+            // paints its own flat tile (see @ui/ToolMark).
+            style={{ ["--tint" as string]: TOOL_TINT[card.mark] }}
             onClick={() => {
               if (card.tool === "focus") setFocusOverview(true);
               setTool(card.tool);
             }}
           >
-            <div className="wincard-bar">
-              <WinDots icon={card.dots} />
-              <span className="wincard-title">{card.window}</span>
-            </div>
-            <div className="wincard-body">
+            <div className="hub-card-top">
               <div className="hub-card-icon">
-                <ToolMark tool={card.mark} size={38} />
+                <ToolMark tool={card.mark} size={52} />
               </div>
-              <div className="hub-card-name">{card.name}</div>
-              <div className="hub-card-desc">{card.desc}</div>
+              <span className="hub-card-arrow" aria-hidden>
+                <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3.5 8h9M8.5 4l4 4-4 4" />
+                </svg>
+              </span>
             </div>
+            <div className="hub-card-name">{card.name}</div>
+            <div className="hub-card-desc">{card.desc}</div>
           </button>
         ))}
       </div>

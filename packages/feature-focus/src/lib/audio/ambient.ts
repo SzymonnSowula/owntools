@@ -63,6 +63,7 @@ function tick(): void {
       const midi = pickNote(chord, s.lastMidi);
       s.lastMidi = midi;
       playVoice(
+        ctx,
         "keys",
         s.bus,
         midi,
@@ -86,7 +87,7 @@ export function startAmbient(tempo: number, volume: number): void {
     bus.connect(ctx.destination);
     session = {
       timer: window.setInterval(tick, 40),
-      pad: createPad(bus, volume * 0.22, 0.9),
+      pad: createPad(ctx, bus, volume * 0.22, 0.9),
       bus,
       bpm: Math.max(24, Math.min(120, tempo)),
       volume,

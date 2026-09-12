@@ -39,8 +39,7 @@ packages/feature-editor screeni: compositor, zoom, exportVideo, silence
 packages/feature-launch launch engine (`@owntools/launch-engine`, the one
                         workspace package under packages/): engine/ = style
                         packs + seeded takes + beat sheet + Remotion
-                        composition, shared by desktop and web; LaunchView
-                        studio; store shots; pageIntel
+                        composition; LaunchView studio; store shots; pageIntel
 packages/feature-dictation  engine.ts (models / settings / prompt /
                         transcribe), cleanup.ts, DictationPill, DictateView
 packages/feature-board  board: Excalidraw whiteboard — local boards in AppData,
@@ -51,10 +50,8 @@ packages/feature-disk   disk: disk-space analyzer — treemap / sunburst / list,
                         in Rust (src-tauri/src/disk), a generated demo disk
                         stands in under `pnpm dev`
 packages/{core,ui,licensing}  branding / audio / env · WinDots · license keys
-web/                    landing (Next 16, port 3006) + the free launch video
-                        maker (app/tools/launch-video-maker, server route
-                        app/api/launch-intel, engine imported from
-                        packages/feature-launch)
+web/                    landing (Next 16, port 3006), legal pages, changelog,
+                        share links (app/api/share + the /v/[id] player)
 docs/                   brand & design spec, release process, build history
 ```
 

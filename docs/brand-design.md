@@ -165,7 +165,9 @@ wordmark), lowercase links, ThemeToggle (sun/moon), accent CTA.
 6. **giant statement** ("dictate works anywhere you can type") +
    agentic terminal two-col.
 7. **personas** — 4 `.wincard`s ("developer.you" …).
-8. **free tools** — wincards with `LIVE IN BROWSER` badge (green).
+8. **free tools** — wincards for what the free desktop app already does
+   (the `LIVE IN BROWSER` badge left with the web launch video maker,
+   2026-09-12).
 9. **privacy statement** — centered display type.
 10. **pricing** — `.sky-day`, 2 forced-light plan windows ($0 / $49
     once + "popular" tab), maker-discount terminal.

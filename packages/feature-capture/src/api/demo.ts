@@ -1,5 +1,5 @@
 import type { CaptureBackend } from "./backend";
-import type { CaptureFrame, CaptureItem, FinishMeta, FinishResult, OcrLine, OcrResult, Rect } from "./types";
+import type { CaptureFrame, CaptureItem, FinishMeta, FinishResult, OcrLine, Rect } from "./types";
 
 /**
  * The browser stand-in for the Rust side, so `/capture.html` and the library

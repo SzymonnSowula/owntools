@@ -1,9 +1,8 @@
-import { getAudioContext } from "./context";
-
 /**
  * Synth voices for the record player. Everything is generated — no samples, no
- * network — and every voice takes its own destination, so it can be routed
- * through the vinyl chain instead of straight at the speakers.
+ * network — and every voice takes its own context and destination, so it can
+ * be routed through the vinyl chain instead of straight at the speakers, and
+ * rendered offline (tests, the level check) exactly the way it plays live.
  */
 
 export type VoiceId = "keys" | "bells" | "strings" | "pluck" | "choir";
@@ -12,7 +11,7 @@ export function midiToFreq(midi: number): number {
   return 440 * Math.pow(2, (midi - 69) / 12);
 }
 
-function noiseBurst(ctx: AudioContext, seconds: number): AudioBufferSourceNode {
+function noiseBurst(ctx: BaseAudioContext, seconds: number): AudioBufferSourceNode {
   const len = Math.max(1, Math.floor(ctx.sampleRate * seconds));
   const buffer = ctx.createBuffer(1, len, ctx.sampleRate);
   const data = buffer.getChannelData(0);
@@ -24,7 +23,7 @@ function noiseBurst(ctx: AudioContext, seconds: number): AudioBufferSourceNode {
 
 /** Attack/decay envelope that always ends silent, so voices never pile up. */
 function envelope(
-  ctx: AudioContext,
+  ctx: BaseAudioContext,
   when: number,
   attack: number,
   hold: number,
@@ -42,6 +41,7 @@ function envelope(
 
 /** One note. Returns the time it stops making sound, so callers can clean up. */
 export function playVoice(
+  ctx: BaseAudioContext,
   voice: VoiceId,
   dest: AudioNode,
   midi: number,
@@ -49,7 +49,6 @@ export function playVoice(
   level: number,
   length: number,
 ): number {
-  const ctx = getAudioContext();
   const freq = midiToFreq(midi);
   const stopAt = when + length + 3;
 
@@ -65,6 +64,8 @@ export function playVoice(
 
   if (voice === "bells") {
     // Two-operator FM: an inharmonic ratio gives the struck-metal shimmer.
+    // The index is modest and the top is rolled off — at 1.4 the sidebands
+    // reached 6-10 kHz at full level, which reads as a squeal, not a bell.
     const carrier = ctx.createOscillator();
     carrier.type = "sine";
     carrier.frequency.value = freq;
@@ -72,12 +73,17 @@ export function playVoice(
     mod.type = "sine";
     mod.frequency.value = freq * 2.76;
     const modGain = ctx.createGain();
-    modGain.gain.setValueAtTime(freq * 1.4, when);
-    modGain.gain.exponentialRampToValueAtTime(freq * 0.06, when + length * 0.6 + 0.4);
-    const env = envelope(ctx, when, 0.006, length * 0.15, length + 1.6, level * 0.5);
+    modGain.gain.setValueAtTime(freq * 0.8, when);
+    modGain.gain.exponentialRampToValueAtTime(freq * 0.05, when + length * 0.6 + 0.4);
+    const lp = ctx.createBiquadFilter();
+    lp.type = "lowpass";
+    lp.frequency.value = Math.min(5000, 1200 + freq * 2.2);
+    lp.Q.value = 0.5;
+    const env = envelope(ctx, when, 0.006, length * 0.15, length + 1.6, level * 0.45);
     mod.connect(modGain);
     modGain.connect(carrier.frequency);
-    carrier.connect(env);
+    carrier.connect(lp);
+    lp.connect(env);
     env.connect(dest);
     carrier.start(when);
     mod.start(when);
@@ -121,8 +127,11 @@ export function playVoice(
     body.frequency.value = freq;
     const bodyGain = ctx.createGain();
     bodyGain.gain.value = 0.5;
-    const env = envelope(ctx, when, 0.004, 0.02, length * 0.8 + 0.9, level * 0.6);
-    burst.connect(band);
+    const env = envelope(ctx, when, 0.004, 0.02, length * 0.8 + 0.9, level * 0.5);
+    // A buffer source never feeds a filter directly (noise.ts `noiseSource`).
+    const burstFeed = ctx.createGain();
+    burst.connect(burstFeed);
+    burstFeed.connect(band);
     band.connect(env);
     body.connect(bodyGain);
     bodyGain.connect(env);
@@ -206,8 +215,12 @@ export interface Pad {
  * their new notes rather than retriggering, which is what keeps the bed from
  * ever sounding like a loop point.
  */
-export function createPad(dest: AudioNode, level: number, brightness = 1): Pad {
-  const ctx = getAudioContext();
+export function createPad(
+  ctx: BaseAudioContext,
+  dest: AudioNode,
+  level: number,
+  brightness = 1,
+): Pad {
   const out = ctx.createGain();
   out.gain.value = 0.0001;
   const lp = ctx.createBiquadFilter();
@@ -287,8 +300,7 @@ export interface Drone {
 }
 
 /** Sub-bass drone with a slow breath, glued under the pad. */
-export function createDrone(dest: AudioNode, level: number): Drone {
-  const ctx = getAudioContext();
+export function createDrone(ctx: BaseAudioContext, dest: AudioNode, level: number): Drone {
   const out = ctx.createGain();
   out.gain.value = 0.0001;
   const lp = ctx.createBiquadFilter();

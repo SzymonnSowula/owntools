@@ -11,6 +11,7 @@
 
 pub mod mcp;
 pub mod plan;
+pub mod queue;
 pub mod server;
 pub mod setup;
 pub mod store;

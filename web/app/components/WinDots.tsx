@@ -63,9 +63,9 @@ export const ToolIcons: Record<
   ),
   /* two voices: waveform answering waveform */
   meet: (
-    <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" xmlns="http://www.w3.org/2000/svg">
-      <path d="M2.2 5v2M3.8 3.4v5.2M5.4 4.4v3.2" />
-      <path d="M7 5v2M8.6 4.2v3.6M10.2 5.2v1.6" opacity="0.55" />
+    <svg viewBox="0 0 12 12" fill="currentColor" stroke="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M5.6 1.6h4.2a1.4 1.4 0 0 1 1.4 1.4v1.6a1.4 1.4 0 0 1-1.4 1.4H8.4l1.4 1.6-2.6-1.6H5.6a1.4 1.4 0 0 1-1.4-1.4V3a1.4 1.4 0 0 1 1.4-1.4z" opacity="0.5" />
+      <path d="M2.4 5.2h4.4a1.5 1.5 0 0 1 1.5 1.5v1.8a1.5 1.5 0 0 1-1.5 1.5H4.2L2.6 11.6V10A1.5 1.5 0 0 1 .9 8.5V6.7a1.5 1.5 0 0 1 1.5-1.5z" />
     </svg>
   ),
   /* one stroke across a dotted canvas */

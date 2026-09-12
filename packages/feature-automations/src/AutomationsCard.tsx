@@ -1,5 +1,5 @@
 import "./automations.css";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { confirmDialog } from "@ui/Dialog";
 import { isTauri } from "@core/env";
 import { backend } from "./api";

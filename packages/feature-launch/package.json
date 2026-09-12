@@ -3,7 +3,7 @@
   "version": "0.2.0",
   "private": true,
   "type": "module",
-  "description": "URL/brief → launch video: style packs, takes, formats. Shared by the desktop app and the website.",
+  "description": "URL/brief → launch video: style packs, takes, formats. Used by the desktop app's launch tool.",
   "main": "./src/engine/index.ts",
   "types": "./src/engine/index.ts",
   "exports": {

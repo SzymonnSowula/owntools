@@ -1,6 +1,13 @@
 import { confirmDialog } from "@ui/Dialog";
-import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { PRICING_URL, SUITE_NAME, SUPPORT_URL } from "@core/branding";
+
+// App-wide cards from the other packages. Lazy: Settings is one focus view
+// and these pull in the model catalogue, the sync engine and the network log.
+const IntelligenceCard = lazy(() => import("@feature-llm/IntelligenceCard"));
+const AutomationsCard = lazy(() => import("@feature-automations/AutomationsCard"));
+const SyncCard = lazy(() => import("@feature-sync/SyncCard"));
+const PrivacyCard = lazy(() => import("@feature-privacy/PrivacyCard"));
 import { getDictationSettings } from "@feature-dictation/engine";
 import {
   activateLicense,
@@ -169,7 +176,15 @@ export function SettingsView() {
           </p>
         </section>
 
+        <Suspense fallback={null}>
+          <IntelligenceCard />
+        </Suspense>
         <ScrollGuardSettings />
+        <Suspense fallback={null}>
+          <AutomationsCard />
+          <SyncCard />
+          <PrivacyCard />
+        </Suspense>
 
         <ExportSettings />
 

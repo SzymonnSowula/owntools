@@ -174,7 +174,7 @@ describe("stampItems (shadow diff)", () => {
   });
 
   it("makes no claim on the first sync, so the folder wins the conflicts", () => {
-    const first = stampItems([{ id: "x", value: "mine" }, { id: "only-here", value: 1 }], null, "A", NOW);
+    const first = stampItems([{ id: "x", value: "mine" }, { id: "only-here", value: "1" }], null, "A", NOW);
     expect(first.items.every((i) => i.updatedAt === 0 && i.by === "")).toBe(true);
     expect(first.tombstones).toEqual([]);
     const remote = doc([["x", 1, "B", "theirs"]]);

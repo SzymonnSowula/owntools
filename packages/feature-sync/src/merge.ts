@@ -163,7 +163,10 @@ export function mergeItems<T>(docs: readonly ItemsDoc<T>[], now = Date.now()): M
       origin.set(id, tb.from);
     }
   }
-  const kept = outTombs.filter((t) => now - t.deletedAt < TOMBSTONE_TTL_MS);
+  // A tombstone is forgotten after the TTL unless some device still carries
+  // the item it deletes: pruning it then would resurrect the item on the
+  // next merge, which is the one thing a tombstone exists to prevent.
+  const kept = outTombs.filter((t) => items.has(t.id) || now - t.deletedAt < TOMBSTONE_TTL_MS);
   outItems.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
   kept.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
   const updatedAt = Math.max(0, ...outItems.map((i) => i.updatedAt), ...kept.map((t) => t.deletedAt));
