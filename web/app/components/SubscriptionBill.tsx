@@ -4,36 +4,20 @@
  * is what the same ten jobs cost here, with the live launch price.
  *
  * Data and the rules it was collected under: lib/comparison.ts. Kept neutral
- * on purpose - vendor names, list prices, a date and footnotes, no adjectives
- * about anyone's product - because comparative advertising has to be
- * objective and checkable, and because the numbers make the point alone.
+ * on purpose - vendor names, list prices and the date they were checked, no
+ * adjectives about anyone's product - because comparative advertising has to
+ * be objective and checkable, and because the numbers make the point alone.
+ * No footnotes under the bill (taken off on 2026-09-14); how the two figures
+ * that are not a plain yearly price were worked out sits next to their rows.
  */
 
 import { ArrowDown } from "lucide-react";
-import {
-  SUBSCRIPTIONS,
-  SUBSCRIPTIONS_CHECKED,
-  SUBSCRIPTIONS_TOTAL_CENTS,
-  SUBSCRIPTION_NOTES,
-  centsToAmount,
-  type SubscriptionRow,
-} from "@/lib/comparison";
+import { SUBSCRIPTIONS, SUBSCRIPTIONS_CHECKED, SUBSCRIPTIONS_TOTAL_CENTS, centsToAmount } from "@/lib/comparison";
 import { Reveal } from "./Reveal";
 import { WinDots } from "./WinDots";
 import { LivePrice, LiveStepNote } from "./pricing/LivePrice";
 
-/** A mark in a fixed-width slot, so the right-aligned amounts still line up. */
-function Mark({ row }: { row: SubscriptionRow }) {
-  return (
-    <span className="inline-block w-[0.7em] text-left text-muted" aria-hidden={row.mark !== "*"}>
-      {row.mark === "*" ? "*" : ""}
-    </span>
-  );
-}
-
 export function SubscriptionBill() {
-  const marks = Array.from(new Set(SUBSCRIPTIONS.flatMap((row) => (row.mark ? [row.mark] : []))));
-
   return (
     <section id="the-math" className="border-t border-line px-5 py-20 md:py-28">
       <div className="mx-auto max-w-5xl">
@@ -91,13 +75,7 @@ export function SubscriptionBill() {
                       <td className="py-3 pr-3 text-muted">{row.app}</td>
                       <td className="hidden py-3 pr-3 font-mono text-[13px] text-accent sm:table-cell">{row.tool}</td>
                       <td className="whitespace-nowrap py-3 text-right font-mono tabular-nums text-ink">
-                        {row.mark === "≈" ? (
-                          <span className="mr-1 text-muted" title="worked out from a monthly price">
-                            ≈
-                          </span>
-                        ) : null}
                         {centsToAmount(row.cents)}
-                        <Mark row={row} />
                       </td>
                     </tr>
                   ))}
@@ -110,7 +88,6 @@ export function SubscriptionBill() {
                     <td className="hidden sm:table-cell" />
                     <td className="whitespace-nowrap pb-5 pt-4 text-right font-mono text-lg font-bold tabular-nums text-alert sm:pb-6 sm:text-xl">
                       {centsToAmount(SUBSCRIPTIONS_TOTAL_CENTS)}
-                      <span className="inline-block w-[0.7em]" />
                     </td>
                   </tr>
                 </tfoot>
@@ -142,20 +119,8 @@ export function SubscriptionBill() {
           </div>
         </Reveal>
 
-        <Reveal delay={0.1} className="mt-5 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-          <div className="max-w-2xl space-y-1 text-[12px] leading-5 text-muted">
-            <p>
-              Each vendor&apos;s own list price in US dollars, checked {SUBSCRIPTIONS_CHECKED}; prices change,
-              so check before relying on one. Only apps that run on Windows are counted.
-            </p>
-            {marks.map((mark) => (
-              <p key={mark}>
-                <span className="mr-1 font-mono">{mark}</span>
-                {SUBSCRIPTION_NOTES[mark]}
-              </p>
-            ))}
-          </div>
-          <a href="#pricing" className="btn btn-primary !h-10 shrink-0 !px-5 text-[13px]">
+        <Reveal delay={0.1} className="mt-6 flex justify-center">
+          <a href="#pricing" className="btn btn-primary !h-10 !px-5 text-[13px]">
             see the launch prices <ArrowDown size={14} />
           </a>
         </Reveal>
