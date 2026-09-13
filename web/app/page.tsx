@@ -1226,8 +1226,8 @@ export default function Home() {
                       ))}
                       <span className="pane absolute left-1/2 top-1/2 w-36 -translate-x-1/2 -translate-y-1/2 px-3.5 py-3 text-center">
                         <span className="block font-mono text-[8.5px] text-muted">owntools.exe</span>
-                        <span className="display block text-lg font-bold text-ink">~3 MB</span>
-                        <span className="mt-0.5 block text-[10px] font-semibold text-accent">paid once</span>
+                        <span className="display block text-lg font-bold text-ink">pay once</span>
+                        <span className="mt-0.5 block text-[10px] font-semibold text-accent">yours forever</span>
                       </span>
                     </div>
                   </div>
