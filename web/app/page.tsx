@@ -28,6 +28,10 @@ import { WhatsInside } from "./components/WhatsInside";
 import { Intelligence } from "./components/Intelligence";
 import { ThemeToggle } from "./components/ThemeToggle";
 import { WinDots, ToolIcons } from "./components/WinDots";
+import { SubscriptionBill } from "./components/SubscriptionBill";
+import { CheckoutNotice } from "./components/pricing/CheckoutNotice";
+import { LivePrice, LiveStepNote } from "./components/pricing/LivePrice";
+import { PriceLadder } from "./components/pricing/PriceLadder";
 import {
   CheckoutCta,
   DOWNLOAD_SOON,
@@ -35,7 +39,13 @@ import {
   MAC_DOWNLOAD_SOON,
   MacDownloadCta,
 } from "./components/Cta";
-import { PRICE, contactEmail, downloadUrl, downloadUrlMac, repoUrl, xUrl } from "@/lib/site";
+import { polarConfig } from "@/lib/polar";
+import { PRICE, checkoutUrl, contactEmail, downloadUrl, downloadUrlMac, repoUrl, xUrl } from "@/lib/site";
+
+/* "get the pro key" goes through /checkout once Polar is configured - that
+   route picks the launch-price step. Decided when the page is built, so set
+   POLAR_ACCESS_TOKEN before the deploy, not after. */
+const checkoutHref = polarConfig() ? "/checkout" : checkoutUrl;
 
 /* The plain verb list from the brand rules: what the app does, never who is
    supposed to be doing it. */
@@ -942,13 +952,16 @@ export default function Home() {
 
       {/* hero — the sky above the desk */}
       <section className="hero-sky ground ground--wide relative overflow-hidden">
-        {/* Two windows, diagonally opposed and well outside the text column.
-            There were four of these plus two sticky notes, which framed nothing
-            and turned the first screen into scatter. */}
-        <div className="pointer-events-none absolute inset-0 hidden xl:block" aria-hidden>
+        {/* One window, well outside the text column: the about-us video. There
+            were four of these plus two sticky notes, which framed nothing and
+            turned the first screen into scatter; the focus timer that stayed
+            opposite it went on 2026-09-13 (and with it the aria-hidden - what
+            is left in here is a button). The clip is web/public/shots/
+            about-us.mp4 (+ a poster with the same name); until it exists the
+            tile plays the drawn loop. */}
+        <div className="pointer-events-none absolute inset-0 hidden xl:block">
           <div className="relative mx-auto h-full max-w-[1600px]">
-            <div className="absolute left-[4%] top-44"><FocusCard /></div>
-            <div className="pointer-events-auto absolute bottom-[27%] right-[3%]"><DemoZoom /></div>
+            <div className="pointer-events-auto absolute bottom-[27%] right-[3%]"><DemoZoom media={shot("about-us")} /></div>
           </div>
         </div>
 
@@ -1428,6 +1441,9 @@ export default function Home() {
         </div>
       </section>
 
+      {/* the math — ten subscriptions against one payment */}
+      <SubscriptionBill />
+
       {/* pricing — a window to the sky */}
       <section id="pricing" className="sky-day ground ground--wide px-5 py-16 md:py-24">
         <div className="mx-auto max-w-4xl">
@@ -1438,6 +1454,7 @@ export default function Home() {
               the full app is free - exports carry a small badge. one payment removes it forever.
             </p>
           </Reveal>
+          <CheckoutNotice />
           <div className="mt-12 grid gap-6 md:grid-cols-2">
             <Reveal>
               <div className="wincard wincard--light h-full">
@@ -1474,16 +1491,19 @@ export default function Home() {
                 <div className="p-7">
                   <h3 className="display text-lg">pro</h3>
                   <p className="text-[13px] text-[#6e6e73]">yours forever, no subscription</p>
-                  <p className="display mt-3 text-5xl font-extrabold">
-                    {PRICE.display} <span className="text-base font-medium text-[#6e6e73]">once</span>
-                  </p>
-                  <ul className="mt-5 space-y-2.5 text-sm text-[#6e6e73]">
+                  <LivePrice
+                    className="mt-3"
+                    priceClass="font-display text-5xl font-extrabold tracking-[-0.045em]"
+                    mutedClass="text-base font-medium text-[#6e6e73]"
+                  />
+                  <LiveStepNote className="mt-1.5 block text-[12.5px] font-semibold text-accent" />
+                  <ul className="mt-4 space-y-2.5 text-sm text-[#6e6e73]">
                     <li className="flex gap-2"><Check size={15} className="mt-0.5 text-accent" /> everything in free</li>
                     <li className="flex gap-2"><Check size={15} className="mt-0.5 text-accent" /> no badge - ever</li>
                     <li className="flex gap-2"><Check size={15} className="mt-0.5 text-accent" /> offline license key, no account</li>
                     <li className="flex gap-2"><Check size={15} className="mt-0.5 text-accent" /> lifetime updates</li>
                   </ul>
-                  <CheckoutCta className="btn btn-accent mt-7 w-full">
+                  <CheckoutCta href={checkoutHref} className="btn btn-accent mt-7 w-full">
                     get the pro key
                   </CheckoutCta>
                   </div>
@@ -1491,6 +1511,11 @@ export default function Home() {
               </div>
             </Reveal>
           </div>
+
+          {/* the launch-price ladder: the rule is static, the counts are live */}
+          <Reveal delay={0.06} className="mt-6">
+            <PriceLadder />
+          </Reveal>
 
           {/* the pitch, in someone else's words */}
           <Reveal delay={0.1} className="mt-8">

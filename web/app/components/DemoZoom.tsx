@@ -1,15 +1,19 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { createPortal, flushSync } from "react-dom";
 import { Play, X } from "lucide-react";
 import { WinDots, ToolIcons } from "./WinDots";
 
 /**
- * The demo-take.mp4 hero tile. On hover it zooms out to cover most of the
- * screen and "plays" a launch-style demo: our own landing page inside the
- * frame, with screeni-like cinematic zooms — all CSS, no video file.
- * (Swap SiteShot for a real <video> once we record one.)
+ * The about-us.mp4 hero tile. It opens into a near-fullscreen player that
+ * grows out of the tile.
+ *
+ * The clip is web/public/shots/about-us.mp4 (+ a poster with the same name),
+ * looked up at build time in page.tsx like the studio rows: when it is there
+ * the tile shows its poster and a click plays it with sound and controls.
+ * Until then the tile keeps the CSS-only loop - hover zooms out and "plays"
+ * our own landing page inside the frame, with screeni-like cinematic zooms.
  */
 
 function SiteShot() {
@@ -50,12 +54,7 @@ function SiteShot() {
         </div>
       </div>
 
-      {/* mini floating windows */}
-      <div className="absolute left-[6%] top-[17%] w-[86px] rotate-[-4deg] rounded-lg bg-white p-2 shadow-lg">
-        <p className="text-[6px] font-semibold uppercase tracking-wide text-[#6e6e73]">deep focus</p>
-        <p className="display text-sm text-[#1d1d1f]">25:00</p>
-        <span className="mt-1 inline-block rounded-full bg-accent px-1.5 py-px text-[5px] font-bold text-white">Start</span>
-      </div>
+      {/* the hero's one floating window */}
       <div className="absolute right-[6%] top-[22%] w-[96px] rotate-[3deg] rounded-lg bg-[#111214] p-1.5 shadow-lg">
         <div
           className="h-9 rounded"
@@ -79,17 +78,67 @@ function SiteShot() {
 
 type Phase = "closed" | "enter" | "open" | "exit";
 
-export function DemoZoom() {
+/* 84 s -> "1:24" */
+function runtime(seconds: number) {
+  const s = Math.round(seconds);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+}
+
+export function DemoZoom({ media }: { media?: { video?: string; poster?: string } }) {
+  const video = media?.video;
+  const poster = video ? media?.poster : undefined;
   const [phase, setPhase] = useState<Phase>("closed");
   const [mounted, setMounted] = useState(false);
+  const [duration, setDuration] = useState(0);
   const tileRef = useRef<HTMLDivElement>(null);
+  const tileVideoRef = useRef<HTMLVideoElement>(null);
   const playerRef = useRef<HTMLDivElement>(null);
   const backdropRef = useRef<HTMLDivElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => setMounted(true), []);
 
-  const openDemo = () => setPhase((p) => (p === "closed" ? "enter" : p));
-  const closeDemo = () => setPhase((p) => (p === "open" || p === "enter" ? "exit" : p));
+  /* the runtime under the poster; metadata can arrive before hydration, when
+     no React listener is attached yet, so read what is already there too */
+  useEffect(() => {
+    const el = tileVideoRef.current;
+    if (!el) return;
+    const read = () => {
+      if (Number.isFinite(el.duration) && el.duration > 0) setDuration(el.duration);
+    };
+    if (el.readyState >= 1) read();
+    el.addEventListener("loadedmetadata", read);
+    return () => el.removeEventListener("loadedmetadata", read);
+  }, [video]);
+
+  const openDemo = () => {
+    if (!video) {
+      setPhase((p) => (p === "closed" ? "enter" : p));
+      return;
+    }
+    if (phase !== "closed") return;
+    /* start the clip inside the click itself: Safari only lets a video play
+       with sound from within the gesture, and the player does not exist until
+       it has rendered */
+    flushSync(() => setPhase("enter"));
+    const el = videoRef.current;
+    if (!el) return;
+    /* the keys (space, arrows) belong to the player now, not the tile behind it */
+    el.focus({ preventScroll: true });
+    el.play().catch(() => {
+      /* sound refused after all - play muted, the controls can unmute */
+      el.muted = true;
+      void el.play().catch(() => {});
+    });
+  };
+  const closeDemo = () => {
+    const el = videoRef.current;
+    if (el) {
+      el.pause();
+      tileRef.current?.focus({ preventScroll: true });
+    }
+    setPhase((p) => (p === "open" || p === "enter" ? "exit" : p));
+  };
 
   useEffect(() => {
     if (phase === "closed") return;
@@ -171,37 +220,62 @@ export function DemoZoom() {
 
   return (
     <>
-      {/* the small hero tile */}
+      {/* the small hero tile - the drawn loop opens on hover, a real clip
+          waits for a click, which is what lets it start with sound */}
       <div
         ref={tileRef}
         className="wincard wincard--light floaty w-[250px] cursor-zoom-in"
         style={{ ["--tilt" as string]: "3deg", animationDelay: "-2s" }}
-        onMouseEnter={openDemo}
+        onMouseEnter={video ? undefined : openDemo}
         onClick={openDemo}
         role="button"
         tabIndex={0}
-        onKeyDown={(e) => e.key === "Enter" && openDemo()}
-        aria-label="play the owntools demo"
+        onKeyDown={(e) => {
+          if (e.key !== "Enter" && e.key !== " ") return;
+          e.preventDefault();
+          openDemo();
+        }}
+        aria-label={video ? "play the about us video" : "play the owntools demo"}
       >
         <div className="wincard-bar">
           <WinDots icon={ToolIcons.video} />
-          <span className="wincard-title">demo-take.mp4</span>
+          <span className="wincard-title">about-us.mp4</span>
         </div>
         <div className="relative bg-[#101012] p-3">
-          <div
-            className="h-[110px] rounded-[8px]"
-            style={{
-              background:
-                "radial-gradient(80px 60px at 25% 25%, #0a84ff, transparent 70%), radial-gradient(90px 70px at 80% 30%, #5e5ce6, transparent 70%), radial-gradient(90px 60px at 55% 85%, #32ade6, transparent 70%), #101a2e",
-            }}
-          >
-            <div className="relative left-[18%] top-[22%] h-[60%] w-[64%] rounded-[6px] border border-white/20 bg-white/90 shadow-xl" />
-          </div>
+          {video ? (
+            <video
+              ref={tileVideoRef}
+              /* #t=0.1 = a real first frame when there is no poster */
+              src={`${video}#t=0.1`}
+              poster={poster}
+              muted
+              playsInline
+              preload="metadata"
+              className="block h-[110px] w-full rounded-[8px] bg-[#101a2e] object-cover"
+              aria-hidden
+            />
+          ) : (
+            <div
+              className="h-[110px] rounded-[8px]"
+              style={{
+                background:
+                  "radial-gradient(80px 60px at 25% 25%, #0a84ff, transparent 70%), radial-gradient(90px 70px at 80% 30%, #5e5ce6, transparent 70%), radial-gradient(90px 60px at 55% 85%, #32ade6, transparent 70%), #101a2e",
+              }}
+            >
+              <div className="relative left-[18%] top-[22%] h-[60%] w-[64%] rounded-[6px] border border-white/20 bg-white/90 shadow-xl" />
+            </div>
+          )}
           <span className="absolute left-1/2 top-[45%] flex -translate-x-1/2 -translate-y-1/2 items-center gap-1.5 rounded-full bg-black/55 px-3 py-1.5 text-[10px] font-semibold text-white backdrop-blur-sm">
-            <Play size={10} /> hover to play
+            <Play size={10} /> {video ? "play" : "hover to play"}
           </span>
           <p className="mt-2 flex items-center gap-1.5 text-[11px] font-semibold text-white/80">
-            <span className="rec-dot inline-block h-2 w-2 rounded-full bg-[#ff453a]" /> REC 00:12 · auto-zoom on
+            {video ? (
+              <>about us{duration ? ` · ${runtime(duration)}` : ""}</>
+            ) : (
+              <>
+                <span className="rec-dot inline-block h-2 w-2 rounded-full bg-[#ff453a]" /> REC 00:12 · auto-zoom on
+              </>
+            )}
           </p>
         </div>
       </div>
@@ -212,44 +286,65 @@ export function DemoZoom() {
       {phase !== "closed" && mounted ? createPortal(
         <div
           className={`fixed inset-0 z-[60] flex items-center justify-center p-4 md:p-10 ${phase === "exit" ? "pointer-events-none" : ""}`}
-          onClick={closeDemo}
-          onMouseLeave={closeDemo}
+          /* not while it is still flying in: the second half of a double
+             click would land here and close it again */
+          onClick={() => {
+            if (phase === "open") closeDemo();
+          }}
+          onMouseLeave={video ? undefined : closeDemo}
         >
           <div ref={backdropRef} className="absolute inset-0 bg-black/60 backdrop-blur-sm" aria-hidden />
           <div
             ref={playerRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label={video ? "about us video" : "owntools demo"}
             className="wincard wincard--light relative w-full max-w-5xl will-change-transform"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="wincard-bar">
               <WinDots icon={ToolIcons.video} />
-              <span className="wincard-title">owntools-launch.mp4 · recorded with screeni · rendered offline</span>
+              <span className="wincard-title">about-us.mp4</span>
               <button
                 className="ml-auto flex h-6 w-6 items-center justify-center rounded-full text-[#6e6e73] transition hover:bg-black/10 hover:text-[#1d1d1f]"
                 onClick={closeDemo}
-                aria-label="close demo"
+                aria-label={video ? "close the video" : "close demo"}
               >
                 <X size={14} />
               </button>
             </div>
             <div className="demo-screen">
-              {/* the site inside the frame, with cinematic auto-zoom */}
-              <div className="demo-siteshot">
-                <SiteShot />
-              </div>
-              {/* launch-style intro card, loops with the zoom */}
-              <div className="demo-intro dotted">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#6e6e73]">introducing</p>
-                <p className="display mt-2 text-5xl text-[#1d1d1f] md:text-7xl">owntools</p>
-                <span className="mt-4 inline-block h-1.5 w-14 rounded-full bg-accent" />
-              </div>
-              {/* recording chrome */}
-              <span className="absolute left-4 top-4 z-10 flex items-center gap-1.5 rounded-full bg-black/55 px-3 py-1.5 text-[11px] font-semibold text-white backdrop-blur-sm">
-                <span className="rec-dot h-2 w-2 rounded-full bg-[#ff453a]" /> REC · auto-zoom on
-              </span>
-              <span className="absolute bottom-4 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-full bg-black/55 px-3.5 py-1.5 text-[11px] font-medium text-white/90 backdrop-blur-sm">
-                every click gets a cinematic zoom - no editing
-              </span>
+              {video ? (
+                <video
+                  ref={videoRef}
+                  src={video}
+                  poster={poster}
+                  controls
+                  playsInline
+                  preload="auto"
+                  className="absolute inset-0 h-full w-full bg-black object-contain"
+                />
+              ) : (
+                <>
+                  {/* the site inside the frame, with cinematic auto-zoom */}
+                  <div className="demo-siteshot">
+                    <SiteShot />
+                  </div>
+                  {/* launch-style intro card, loops with the zoom */}
+                  <div className="demo-intro dotted">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#6e6e73]">introducing</p>
+                    <p className="display mt-2 text-5xl text-[#1d1d1f] md:text-7xl">owntools</p>
+                    <span className="mt-4 inline-block h-1.5 w-14 rounded-full bg-accent" />
+                  </div>
+                  {/* recording chrome */}
+                  <span className="absolute left-4 top-4 z-10 flex items-center gap-1.5 rounded-full bg-black/55 px-3 py-1.5 text-[11px] font-semibold text-white backdrop-blur-sm">
+                    <span className="rec-dot h-2 w-2 rounded-full bg-[#ff453a]" /> REC · auto-zoom on
+                  </span>
+                  <span className="absolute bottom-4 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-full bg-black/55 px-3.5 py-1.5 text-[11px] font-medium text-white/90 backdrop-blur-sm">
+                    every click gets a cinematic zoom - no editing
+                  </span>
+                </>
+              )}
             </div>
           </div>
         </div>,

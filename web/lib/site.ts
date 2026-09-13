@@ -7,6 +7,8 @@
  * can render an honest "not yet" state instead of a dead link.
  */
 
+import { LIST_PRICE, usd } from "./pricing";
+
 const env = (value: string | undefined): string | undefined => {
   const v = value?.trim();
   return v ? v : undefined;
@@ -25,7 +27,11 @@ export const downloadUrl = env(process.env.NEXT_PUBLIC_DOWNLOAD_URL_WINDOWS);
  */
 export const downloadUrlMac = env(process.env.NEXT_PUBLIC_DOWNLOAD_URL_MACOS);
 
-/** Polar.sh checkout link for the Pro key. Unset until launch day. */
+/**
+ * A hand-made Polar checkout link - the fallback for before the API setup
+ * (docs/payments.md). Once POLAR_ACCESS_TOKEN is set, "get the pro key" goes
+ * through /checkout instead, which picks the launch-price step.
+ */
 export const checkoutUrl = env(process.env.NEXT_PUBLIC_CHECKOUT_URL);
 
 /** Support and legal contact address. */
@@ -46,14 +52,15 @@ export const legalEntity = env(process.env.NEXT_PUBLIC_LEGAL_ENTITY);
 export const legalAddress = env(process.env.NEXT_PUBLIC_LEGAL_ADDRESS);
 
 /**
- * The ONLY place the price is defined — cards, JSON-LD offers and policies
- * all read from here. The business plan still weighs $49 against 149 zł;
- * decide before launch and change it in this one spot.
+ * The list price - what a key costs once the launch steps are gone. The whole
+ * ladder ($25 for the first 10 keys, $35 for the next 100, then this) lives in
+ * lib/pricing.ts; this is the static figure for places that cannot wait for
+ * live counts, like the JSON-LD offer.
  */
 export const PRICE = {
-  amount: 49,
+  amount: LIST_PRICE,
   currency: "USD",
-  display: "$49",
+  display: usd(LIST_PRICE),
 } as const;
 
 /** Date stamped on the privacy / terms / refund pages. */

@@ -79,18 +79,24 @@ export function MacDownloadCta({
   );
 }
 
-/** "get the pro key" — a link once NEXT_PUBLIC_CHECKOUT_URL is set. */
+/**
+ * "get the pro key" — a link once there is somewhere to buy. The page passes
+ * `/checkout` when Polar is configured (that route picks the launch-price step);
+ * without it, a checkout link pasted into NEXT_PUBLIC_CHECKOUT_URL still works.
+ */
 export function CheckoutCta({
   className,
   children,
+  href = checkoutUrl,
   fallback = CHECKOUT_SOON,
 }: {
   className?: string;
   children: ReactNode;
+  href?: string;
   fallback?: ReactNode;
 }) {
   return (
-    <Cta href={checkoutUrl} fallback={fallback} className={className}>
+    <Cta href={href} fallback={fallback} className={className}>
       {children}
     </Cta>
   );

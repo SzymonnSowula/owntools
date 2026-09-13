@@ -594,8 +594,9 @@ body {
 
 /* ------------------------------ demo player ----------------------------- */
 
-/* expanded demo-take.mp4 grows out of the hero tile via a FLIP transition
-   driven from DemoZoom.tsx (measured transforms, no keyframes needed). */
+/* the expanded about-us.mp4 player grows out of the hero tile via a FLIP
+   transition driven from DemoZoom.tsx (measured transforms, no keyframes
+   needed). The loop below is what it plays until shots/about-us.mp4 exists. */
 .demo-screen {
   position: relative;
   aspect-ratio: 16 / 9;
@@ -613,7 +614,7 @@ body {
 @keyframes demo-kenburns {
   0%, 16% { transform: scale(1) translate(0, 0); }
   28%, 40% { transform: scale(1.5) translate(-8%, 10%); }   /* zoom: the buttons */
-  52%, 64% { transform: scale(1.35) translate(14%, 12%); }  /* pan: focus window */
+  52%, 64% { transform: scale(1.35) translate(-13%, 12%); } /* pan: the floating window */
   78%, 100% { transform: scale(1) translate(0, 0); }
 }
 
@@ -659,7 +660,7 @@ body {
   0%, 14% { left: 60%; top: 12%; opacity: 0; }
   20% { opacity: 1; }
   28%, 40% { left: 46%; top: 67%; }   /* over the buttons */
-  52%, 64% { left: 13%; top: 23%; }   /* over focus window */
+  52%, 64% { left: 86%; top: 27%; }   /* over the floating window */
   76% { opacity: 1; }
   84%, 100% { left: 70%; top: 40%; opacity: 0; }
 }

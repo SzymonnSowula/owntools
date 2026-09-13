@@ -2,6 +2,15 @@
 
 import { useState, type ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
+import { pricingSnapshot, usd } from "@/lib/pricing";
+
+/** Written from lib/pricing.ts, so the answer cannot drift from the ladder. */
+function launchPriceAnswer(): string {
+  const tiers = pricingSnapshot(null).tiers;
+  const steps = tiers.slice(0, -1).map((t, i) => `${i === 0 ? "the first" : "the next"} ${t.cap} cost ${usd(t.price)}`);
+  const list = usd(tiers[tiers.length - 1].price);
+  return `It is launch pricing: ${steps.join(", ")}, and every key after that costs ${list}. Buying early gets you the same thing for less - the same key, every tool, every future update, no renewal - because the first people to pay for a new app are taking a chance on it. The checkout counts the keys itself, so the price you see on the page is the price you pay.`;
+}
 
 const ITEMS: { q: string; a: ReactNode }[] = [
   {
@@ -39,6 +48,10 @@ const ITEMS: { q: string; a: ReactNode }[] = [
   {
     q: "What's the difference between free and Pro?",
     a: "Nothing except a small \"made with owntools\" badge on exported videos. Every feature is in the free version. A one-time Pro key removes the badge forever.",
+  },
+  {
+    q: "Why is it cheaper at the start?",
+    a: launchPriceAnswer(),
   },
   {
     q: "How does the Pro key work?",
