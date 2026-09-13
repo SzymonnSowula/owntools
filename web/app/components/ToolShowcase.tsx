@@ -30,7 +30,7 @@ export type ShowcaseTool = {
   link?: { href: string; label: string };
   /** dropped into web/public/shots — see docs/launch-video.md */
   media?: { video?: string; poster?: string };
-  /** weather behind the drawn stand-in; ignored once a real clip exists */
+  /** weather behind the drawn stand-in or a screenshot; ignored once a real clip exists */
   ground?: Ground;
   /** drawn stand-in, used until a real clip or shot exists */
   mock: ReactNode;
@@ -125,9 +125,11 @@ export function ToolShowcase({ tools }: { tools: ShowcaseTool[] }) {
                 </div>
                 <div
                   className={
-                    tool.media?.video || tool.media?.poster
+                    tool.media?.video
                       ? "ts-stage"
-                      : `ts-stage ground ground--${tool.ground ?? "meadow"}`
+                      : tool.media?.poster
+                        ? `ts-stage ts-stage--shot ground ground--${tool.ground ?? "meadow"}`
+                        : `ts-stage ground ground--${tool.ground ?? "meadow"}`
                   }
                 >
                   {tool.media?.video ? (

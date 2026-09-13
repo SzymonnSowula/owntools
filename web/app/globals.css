@@ -474,12 +474,34 @@ body {
     #ffffff;
 }
 
-.ts-stage > video,
-.ts-stage > img {
+.ts-stage > video {
   display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+/* a still with no clip is a screenshot of the app, not footage: it rests whole
+   on the row's scene as a window, the way the drawn stand-in does, instead of
+   being cropped edge to edge. The stage is a size container so the shot can be
+   held inside both of its sides (cq units) and keep its own proportions. */
+.ts-stage--shot {
+  container-type: size;
+}
+
+.ts-stage--shot > img {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 88cqw;
+  max-height: 84cqh;
+  border-radius: 12px;
+  box-shadow:
+    0 0 0 1px rgba(29, 29, 31, 0.08),
+    0 26px 56px rgba(12, 22, 44, 0.3),
+    0 4px 12px rgba(12, 22, 44, 0.14);
 }
 
 /* the drawn stand-in is built at mockup scale — blow it up on the stage and
