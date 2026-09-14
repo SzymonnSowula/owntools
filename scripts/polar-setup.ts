@@ -19,6 +19,8 @@
  * - a Custom benefit whose note (shown on Polar's receipt e-mail and customer
  *   portal) says where the key is and how to activate it;
  * - with --installer, a File Downloads benefit carrying the installer(s);
+ * - the organization's public support e-mail and website (the contact address
+ *   and the site; Polar's review flags a personal address or another domain);
  * - LICENSE_KEY_SECRET in web/.env.local when it is missing.
  *
  * What it cannot make, because Polar only allows it in the dashboard: the
@@ -73,7 +75,8 @@ for (let i = 0; i < argv.length; i++) {
 
 const polar = connect({ sandbox });
 const site = (setting("NEXT_PUBLIC_SITE_URL") ?? "https://owntools.app").replace(/\/+$/, "");
-const contact = setting("NEXT_PUBLIC_CONTACT_EMAIL");
+// the same default as web/lib/site.ts
+const contact = setting("NEXT_PUBLIC_CONTACT_EMAIL") ?? "hello@owntools.app";
 const downloadWindows = setting("NEXT_PUBLIC_DOWNLOAD_URL_WINDOWS");
 const downloadMac = setting("NEXT_PUBLIC_DOWNLOAD_URL_MACOS");
 
@@ -88,6 +91,11 @@ interface Organization {
   status: string;
   default_presentment_currency: string;
   default_tax_behavior: string;
+  /** The public support e-mail. */
+  email: string | null;
+  website: string | null;
+  /** What Polar currently lets the organization do; flips as the account review goes through. */
+  capabilities?: { checkout_payments?: boolean; payouts?: boolean };
 }
 
 interface Product {
@@ -155,7 +163,7 @@ function keyNote(): string {
     downloadWindows ? `[Windows](${downloadWindows})` : null,
     downloadMac ? `[macOS](${downloadMac})` : null,
   ].filter(Boolean);
-  const reach = contact ? `[${contact}](mailto:${contact})` : `the contact address on [${site.replace(/^https?:\/\//, "")}](${site})`;
+  const reach = `[${contact}](mailto:${contact})`;
   return [
     "**Your license key is on the page Polar sent you to right after paying** - the address starts with",
     `\`${site}/thanks\`. That link shows the key again whenever you open it, so bookmark it.`,
@@ -186,9 +194,17 @@ async function organization(): Promise<Organization> {
   const org = page.items[0];
   if (!org) fail("The token does not see an organization. Does it have the organizations:read scope?");
 
-  console.log(`${bold(org.name)} ${dim(`(${org.slug}) · ${polar.server} · status ${org.status}`)}`);
-  if (org.status !== "active") {
-    warn(`Polar has not activated this organization yet (${org.status}). Everything can be set up now; payments start once Polar approves the account.`);
+  const caps = org.capabilities;
+  const yesNo = (v: boolean | undefined) => (v ? "yes" : "no");
+  console.log(
+    `${bold(org.name)} ${dim(`(${org.slug}) · ${polar.server} · status ${org.status}${
+      caps ? ` · takes payments: ${yesNo(caps.checkout_payments)} · payouts: ${yesNo(caps.payouts)}` : ""
+    }`)}`,
+  );
+  if (org.status !== "active" || (caps && (!caps.checkout_payments || !caps.payouts))) {
+    warn(
+      `Polar has not cleared this organization for ${caps && caps.checkout_payments ? "payouts" : "payments"} yet (${org.status}). Everything can be set up now; the account review is Finance → Account in the dashboard (docs/payments.md §3).`,
+    );
   }
   if (org.default_presentment_currency !== "usd") {
     if (!setUsd) {
@@ -199,6 +215,22 @@ async function organization(): Promise<Organization> {
       );
     }
     await write("default currency → USD", () => polar.patch(`/v1/organizations/${org.id}`, { default_presentment_currency: "usd" }));
+  }
+
+  // what buyers see as the seller's contact, and what the account review compares it with
+  const bare = (url: string | null) => (url ?? "").toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/+$/, "");
+  const profile: { email?: string; website?: string } = {};
+  if ((org.email ?? "").toLowerCase() !== contact.toLowerCase()) profile.email = contact;
+  if (bare(org.website) !== bare(site)) profile.website = site;
+  if (profile.email || profile.website) {
+    const label = [profile.email ? `support e-mail → ${contact}` : null, profile.website ? `website → ${site}` : null].filter(Boolean).join(", ");
+    try {
+      await write(label, () => polar.patch(`/v1/organizations/${org.id}`, profile));
+    } catch (err) {
+      if (!(err instanceof PolarApiError && err.status === 403)) throw err;
+      changes -= 1;
+      warn(`The token cannot edit the organization (organizations:write), so set it by hand in Settings → General: ${label}.`);
+    }
   }
   return org;
 }
@@ -459,7 +491,7 @@ function environment(): void {
 /* ----------------------------------- run ---------------------------------- */
 
 async function main(): Promise<void> {
-  console.log(`\nowntools → Polar ${dim(`(${polar.base}${dryRun ? " · dry run" : ""})`)}\n`);
+  console.log(`\nowntools → Polar ${dim(`(${polar.base} · API ${polar.version}${dryRun ? " · dry run" : ""})`)}\n`);
   await organization();
   const prod = await product();
   await discounts(prod?.id ?? null);
@@ -474,10 +506,14 @@ next:
   1. put POLAR_ACCESS_TOKEN, POLAR_SERVER and LICENSE_KEY_SECRET from web/.env.local on the
      host that serves the site (e.g. Vercel → Settings → Environment Variables) and redeploy -
      the "get the pro key" button only points at /checkout when the page is built with a token
-  2. open ${site}/checkout${polar.server === "sandbox" ? " (or http://localhost:3006/checkout)" : ""}: it should land on Polar at ${usd(TIERS[0].price)}${
-    polar.server === "sandbox" ? "; pay with 4242 4242 4242 4242" : ""
-  }
-  3. after paying, /thanks shows the key - paste it into a clean install once
+${
+  polar.server === "sandbox"
+    ? `  2. open ${site}/checkout (or http://localhost:3006/checkout): it should land on Polar at ${usd(TIERS[0].price)}; pay with 4242 4242 4242 4242
+  3. after paying, /thanks shows the key - paste it into a clean install once`
+    : `  2. open ${site}/checkout: it should land on Polar at ${usd(TIERS[0].price)} - look, but do not pay with a real card
+     (Polar reads that as card testing)
+  3. pnpm polar:test-link makes a $0 checkout: finish it, /thanks shows the key - paste it into a clean install once`
+}
 `);
 }
 

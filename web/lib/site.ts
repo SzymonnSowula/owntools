@@ -34,8 +34,12 @@ export const downloadUrlMac = env(process.env.NEXT_PUBLIC_DOWNLOAD_URL_MACOS);
  */
 export const checkoutUrl = env(process.env.NEXT_PUBLIC_CHECKOUT_URL);
 
-/** Support and legal contact address. */
-export const contactEmail = env(process.env.NEXT_PUBLIC_CONTACT_EMAIL);
+/**
+ * Support and legal contact address. Defaults to the shop's own mailbox (the
+ * same default as scripts/polar-setup.ts, which also puts it on Polar as the
+ * support e-mail) - an address at the site's domain, as Polar's review expects.
+ */
+export const contactEmail = env(process.env.NEXT_PUBLIC_CONTACT_EMAIL) ?? "hello@owntools.app";
 
 /** Profile on X — "ask on x" and the footer link render only when set. */
 export const xUrl = env(process.env.NEXT_PUBLIC_X_URL);
@@ -47,9 +51,12 @@ export const repoUrl =
 /** Plausible `data-domain`. Analytics stay off unless this is set. */
 export const plausibleDomain = env(process.env.NEXT_PUBLIC_PLAUSIBLE_DOMAIN);
 
-/** Operator shown on the legal pages (legal name and postal address). */
-export const legalEntity = env(process.env.NEXT_PUBLIC_LEGAL_ENTITY);
-export const legalAddress = env(process.env.NEXT_PUBLIC_LEGAL_ADDRESS);
+/**
+ * Operator shown on the legal pages. The owner has no company (2026-09-15):
+ * the brand and the country, while Polar sells as the merchant of record.
+ */
+export const legalEntity = env(process.env.NEXT_PUBLIC_LEGAL_ENTITY) ?? "OwnTools";
+export const legalAddress = env(process.env.NEXT_PUBLIC_LEGAL_ADDRESS) ?? "Poland";
 
 /**
  * The list price - what a key costs once the launch steps are gone. The whole
@@ -64,7 +71,7 @@ export const PRICE = {
 } as const;
 
 /** Date stamped on the privacy / terms / refund pages. */
-export const POLICIES_UPDATED = "2026-09-12";
+export const POLICIES_UPDATED = "2026-09-15";
 
 /** Refund window for the Pro key, in days. */
 export const REFUND_DAYS = 14;

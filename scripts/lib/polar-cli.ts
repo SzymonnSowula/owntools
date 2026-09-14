@@ -8,6 +8,7 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { polarApiVersion, polarVersionWarning } from "../../web/lib/polarVersion.ts";
 
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 export const WEB_ENV_FILE = join(ROOT, "web", ".env.local");
@@ -77,9 +78,11 @@ function describeBody(body: unknown): string {
 export interface Polar {
   server: keyof typeof BASES;
   base: string;
+  version: string;
   get<T>(path: string): Promise<T>;
   post<T>(path: string, body: unknown): Promise<T>;
   patch<T>(path: string, body: unknown): Promise<T>;
+  del(path: string): Promise<void>;
 }
 
 export interface Page<T> {
@@ -97,13 +100,16 @@ export function connect(options: { sandbox?: boolean } = {}): Polar {
       "",
       "    POLAR_ACCESS_TOKEN=polar_oat_…",
       "",
-      "Scopes: organizations:read, products:read, products:write, benefits:read, benefits:write,",
-      "files:write, discounts:read, discounts:write, checkouts:read, checkouts:write, orders:read,",
-      "customers:read.",
+      "Scopes: organizations:read, organizations:write, products:read, products:write, benefits:read, benefits:write,",
+      "files:write, discounts:read, discounts:write, checkouts:read, checkouts:write,",
+      "orders:read, customers:read.",
     );
   }
   const server = options.sandbox || setting("POLAR_SERVER") === "sandbox" ? "sandbox" : "production";
   const base = (setting("POLAR_API_URL") ?? BASES[server]).replace(/\/+$/, "");
+  const version = polarApiVersion(setting("POLAR_API_VERSION"));
+  const warning = polarVersionWarning(version);
+  if (warning) warn(warning);
 
   const request = async <T>(method: string, path: string, body?: unknown): Promise<T> => {
     const res = await fetch(`${base}${path}`, {
@@ -111,6 +117,7 @@ export function connect(options: { sandbox?: boolean } = {}): Polar {
       headers: {
         Authorization: `Bearer ${token}`,
         Accept: "application/json",
+        "Polar-Version": version,
         ...(body === undefined ? {} : { "Content-Type": "application/json" }),
       },
       body: body === undefined ? undefined : JSON.stringify(body),
@@ -138,9 +145,13 @@ export function connect(options: { sandbox?: boolean } = {}): Polar {
   return {
     server,
     base,
+    version,
     get: (path) => request("GET", path),
     post: (path, body) => request("POST", path, body),
     patch: (path, body) => request("PATCH", path, body),
+    del: async (path) => {
+      await request("DELETE", path);
+    },
   };
 }
 

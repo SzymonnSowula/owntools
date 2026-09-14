@@ -18,6 +18,7 @@
 
 import { isIP } from "node:net";
 import { licenseKeyForOrder } from "./licenseKey";
+import { polarApiVersion, polarVersionWarning } from "./polarVersion";
 import { POLAR_META, TIERS, pricingSnapshot, type PricingSnapshot, type TierCount, type TierKey } from "./pricing";
 
 const BASES = {
@@ -29,7 +30,11 @@ export interface PolarConfig {
   token: string;
   base: string;
   server: keyof typeof BASES;
+  /** The `Polar-Version` every request pins (lib/polarVersion.ts). */
+  version: string;
 }
+
+let versionWarned = false;
 
 /** Null until POLAR_ACCESS_TOKEN is set - the site then shows "not on sale yet". */
 export function polarConfig(): PolarConfig | null {
@@ -38,7 +43,13 @@ export function polarConfig(): PolarConfig | null {
   const server = process.env.POLAR_SERVER?.trim() === "sandbox" ? "sandbox" : "production";
   // POLAR_API_URL exists for local tests against a stand-in server only
   const base = (process.env.POLAR_API_URL?.trim() || BASES[server]).replace(/\/+$/, "");
-  return { token, base, server };
+  const version = polarApiVersion(process.env.POLAR_API_VERSION);
+  const warning = versionWarned ? null : polarVersionWarning(version);
+  if (warning) {
+    versionWarned = true;
+    console.warn(`[polar] ${warning}`);
+  }
+  return { token, base, server, version };
 }
 
 /* ------------------------------ wire types ------------------------------ */
@@ -129,6 +140,7 @@ async function call<T>(cfg: PolarConfig, method: "GET" | "POST", path: string, b
     headers: {
       Authorization: `Bearer ${cfg.token}`,
       Accept: "application/json",
+      "Polar-Version": cfg.version,
       ...(body === undefined ? {} : { "Content-Type": "application/json" }),
     },
     body: body === undefined ? undefined : JSON.stringify(body),

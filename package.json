@@ -12,7 +12,8 @@
     "typecheck": "tsc --noEmit -p apps/desktop/tsconfig.json && pnpm --filter web typecheck",
     "check": "pnpm typecheck && pnpm test",
     "polar:setup": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/polar-setup.ts",
-    "polar:key": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/polar-key.ts"
+    "polar:key": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/polar-key.ts",
+    "polar:test-link": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/polar-test-link.ts"
   },
   "packageManager": "pnpm@10.33.2",
   "dependencies": {
