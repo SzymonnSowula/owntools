@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { licenseKeyForOrder } from "../../../web/lib/licenseKey";
 import { isValidLicenseKey } from "./license";
 
 /**
@@ -109,5 +110,24 @@ describe("isValidLicenseKey", () => {
     for (const input of malformed) {
       expect(isValidLicenseKey(input), JSON.stringify(input)).toBe(false);
     }
+  });
+});
+
+/**
+ * The keys buyers actually get: the landing derives one per Polar order
+ * (web/lib/licenseKey.ts) instead of printing them with the CLI. Web cannot
+ * import from packages, so the round trip is checked from this side.
+ */
+describe("keys the landing derives from Polar orders", () => {
+  const orderIds = Array.from({ length: 300 }, (_, i) => {
+    const hex = (Math.imul(i + 1, 2654435761) >>> 0).toString(16).padStart(8, "0");
+    return `${hex}-${hex.slice(0, 4)}-4${hex.slice(1, 4)}-8${hex.slice(4, 7)}-${hex}${hex.slice(0, 4)}`;
+  });
+
+  it("are all accepted by the app, with or without a secret", () => {
+    const rejected = orderIds.flatMap((id) =>
+      [licenseKeyForOrder(id, "a-secret"), licenseKeyForOrder(id, "")].filter((key) => !isValidLicenseKey(key)),
+    );
+    expect(rejected).toEqual([]);
   });
 });
