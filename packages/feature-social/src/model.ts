@@ -242,6 +242,10 @@ export function parseChannel(raw: unknown): Channel | null {
   if (r.stub === true) channel.stub = true;
   const slots = parseSlots(r.slots);
   if (slots.length) channel.slots = slots;
+  const health = record(r.health);
+  if ((health.kind === "auth" || health.kind === "billing") && typeof health.message === "string") {
+    channel.health = { kind: health.kind, message: health.message, at: str(health.at, channel.updatedAt) };
+  }
   return channel;
 }
 

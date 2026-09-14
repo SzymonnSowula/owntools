@@ -1,7 +1,7 @@
 import { findFacets, toByteRange } from "../facets";
 import type { ChannelCredentials } from "../types";
 import { HttpError, bearer, getJson, jsonOrThrow, postJson, sfetch } from "./http";
-import { ProviderError, retryableStatus, type LoadedMedia, type Provider, type PublishInput } from "./types";
+import { ProviderError, retryableStatus, type LoadedMedia, type Provider, type PublishInput, type SaveCreds } from "./types";
 
 /**
  * Bluesky over the AT Protocol: app-password session, `uploadBlob` for
@@ -40,7 +40,7 @@ async function createSession(pds: string, identifier: string, password: string):
     return await postJson<Session>(xrpc(pds, "com.atproto.server.createSession"), { identifier, password });
   } catch (err) {
     if (err instanceof HttpError && err.status === 401) {
-      throw new ProviderError("Bluesky rejected the handle or app password.", false);
+      throw new ProviderError("Bluesky rejected the handle or app password.", false, "auth");
     }
     throw err;
   }
@@ -52,19 +52,27 @@ async function refreshSession(pds: string, refreshJwt: string): Promise<Session>
   );
 }
 
-/** A live session from stored credentials: refresh first, full login if that fails. */
-async function session(creds: ChannelCredentials): Promise<{ s: Session; creds: ChannelCredentials }> {
+/**
+ * A live session from stored credentials: refresh first, full login if that
+ * fails. Either way the new tokens are saved before they are used — a refresh
+ * retires the refresh JWT it was given.
+ */
+async function session(creds: ChannelCredentials, save?: SaveCreds): Promise<{ s: Session; creds: ChannelCredentials }> {
   const pds = creds.pds || DEFAULT_PDS;
   if (creds.refreshJwt) {
     try {
       const s = await refreshSession(pds, creds.refreshJwt);
-      return { s, creds: { ...creds, accessJwt: s.accessJwt, refreshJwt: s.refreshJwt } };
+      const next = { ...creds, accessJwt: s.accessJwt, refreshJwt: s.refreshJwt };
+      await save?.(next);
+      return { s, creds: next };
     } catch {
       /* fall through to a fresh login */
     }
   }
   const s = await createSession(pds, creds.identifier ?? "", creds.password ?? "");
-  return { s, creds: { ...creds, accessJwt: s.accessJwt, refreshJwt: s.refreshJwt } };
+  const next = { ...creds, accessJwt: s.accessJwt, refreshJwt: s.refreshJwt };
+  await save?.(next);
+  return { s, creds: next };
 }
 
 async function uploadBlob(pds: string, jwt: string, media: LoadedMedia): Promise<BlobRef> {
@@ -247,12 +255,12 @@ export const bluesky: Provider = {
       avatarUrl: profile.avatar ?? null,
     };
   },
-  async verify(_channel, creds) {
-    const { s } = await session(creds);
+  async verify(_channel, creds, saveCreds) {
+    const { s } = await session(creds, saveCreds);
     return { ok: true, message: `Signed in as @${s.handle}.` };
   },
   async publish(input: PublishInput) {
-    const { s, creds } = await session(input.creds);
+    const { s, creds } = await session(input.creds, input.saveCreds);
     const pds = creds.pds || DEFAULT_PDS;
     const root = await createPost(pds, s, input.content.text, input.media, null);
     let parent = root;

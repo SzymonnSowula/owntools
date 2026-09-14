@@ -738,6 +738,7 @@ button.sc-chip:hover {
 }
 
 .sc-channel-name {
+  display: block;
   font-size: 12.5px;
   font-weight: 600;
   white-space: nowrap;
@@ -746,6 +747,7 @@ button.sc-chip:hover {
 }
 
 .sc-channel-handle {
+  display: block;
   font-size: 11px;
   color: var(--color-muted);
   white-space: nowrap;
@@ -2008,6 +2010,89 @@ button.sc-chip:hover {
 .sc-pill.byo { background: color-mix(in srgb, var(--color-accent) 14%, transparent); color: var(--color-accent); }
 .sc-pill.soon { background: color-mix(in srgb, var(--color-ink) 8%, transparent); color: var(--color-muted); }
 .sc-pill.sim { background: color-mix(in srgb, var(--sc-amber) 18%, transparent); color: color-mix(in srgb, var(--sc-amber) 65%, var(--color-ink)); }
+.sc-pill.err { background: color-mix(in srgb, var(--sc-red) 14%, transparent); color: color-mix(in srgb, var(--sc-red) 78%, var(--color-ink)); }
+.sc-pill.warn { background: color-mix(in srgb, var(--sc-amber) 18%, transparent); color: color-mix(in srgb, var(--sc-amber) 65%, var(--color-ink)); }
+
+/* ------------------------------------------------------------------ */
+/* Channel health: the note under a channel, the banner over the week  */
+/* ------------------------------------------------------------------ */
+
+.sc-health {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  margin-top: 6px;
+}
+
+.sc-health-text {
+  flex: 1 1 240px;
+  min-width: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: color-mix(in srgb, var(--sc-red) 78%, var(--color-ink));
+}
+
+.sc-health.billing .sc-health-text { color: color-mix(in srgb, var(--sc-amber) 60%, var(--color-ink)); }
+.sc-health.compact { margin-top: 4px; }
+.sc-health.compact .sc-health-text { font-size: 11.5px; color: var(--color-muted); }
+
+.sc-health-actions {
+  display: flex;
+  flex: none;
+  gap: 6px;
+}
+
+.sc-alerts {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--color-line);
+  background: var(--color-card);
+}
+
+.sc-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--sc-red) 28%, var(--color-line));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--sc-red) 6%, var(--color-card));
+}
+
+.sc-alert.billing {
+  border-color: color-mix(in srgb, var(--sc-amber) 34%, var(--color-line));
+  background: color-mix(in srgb, var(--sc-amber) 8%, var(--color-card));
+}
+
+.sc-alert-icon {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  color: var(--sc-red);
+}
+
+.sc-alert.billing .sc-alert-icon { color: var(--sc-amber); }
+
+.sc-alert-title {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.sc-health-dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--sc-red);
+}
+
+.sc-health-dot.billing { background: var(--sc-amber); }
 
 /* ------------------------------------------------------------------ */
 /* Paste-to-connect + setup steps (Add channel)                         */

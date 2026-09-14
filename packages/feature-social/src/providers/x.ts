@@ -1,7 +1,7 @@
 import type { ChannelCredentials } from "../types";
 import { HttpError, bearer, describeResponse, fileFromBytes, getJson, postForm, postJson, sfetch } from "./http";
 import { authorize, basicAuth } from "./oauth";
-import { ProviderError, retryableStatus, type LoadedMedia, type Provider, type PublishInput } from "./types";
+import { ProviderError, retryableStatus, type LoadedMedia, type Provider, type PublishInput, type SaveCreds } from "./types";
 
 /**
  * X (Twitter) with the user's own developer app: OAuth 2.0 + PKCE, tweets
@@ -9,6 +9,11 @@ import { ProviderError, retryableStatus, type LoadedMedia, type Provider, type P
  * (`/2/media/upload/initialize` → `/{id}/append` → `/{id}/finalize`).
  * Docs: https://docs.x.com/x-api/posts/creation-of-a-post ·
  * https://docs.x.com/x-api/media/quickstart/media-upload-chunked
+ *
+ * The API is pay-per-use: the developer account behind the app holds
+ * credits, and a call made on an empty balance answers 402. The OAuth token
+ * endpoint is not billed, which is how a refresh could succeed right before
+ * the media upload was refused.
  */
 
 const AUTHORIZE = "https://x.com/i/oauth2/authorize";
@@ -27,6 +32,22 @@ interface Me {
   data: { id: string; username: string; name: string; profile_image_url?: string };
 }
 
+/** What an HTTP failure from X means to the person reading the post's error line. */
+export function xError(err: unknown, label: string): unknown {
+  if (!(err instanceof HttpError)) return err;
+  if (err.status === 402) {
+    return new ProviderError(
+      `Your X developer account is out of API credits (${err.message}) — top up or raise the spending limit at console.x.com, then try again.`,
+      false,
+      "billing",
+    );
+  }
+  if (err.status === 401) {
+    return new ProviderError(`X no longer accepts this sign-in (${err.message}) — reconnect the channel.`, false, "auth");
+  }
+  return new ProviderError(`${label}: ${err.message}`, retryableStatus(err.status));
+}
+
 function tokenHeaders(creds: { clientId?: string; clientSecret?: string }): Record<string, string> {
   return creds.clientSecret ? { Authorization: basicAuth(creds.clientId ?? "", creds.clientSecret) } : {};
 }
@@ -38,24 +59,66 @@ function withExpiry(creds: ChannelCredentials, t: TokenResponse): ChannelCredent
   return next;
 }
 
-/** Fresh credentials: refreshes when the access token is (about to be) expired. */
-async function freshCreds(creds: ChannelCredentials): Promise<ChannelCredentials> {
-  const expired = !creds.expiresAt || new Date(creds.expiresAt).getTime() <= Date.now();
-  if (!expired) return creds;
-  if (!creds.refreshToken) throw new ProviderError("The X session expired — reconnect the channel.", false);
+/*
+ * X rotates refresh tokens: a refresh answers with a new one and the one just
+ * used stops working. So a refresh is never made twice with the same token —
+ * a second caller waits for the first (`inflight`), and a caller still holding
+ * a copy from before a rotation is handed the rotated set (`rotated`, old
+ * refresh token → what replaced it). "Publish all now" on the catch-up sheet
+ * starts every missed post at once, which is exactly two refreshes of one
+ * token.
+ */
+const inflight = new Map<string, Promise<ChannelCredentials>>();
+const rotated = new Map<string, ChannelCredentials>();
+const ROTATIONS_KEPT = 32;
+
+function remember(used: string, next: ChannelCredentials): void {
+  if (!next.refreshToken || next.refreshToken === used) return;
+  rotated.set(used, next);
+  while (rotated.size > ROTATIONS_KEPT) rotated.delete(rotated.keys().next().value as string);
+}
+
+function latest(creds: ChannelCredentials): ChannelCredentials {
+  let current = creds;
+  for (let hop = 0; hop < ROTATIONS_KEPT && current.refreshToken && rotated.has(current.refreshToken); hop += 1) {
+    current = rotated.get(current.refreshToken)!;
+  }
+  return current;
+}
+
+async function refresh(creds: ChannelCredentials, refreshToken: string): Promise<ChannelCredentials> {
   try {
     const t = await postForm<TokenResponse>(
       TOKEN,
-      { grant_type: "refresh_token", refresh_token: creds.refreshToken, client_id: creds.clientId ?? "" },
+      { grant_type: "refresh_token", refresh_token: refreshToken, client_id: creds.clientId ?? "" },
       tokenHeaders(creds),
     );
-    return withExpiry(creds, t);
+    const next = withExpiry(creds, t);
+    remember(refreshToken, next);
+    return next;
   } catch (err) {
     if (err instanceof HttpError && (err.status === 400 || err.status === 401)) {
-      throw new ProviderError("X refused to refresh the session — reconnect the channel.", false);
+      throw new ProviderError(`X refused to refresh the session (${err.message}) — reconnect the channel.`, false, "auth");
     }
-    throw err;
+    throw xError(err, "X session refresh");
   }
+}
+
+/** Fresh credentials: refreshes when the access token is (about to be) expired, and stores what it got at once. */
+export async function freshCreds(creds: ChannelCredentials, save?: SaveCreds): Promise<ChannelCredentials> {
+  const current = latest(creds);
+  const expired = !current.expiresAt || new Date(current.expiresAt).getTime() <= Date.now();
+  if (!expired) return current;
+  const refreshToken = current.refreshToken;
+  if (!refreshToken) throw new ProviderError("The X session expired — reconnect the channel.", false, "auth");
+  let pending = inflight.get(refreshToken);
+  if (!pending) {
+    pending = refresh(current, refreshToken).finally(() => inflight.delete(refreshToken));
+    inflight.set(refreshToken, pending);
+  }
+  const next = await pending;
+  await save?.(next);
+  return next;
 }
 
 function category(media: LoadedMedia): string {
@@ -66,40 +129,44 @@ function category(media: LoadedMedia): string {
 
 async function uploadMedia(token: string, media: LoadedMedia): Promise<string> {
   const h = bearer(token);
-  const init = await postJson<{ data: { id: string } }>(
-    `${API}/media/upload/initialize`,
-    { media_type: media.item.mime, total_bytes: media.bytes.length, media_category: category(media) },
-    h,
-  );
-  const id = init.data.id;
-  const CHUNK = 4 * 1024 * 1024;
-  for (let i = 0, seg = 0; i < media.bytes.length; i += CHUNK, seg += 1) {
-    const form = new FormData();
-    form.append("segment_index", String(seg));
-    form.append("media", fileFromBytes(media.bytes.subarray(i, i + CHUNK), media.item.name, media.item.mime));
-    const res = await sfetch(`${API}/media/upload/${id}/append`, { method: "POST", headers: h, body: form });
-    if (!res.ok) throw new ProviderError(`X media upload: ${await describeResponse(res)}`, retryableStatus(res.status));
-  }
-  const fin = await postJson<{ data: { id: string; processing_info?: { state: string; check_after_secs?: number } } }>(
-    `${API}/media/upload/${id}/finalize`,
-    {},
-    h,
-  );
-  let info = fin.data.processing_info;
-  for (let i = 0; info && info.state !== "succeeded" && i < 20; i += 1) {
-    if (info.state === "failed") throw new ProviderError("X could not process the media.", false);
-    const wait = (info.check_after_secs ?? 2) * 1000;
-    await new Promise((r) => setTimeout(r, wait));
-    const st = await getJson<{ data: { processing_info?: { state: string; check_after_secs?: number } } }>(
-      `${API}/media/upload?command=STATUS&media_id=${id}`,
+  try {
+    const init = await postJson<{ data: { id: string } }>(
+      `${API}/media/upload/initialize`,
+      { media_type: media.item.mime, total_bytes: media.bytes.length, media_category: category(media) },
       h,
     );
-    info = st.data.processing_info;
+    const id = init.data.id;
+    const CHUNK = 4 * 1024 * 1024;
+    for (let i = 0, seg = 0; i < media.bytes.length; i += CHUNK, seg += 1) {
+      const form = new FormData();
+      form.append("segment_index", String(seg));
+      form.append("media", fileFromBytes(media.bytes.subarray(i, i + CHUNK), media.item.name, media.item.mime));
+      const res = await sfetch(`${API}/media/upload/${id}/append`, { method: "POST", headers: h, body: form });
+      if (!res.ok) throw new HttpError(res.status, await describeResponse(res), "");
+    }
+    const fin = await postJson<{ data: { id: string; processing_info?: { state: string; check_after_secs?: number } } }>(
+      `${API}/media/upload/${id}/finalize`,
+      {},
+      h,
+    );
+    let info = fin.data.processing_info;
+    for (let i = 0; info && info.state !== "succeeded" && i < 20; i += 1) {
+      if (info.state === "failed") throw new ProviderError("X could not process the media.", false);
+      const wait = (info.check_after_secs ?? 2) * 1000;
+      await new Promise((r) => setTimeout(r, wait));
+      const st = await getJson<{ data: { processing_info?: { state: string; check_after_secs?: number } } }>(
+        `${API}/media/upload?command=STATUS&media_id=${id}`,
+        h,
+      );
+      info = st.data.processing_info;
+    }
+    if (media.alt ?? media.item.alt) {
+      await postJson(`${API}/media/metadata`, { id, metadata: { alt_text: { text: (media.alt ?? media.item.alt ?? "").slice(0, 1000) } } }, h).catch(() => undefined);
+    }
+    return id;
+  } catch (err) {
+    throw xError(err, "X media upload");
   }
-  if (media.alt ?? media.item.alt) {
-    await postJson(`${API}/media/metadata`, { id, metadata: { alt_text: { text: (media.alt ?? media.item.alt ?? "").slice(0, 1000) } } }, h).catch(() => undefined);
-  }
-  return id;
 }
 
 async function tweet(token: string, text: string, media: LoadedMedia[], replyTo: string | null): Promise<string> {
@@ -114,8 +181,7 @@ async function tweet(token: string, text: string, media: LoadedMedia[], replyTo:
     const out = await postJson<{ data: { id: string } }>(`${API}/tweets`, body, bearer(token));
     return out.data.id;
   } catch (err) {
-    if (err instanceof HttpError) throw new ProviderError(`X: ${err.message}`, retryableStatus(err.status));
-    throw err;
+    throw xError(err, "X");
   }
 }
 
@@ -141,9 +207,13 @@ export const x: Provider = {
         code_verifier: auth.verifier ?? "",
       },
       tokenHeaders({ clientId, clientSecret }),
-    );
+    ).catch((err: unknown) => {
+      throw xError(err, "X sign-in");
+    });
     const creds = withExpiry({ clientId, clientSecret }, t);
-    const me = await getJson<Me>(`${API}/users/me?user.fields=profile_image_url`, bearer(creds.accessToken ?? ""));
+    const me = await getJson<Me>(`${API}/users/me?user.fields=profile_image_url`, bearer(creds.accessToken ?? "")).catch((err: unknown) => {
+      throw xError(err, "X account lookup");
+    });
     return {
       channel: {
         provider: "x",
@@ -157,13 +227,15 @@ export const x: Provider = {
       avatarUrl: me.data.profile_image_url?.replace("_normal", "_400x400") ?? null,
     };
   },
-  async verify(_channel, creds) {
-    const fresh = await freshCreds(creds);
-    const me = await getJson<Me>(`${API}/users/me`, bearer(fresh.accessToken ?? ""));
+  async verify(_channel, creds, saveCreds) {
+    const fresh = await freshCreds(creds, saveCreds);
+    const me = await getJson<Me>(`${API}/users/me`, bearer(fresh.accessToken ?? "")).catch((err: unknown) => {
+      throw xError(err, "X account lookup");
+    });
     return { ok: true, message: `Signed in as @${me.data.username}.` };
   },
   async publish(input: PublishInput) {
-    const creds = await freshCreds(input.creds);
+    const creds = await freshCreds(input.creds, input.saveCreds);
     const token = creds.accessToken ?? "";
     const rootId = await tweet(token, input.content.text, input.media, null);
     let parent = rootId;

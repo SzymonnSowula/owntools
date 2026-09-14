@@ -28,6 +28,8 @@ src/
   recurrence.ts     repeat rules → next occurrence
   time.ts           week / month grids, ISO with offset, relative times
   scheduler.ts      the runner: due posts, publish, retries, repeats, catch-up
+  channelHealth.ts  saving rotated tokens at once, `channel.health`, "Test connection"
+  accounts.ts       which account a channel is (a reconnect lands on the same channel)
   runtime.ts        startSocialRuntime(): store + runner + `social-changed` listener
   ai.ts             in-app AI (Anthropic / OpenAI-compatible) with the user's key
   agent.ts          agent server info, token masking, setup snippets
@@ -170,6 +172,20 @@ owntools sits in the tray. Every 30 s (and after every `social-changed`)
 
 Notifications: in-app toast always; native notification (plugin
 `notification`) when `settings.notifications` is on.
+
+**Tokens and channel health.** X and Bluesky retire a refresh token when it
+is used, so a provider hands rotated credentials to `saveCreds` the moment a
+refresh succeeds — returning them only at the end of a successful publish
+lost them whenever the next call failed, and every retry then presented a
+dead token. X also never refreshes one token twice (`x.ts`: `inflight` +
+`rotated`), because "Publish all now" starts every missed post at once. A
+`ProviderError` with `kind: "auth" | "billing"` is written onto the channel as
+`channel.health` (the next success or a reconnect clears it); the calendar
+shows it above the week with the scheduled posts it takes down, the Channels
+page swaps the "live" pill for "signed out" / "out of credits", and `Reconnect`
+signs the *same* channel in again (`reconnectChannel`, refused for a different
+account) so its posts keep their channel id. X is pay-per-use: an empty credit
+balance answers 402 on everything but the token endpoint.
 
 ## Agent API (Rust: `src-tauri/src/social/`)
 

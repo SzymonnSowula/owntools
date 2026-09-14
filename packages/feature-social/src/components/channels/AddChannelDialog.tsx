@@ -1,6 +1,7 @@
 import { ArrowLeft, Check, ClipboardPaste, Copy, ExternalLink, Loader2, Search, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { logError } from "@core/errors";
+import { sameAccount } from "../../accounts";
 import { detectPaste, missingFields, type PasteMatch } from "../../connect";
 import { effortLabel, guideFor, type SetupGuide } from "../../guides";
 import { AVAILABILITY_LABEL, NETWORKS, countByAvailability, networkById, type NetworkDef } from "../../networks";
@@ -157,10 +158,14 @@ function ChatFinder({ token, onPick }: { token: string; onPick: (chat: TelegramC
 export function AddChannelDialog() {
   const open = useUi((s) => s.addChannelOpen);
   const setOpen = useUi((s) => s.setAddChannelOpen);
+  const reconnectId = useUi((s) => s.reconnectId);
   const settings = useSocialStore((s) => s.settings);
   const collections = useSocialStore((s) => s.collections);
+  const channels = useSocialStore((s) => s.channels);
   const addChannel = useSocialStore((s) => s.addChannel);
+  const reconnectChannel = useSocialStore((s) => s.reconnectChannel);
   const toast = useSocialStore((s) => s.toast);
+  const target = reconnectId ? (channels.find((c) => c.id === reconnectId) ?? null) : null;
 
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<FilterKey>("all");
@@ -210,16 +215,50 @@ export function AddChannelDialog() {
     setAuthorizeUrl(null);
   };
 
+  // Reconnect: straight to the network's form with the keys this device
+  // already holds (an X app's client id and secret), so signing in again is
+  // one button.
+  useEffect(() => {
+    if (!open || !target) return;
+    const net = networkById(target.provider);
+    const stored = useSocialStore.getState().credentials[target.id] ?? {};
+    const prefill: Record<string, string> = {};
+    for (const f of providerFor(net.id, simulate).fields) if (stored[f.key]) prefill[f.key] = stored[f.key]!;
+    pickNetwork(net, prefill);
+    setCollection(target.collection);
+    // Only when the dialog opens for a channel, not on every store change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, reconnectId]);
+
   const connect = async () => {
     if (!picked || !provider) return;
     setBusy(true);
     setError(null);
     try {
       const out = await provider.connect({ ...values }, (m) => setProgress(m));
+      if (target && sameAccount(target, out.channel) === false) {
+        throw new ProviderError(
+          `The browser signed in ${out.channel.handle}, but this channel is ${target.handle}. Switch to ${target.handle} on ${picked.name} and try again, or add ${out.channel.handle} as a channel of its own.`,
+          false,
+        );
+      }
       let avatar: { bytes: Uint8Array; mime: string } | null = null;
       if (out.avatarUrl && networkAvailable()) avatar = await fetchBytes(out.avatarUrl);
-      const ch = await addChannel({ ...out.channel, collection: collection.trim() || "Personal", disabled: false }, out.creds, avatar);
-      toast({ kind: "success", title: `${ch.displayName} connected`, body: ch.stub ? "Keys saved. Publishing to this network is not wired up yet." : simulate ? "Simulated — nothing was sent." : undefined });
+      // Signing in an account that is already here refreshes that channel
+      // rather than adding a twin the scheduled posts do not point at.
+      const existing = target ?? channels.find((c) => sameAccount(c, out.channel) === true) ?? null;
+      if (existing) {
+        const ch = (await reconnectChannel(existing.id, out.channel, out.creds, avatar)) ?? existing;
+        const waiting = useSocialStore.getState().posts.filter((p) => p.status === "scheduled" && p.channelIds.includes(ch.id)).length;
+        toast({
+          kind: "success",
+          title: `${ch.displayName} reconnected`,
+          body: waiting ? `Its ${waiting} scheduled post${waiting === 1 ? "" : "s"} go out as planned.` : "Same channel, new keys.",
+        });
+      } else {
+        const ch = await addChannel({ ...out.channel, collection: collection.trim() || "Personal", disabled: false }, out.creds, avatar);
+        toast({ kind: "success", title: `${ch.displayName} connected`, body: ch.stub ? "Keys saved. Publishing to this network is not wired up yet." : simulate ? "Simulated — nothing was sent." : undefined });
+      }
       setOpen(false);
     } catch (err) {
       if (err instanceof NeedsCode) {
@@ -248,10 +287,10 @@ export function AddChannelDialog() {
       open={open}
       onOpenChange={setOpen}
       size="medium"
-      title={picked ? `connect ${picked.name.toLowerCase()}` : "add channel"}
-      description="Choose a network and connect an account."
+      title={target ? `reconnect ${target.displayName.toLowerCase()}` : picked ? `connect ${picked.name.toLowerCase()}` : "add channel"}
+      description={target ? "Sign the channel in again; its posts keep pointing at it." : "Choose a network and connect an account."}
       headExtra={
-        picked ? (
+        picked && !target ? (
           <button className="sc-btn ghost sm" onClick={() => { setPicked(null); setError(null); setAuthorizeUrl(null); }}>
             <ArrowLeft /> All networks
           </button>
@@ -277,7 +316,7 @@ export function AddChannelDialog() {
               ) : null}
               <button className="sc-btn primary" onClick={() => void connect()} disabled={busy || !canSubmit}>
                 {busy ? <Loader2 className="animate-spin" /> : null}
-                {authorizeUrl ? "Finish" : picked.auth === "oauth-pkce" && !simulate ? "Sign in with the browser" : "Connect"}
+                {authorizeUrl ? "Finish" : picked.auth === "oauth-pkce" && !simulate ? (target ? "Sign in again" : "Sign in with the browser") : target ? "Reconnect" : "Connect"}
               </button>
             </div>
           </>
@@ -346,8 +385,20 @@ export function AddChannelDialog() {
               </div>
             </div>
           </div>
-          {!networkAvailable() ? <div className="sc-issue warning mb-4"><span>{DESKTOP_ONLY} A demo channel will be created instead.</span></div> : null}
-          {guide ? <Steps guide={guide} /> : picked.note && !simulate ? <div className="sc-issue warning mb-4"><span>{picked.note}</span></div> : null}
+          {!networkAvailable() ? <div className="sc-issue warning mb-4"><span>{DESKTOP_ONLY} {target ? "The reconnect is simulated." : "A demo channel will be created instead."}</span></div> : null}
+          {target ? (
+            <div className="mb-4 flex flex-col gap-2">
+              {target.health ? <div className="sc-issue error"><span>{target.health.message}</span></div> : null}
+              <div className="text-[12.5px] leading-5 text-muted">
+                Signing in again replaces the keys stored for <strong className="text-ink">{target.handle}</strong>. The channel keeps its name, collection and scheduled posts.
+                {picked.auth === "oauth-pkce" ? ` Sign in as ${target.handle} — whoever the browser is logged in as is who gets connected.` : ""}
+              </div>
+            </div>
+          ) : guide ? (
+            <Steps guide={guide} />
+          ) : picked.note && !simulate ? (
+            <div className="sc-issue warning mb-4"><span>{picked.note}</span></div>
+          ) : null}
           {picked.auth === "oauth-pkce" && !simulate && !guide ? (
             <div className="mb-4 rounded-[12px] border border-line bg-paper p-3 text-[12px]">
               <div className="font-semibold">Redirect URL for your app</div>
@@ -392,14 +443,16 @@ export function AddChannelDialog() {
                 </span>
               </div>
             ) : null}
-            <Field label="Collection" hint="Groups channels in the sidebar — Personal, Work, a client…">
-              <input className="sc-field" list="sc-collections" value={collection} onChange={(e) => setCollection(e.target.value)} />
-              <datalist id="sc-collections">
-                {collections.map((c) => (
-                  <option key={c} value={c} />
-                ))}
-              </datalist>
-            </Field>
+            {target ? null : (
+              <Field label="Collection" hint="Groups channels in the sidebar — Personal, Work, a client…">
+                <input className="sc-field" list="sc-collections" value={collection} onChange={(e) => setCollection(e.target.value)} />
+                <datalist id="sc-collections">
+                  {collections.map((c) => (
+                    <option key={c} value={c} />
+                  ))}
+                </datalist>
+              </Field>
+            )}
             {error ? <div className="sc-issue error"><span>{error}</span></div> : null}
           </div>
         </div>

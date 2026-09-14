@@ -231,6 +231,24 @@ pub fn check_post(root: &Path, body: &Value) -> Result<Value, ApiError> {
         if ch.get("disabled").and_then(Value::as_bool).unwrap_or(false) {
             issues.push(issue("error", format!("{} is disabled.", ch.get("displayName").and_then(Value::as_str).unwrap_or(ch_id))));
         }
+        // `health` is what the app learned from the channel's last publish or
+        // connection test. Signed out blocks like disabled does; billing is a
+        // warning, because credits can be added before the post's time.
+        if let Some(health) = ch.get("health") {
+            let label = ch.get("displayName").and_then(Value::as_str).unwrap_or(ch_id);
+            let said = health.get("message").and_then(Value::as_str).unwrap_or("");
+            match health.get("kind").and_then(Value::as_str) {
+                Some("auth") => issues.push(issue(
+                    "error",
+                    format!("{label} is signed out — the person has to reconnect it in owntools → social → Channels. {name} said: {said}"),
+                )),
+                Some("billing") => issues.push(issue(
+                    "warning",
+                    format!("{label}'s last post was refused for API billing; it will fail again unless that is sorted before its time. {name} said: {said}"),
+                )),
+                _ => {}
+            }
+        }
         let ok = !issues.iter().any(|i| i.get("level").and_then(Value::as_str) == Some("error"));
         worst_ok &= ok;
         results.push(json!({
@@ -348,7 +366,12 @@ pub fn guide(root: &Path) -> String {
                 c.get("id").and_then(Value::as_str).unwrap_or("?"),
                 c.get("displayName").and_then(Value::as_str).unwrap_or("?"),
                 c.get("provider").and_then(Value::as_str).unwrap_or("?"),
-                if c.get("disabled").and_then(Value::as_bool).unwrap_or(false) { " (disabled)" } else { "" },
+                match (c.get("disabled").and_then(Value::as_bool).unwrap_or(false), c.pointer("/health/kind").and_then(Value::as_str)) {
+                    (true, _) => " (disabled)",
+                    (false, Some("auth")) => " (signed out — the person has to reconnect it)",
+                    (false, Some("billing")) => " (last post refused for API billing)",
+                    _ => "",
+                },
             )
         })
         .collect();
@@ -464,6 +487,27 @@ mod tests {
         assert_eq!(x["ok"], json!(false));
         assert_eq!(x["characters"], json!(290));
         assert_eq!(bsky["ok"], json!(true));
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn check_post_passes_on_what_the_app_knows_about_a_channel() {
+        let root = workspace("health");
+        let mut file: Value = serde_json::from_str(&fs::read_to_string(root.join("channels.json")).unwrap()).unwrap();
+        file["channels"][0]["health"] = json!({ "kind": "auth", "message": "X refused to refresh the session", "at": "2026-09-14T14:47:19Z" });
+        file["channels"][1]["health"] = json!({ "kind": "billing", "message": "402: credits depleted", "at": "2026-09-14T14:46:35Z" });
+        fs::write(root.join("channels.json"), serde_json::to_string(&file).unwrap()).unwrap();
+
+        let out = check_post(&root, &json!({ "text": "hello", "channelIds": ["c_x", "c_bsky"] })).expect("check");
+        let channels = out["channels"].as_array().expect("channels");
+        let x = channels.iter().find(|c| c["channelId"] == json!("c_x")).expect("x");
+        let bsky = channels.iter().find(|c| c["channelId"] == json!("c_bsky")).expect("bluesky");
+        // Signed out blocks; out of credits warns but still lets the agent schedule.
+        assert_eq!(x["ok"], json!(false));
+        assert!(x["issues"][0]["message"].as_str().unwrap().contains("signed out"));
+        assert_eq!(bsky["ok"], json!(true));
+        assert_eq!(bsky["issues"][0]["level"], json!("warning"));
+        assert!(guide(&root).contains("(signed out"));
         let _ = fs::remove_dir_all(&root);
     }
 

@@ -1,16 +1,16 @@
 import { confirmDialog } from "@ui/Dialog";
-import { FolderInput, Loader2, MoreHorizontal, Plug, Plus, RefreshCw, Settings2, Trash2, X } from "lucide-react";
+import { FolderInput, KeyRound, Loader2, MoreHorizontal, Plug, Plus, RefreshCw, Settings2, Trash2, X } from "lucide-react";
 import { useState } from "react";
-import { logError } from "@core/errors";
+import { checkChannel } from "../../channelHealth";
 import { AVAILABILITY_LABEL, networkById } from "../../networks";
-import { providerFor } from "../../providers";
-import { networkAvailable } from "../../providers/http";
+import { isLive } from "../../providers";
 import { DAY_NAMES, DEFAULT_SLOTS, cloneSlots, describeSlots } from "../../slots";
 import { useSocialStore } from "../../store";
 import type { Channel, ChannelPreferences, QueueSlot } from "../../types";
 import { useUi } from "../../ui";
 import { Avatar } from "../Avatar";
 import { Dialog, EmptyState, Field, Menu, Switch } from "../primitives";
+import { HealthNote } from "./HealthNote";
 
 /**
  * Connected channels, grouped by collection. Enable / disable, per-channel
@@ -193,36 +193,36 @@ function MoveDialog({ channel, onClose }: { channel: Channel; onClose: () => voi
   );
 }
 
+/** The pill next to a channel's name: what it is, or what is wrong with it. */
+function channelPill(channel: Channel, net: ReturnType<typeof networkById>): { className: string; label: string } {
+  if (channel.meta.simulated === "true") return { className: "sim", label: "simulated" };
+  if (channel.stub) return { className: "byo", label: "keys only" };
+  if (channel.health?.kind === "auth") return { className: "err", label: "signed out" };
+  if (channel.health?.kind === "billing") return { className: "warn", label: "out of credits" };
+  return { className: "live", label: AVAILABILITY_LABEL[net.availability] === "live" ? "live" : "connected" };
+}
+
 function ChannelRow({ channel }: { channel: Channel }) {
   const updateChannel = useSocialStore((s) => s.updateChannel);
   const removeChannel = useSocialStore((s) => s.removeChannel);
-  const credentials = useSocialStore((s) => s.credentials);
-  const settings = useSocialStore((s) => s.settings);
   const posts = useSocialStore((s) => s.posts);
   const toast = useSocialStore((s) => s.toast);
+  const openReconnect = useUi((s) => s.openReconnect);
   const [dialog, setDialog] = useState<"prefs" | "move" | null>(null);
   const [testing, setTesting] = useState(false);
   const net = networkById(channel.provider);
   const count = posts.filter((p) => p.channelIds.includes(channel.id) && p.status !== "cancelled").length;
   const published = posts.filter((p) => p.results[channel.id]?.status === "ok").length;
-  const provider = providerFor(channel.provider, settings.simulate || !networkAvailable());
   const simulated = channel.meta.simulated === "true";
+  const pill = channelPill(channel, net);
+  const canReconnect = !channel.stub && isLive(channel.provider);
 
   const test = async () => {
-    if (!provider.verify) {
-      toast({ kind: "info", title: "No test for this network", body: "Webhook networks only answer when a message is sent." });
-      return;
-    }
     setTesting(true);
-    try {
-      const r = await provider.verify(channel, credentials[channel.id] ?? {});
-      toast({ kind: r.ok ? "success" : "error", title: r.ok ? "Connection works" : "Connection failed", body: r.message });
-    } catch (err) {
-      logError("social", "verify", err);
-      toast({ kind: "error", title: "Connection failed", body: err instanceof Error ? err.message : String(err) });
-    } finally {
-      setTesting(false);
-    }
+    const r = await checkChannel(channel);
+    setTesting(false);
+    if (!r.tested) toast({ kind: "info", title: "No test for this network", body: r.message });
+    else toast({ kind: r.ok ? "success" : "error", title: r.ok ? "Connection works" : "Connection failed", body: r.message });
   };
 
   const disconnect = async () => {
@@ -239,7 +239,7 @@ function ChannelRow({ channel }: { channel: Channel }) {
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <span className="truncate text-[13.5px] font-semibold">{channel.displayName}</span>
-          <span className={`sc-pill ${simulated ? "sim" : channel.stub ? "byo" : "live"}`}>{simulated ? "simulated" : channel.stub ? "keys only" : AVAILABILITY_LABEL[net.availability] === "live" ? "live" : "connected"}</span>
+          <span className={`sc-pill ${pill.className}`}>{pill.label}</span>
         </div>
         <div className="truncate text-[12px] text-muted">
           {net.name} · {channel.handle}
@@ -248,6 +248,7 @@ function ChannelRow({ channel }: { channel: Channel }) {
           {channel.preferences.signature ? " · signature" : ""}
           {channel.slots?.length ? ` · queue ${describeSlots(channel.slots)}` : ""}
         </div>
+        <HealthNote channel={channel} />
       </div>
       <Switch checked={!channel.disabled} onCheckedChange={(v) => void updateChannel(channel.id, { disabled: !v })} label="Enabled" />
       <Menu
@@ -259,6 +260,7 @@ function ChannelRow({ channel }: { channel: Channel }) {
         items={[
           { key: "prefs", label: "Preferences…", icon: <Settings2 />, onSelect: () => setDialog("prefs") },
           { key: "test", label: "Test connection", icon: <RefreshCw />, onSelect: () => void test(), disabled: channel.stub || simulated },
+          { key: "reconnect", label: "Reconnect…", icon: <KeyRound />, onSelect: () => openReconnect(channel.id), disabled: !canReconnect },
           { key: "move", label: "Move to collection…", icon: <FolderInput />, onSelect: () => setDialog("move") },
           { key: "remove", label: "Disconnect", icon: <Trash2 />, danger: true, sepBefore: true, onSelect: () => void disconnect() },
         ]}

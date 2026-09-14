@@ -36,7 +36,7 @@ fn tools() -> Value {
     json!([
         {
             "name": "list_channels",
-            "description": "Connected social channels: id, provider (network), handle, displayName, disabled. Use the ids in create_post.",
+            "description": "Connected social channels: id, provider (network), handle, displayName, disabled, and health when the last publish or connection test failed on the channel itself (kind auth = signed out, the person must reconnect it; kind billing = the network refused to bill the call). Use the ids in create_post.",
             "inputSchema": { "type": "object", "properties": {}, "additionalProperties": false }
         },
         {

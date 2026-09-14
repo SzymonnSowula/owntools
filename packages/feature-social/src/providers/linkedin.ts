@@ -97,7 +97,7 @@ export const linkedin: Provider = {
   async publish(input: PublishInput) {
     const token = input.creds.accessToken ?? "";
     if (input.creds.expiresAt && new Date(input.creds.expiresAt).getTime() <= Date.now()) {
-      throw new ProviderError("The LinkedIn token expired (they last 60 days) — reconnect the channel.", false);
+      throw new ProviderError("The LinkedIn token expired (they last 60 days) — reconnect the channel.", false, "auth");
     }
     const author = input.channel.meta.authorUrn;
     if (!author) throw new ProviderError("This channel has no author URN — reconnect it.", false);

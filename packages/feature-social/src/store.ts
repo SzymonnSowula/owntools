@@ -25,6 +25,7 @@ import type {
   ActivityEntry,
   Channel,
   ChannelCredentials,
+  ChannelHealth,
   ChannelsFile,
   CredentialsFile,
   MediaFile,
@@ -94,7 +95,21 @@ export interface SocialState {
   saveVoice(markdown: string): Promise<void>;
 
   addChannel(channel: Omit<Channel, "id" | "createdAt" | "updatedAt">, creds: ChannelCredentials, avatar?: { bytes: Uint8Array; mime: string } | null): Promise<Channel>;
+  /**
+   * Fresh credentials for a channel that is already there, after signing in
+   * again: same id, so the posts aimed at it keep their channel. The name the
+   * person gave it stays; the handle and the network's facts are refreshed and
+   * the health note goes.
+   */
+  reconnectChannel(
+    id: string,
+    fresh: Pick<Channel, "handle" | "meta">,
+    creds: ChannelCredentials,
+    avatar?: { bytes: Uint8Array; mime: string } | null,
+  ): Promise<Channel | null>;
   updateChannel(id: string, patch: Partial<Channel>): Promise<void>;
+  /** Writes or clears `channel.health`; a no-op when it already says that. */
+  setChannelHealth(id: string, health: ChannelHealth | null): Promise<void>;
   saveCredentials(id: string, creds: ChannelCredentials): Promise<void>;
   removeChannel(id: string): Promise<void>;
   renameCollection(from: string, to: string): Promise<void>;
@@ -394,6 +409,59 @@ export const useSocialStore = create<SocialState>((set, get) => ({
       set({ channels: file.channels, collections: file.collections, credentials: cf.channels });
     });
     return full;
+  },
+
+  async reconnectChannel(id, fresh, creds, avatar) {
+    const { storage } = get();
+    let out: Channel | null = null;
+    await withLock("channels", async () => {
+      const file = await readJson(storage, PATHS.channels, parseChannelsFile);
+      const i = file.channels.findIndex((c) => c.id === id);
+      if (i < 0) return;
+      const current = file.channels[i]!;
+      let avatarRel = current.avatar;
+      if (avatar) {
+        const rel = `${PATHS.avatars}/${id}.${extensionFor(avatar.mime)}`;
+        try {
+          await storage.writeBinary(rel, avatar.bytes);
+          if (current.avatar && current.avatar !== rel) await storage.remove(current.avatar).catch(() => undefined);
+          avatarRel = rel;
+        } catch (err) {
+          logError("social", "avatar write", err);
+        }
+      }
+      const next: Channel = { ...current, handle: fresh.handle || current.handle, meta: { ...current.meta, ...fresh.meta }, avatar: avatarRel, updatedAt: nowIso() };
+      delete next.health;
+      file.channels[i] = next;
+      await writeJson(storage, PATHS.channels, file);
+      await withLock("credentials", async () => {
+        const cf = await readJson(storage, PATHS.credentials, parseCredentialsFile);
+        cf.channels[id] = creds;
+        await writeJson(storage, PATHS.credentials, cf);
+        set({ credentials: cf.channels });
+      });
+      set({ channels: file.channels, collections: file.collections });
+      out = next;
+    });
+    return out;
+  },
+
+  async setChannelHealth(id, health) {
+    const known = get().channels.find((c) => c.id === id);
+    if (!known) return;
+    if (health ? known.health?.kind === health.kind && known.health.message === health.message : !known.health) return;
+    const { storage } = get();
+    await withLock("channels", async () => {
+      const file = await readJson(storage, PATHS.channels, parseChannelsFile);
+      const i = file.channels.findIndex((c) => c.id === id);
+      if (i < 0) return;
+      const next: Channel = { ...file.channels[i]!, updatedAt: nowIso() };
+      if (health) next.health = health;
+      else delete next.health;
+      file.channels[i] = next;
+      await writeJson(storage, PATHS.channels, file);
+      set({ channels: file.channels, collections: file.collections });
+    });
   },
 
   async updateChannel(id, patch) {

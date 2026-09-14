@@ -7,6 +7,7 @@ import { formatMonthTitle, formatWeekTitle, fromIso, monthGrid, moveToDay, nextD
 import type { Post, PostStatus } from "../../types";
 import { STATUS_LABEL, postMatchesFilters, useUi, type CalendarView } from "../../ui";
 import { Avatar } from "../Avatar";
+import { ChannelAlerts } from "../channels/HealthNote";
 import { EmptyState, Menu } from "../primitives";
 import { ListView } from "./ListView";
 import { MonthView } from "./MonthView";
@@ -125,6 +126,7 @@ function Sidebar() {
                             <span className="sc-channel-name">{c.displayName}</span>
                             <span className="sc-channel-handle">{c.handle}</span>
                           </span>
+                          {c.health ? <span className={`sc-health-dot ${c.health.kind}`} title={c.health.message} aria-label={c.health.kind === "auth" ? "Signed out" : "Out of API credits"} /> : null}
                         </button>
                       );
                     })
@@ -284,6 +286,7 @@ export function CalendarPage() {
             </div>
           </div>
         </div>
+        <ChannelAlerts />
         {channels.length === 0 && posts.length === 0 ? (
           <div className="sc-content sc-desk grid place-items-center">
             <div className="sc-card max-w-[440px]">

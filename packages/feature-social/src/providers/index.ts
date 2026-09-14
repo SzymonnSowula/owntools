@@ -115,5 +115,5 @@ export function isLive(id: string): boolean {
 }
 
 export { ProviderError } from "./types";
-export type { ConnectField, ConnectOutput, LoadedMedia, Provider, PublishInput, PublishOutput } from "./types";
+export type { ConnectField, ConnectOutput, LoadedMedia, Provider, ProviderErrorKind, PublishInput, PublishOutput, SaveCreds } from "./types";
 export { NeedsCode } from "./mastodon";

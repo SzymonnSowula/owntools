@@ -29,6 +29,8 @@ interface UiState {
   filters: Filters;
   composer: ComposerState;
   addChannelOpen: boolean;
+  /** Set while the add-channel dialog signs an existing channel in again (same id, new credentials). */
+  reconnectId: string | null;
   /** Post id whose hover preview is showing. */
   setPage(page: Page): void;
   setView(view: CalendarView): void;
@@ -37,6 +39,7 @@ interface UiState {
   openComposer(postId: string | null, seed?: Partial<Post> | null): void;
   closeComposer(): void;
   setAddChannelOpen(open: boolean): void;
+  openReconnect(channelId: string): void;
 }
 
 export const useUi = create<UiState>((set) => ({
@@ -46,13 +49,15 @@ export const useUi = create<UiState>((set) => ({
   filters: { channelIds: [], tagIds: [], statuses: [] },
   composer: { open: false, postId: null, seed: null },
   addChannelOpen: false,
+  reconnectId: null,
   setPage: (page) => set({ page }),
   setView: (view) => set({ view }),
   setAnchor: (anchor) => set({ anchor }),
   setFilters: (patch) => set((s) => ({ filters: { ...s.filters, ...patch } })),
   openComposer: (postId, seed = null) => set({ composer: { open: true, postId, seed } }),
   closeComposer: () => set((s) => ({ composer: { ...s.composer, open: false } })),
-  setAddChannelOpen: (addChannelOpen) => set({ addChannelOpen }),
+  setAddChannelOpen: (addChannelOpen) => set({ addChannelOpen, reconnectId: null }),
+  openReconnect: (channelId) => set({ addChannelOpen: true, reconnectId: channelId }),
 }));
 
 /** Object/asset URL of a media item, or null while loading / when missing. */

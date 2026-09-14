@@ -97,8 +97,23 @@ export interface Channel {
   meta: Record<string, string>;
   /** True for channels whose provider is only a key form today. */
   stub?: boolean;
+  /** Present while the channel's last publish or check failed for a reason about the channel, not the post. */
+  health?: ChannelHealth;
   createdAt: string;
   updatedAt: string;
+}
+
+/**
+ * Why a connected channel will not publish: `auth` = the sign-in stopped
+ * working (reconnect it), `billing` = the network's API account refused to
+ * pay for the call (X's credits). Written by the runner and "Test connection",
+ * cleared by the next success or a reconnect — a channel that only says
+ * "connected" while every post to it fails is the bug this exists for.
+ */
+export interface ChannelHealth {
+  kind: "auth" | "billing";
+  message: string;
+  at: string;
 }
 
 /** Secrets, one record per channel; stored in credentials.json. */

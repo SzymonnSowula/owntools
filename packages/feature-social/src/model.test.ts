@@ -64,6 +64,19 @@ describe("model parsers", () => {
     expect(f.channels[1]!.displayName).toBe("@b");
   });
 
+  it("keeps a channel's health note and drops one it cannot read", () => {
+    const f = parseChannelsFile({
+      channels: [
+        { id: "a", provider: "x", health: { kind: "auth", message: "X refused to refresh the session", at: "2026-09-14T14:47:19.463Z" } },
+        { id: "b", provider: "x", health: { kind: "mood", message: "?" } },
+        { id: "c", provider: "x", updatedAt: "2026-09-14T00:00:00.000Z", health: { kind: "billing", message: "402: credits depleted" } },
+      ],
+    });
+    expect(f.channels[0]!.health).toEqual({ kind: "auth", message: "X refused to refresh the session", at: "2026-09-14T14:47:19.463Z" });
+    expect(f.channels[1]!.health).toBeUndefined();
+    expect(f.channels[2]!.health?.at).toBe("2026-09-14T00:00:00.000Z");
+  });
+
   it("falls back to default tags and settings", () => {
     expect(parseTagsFile(null).tags.length).toBeGreaterThan(0);
     expect(parseTagsFile({ tags: [{ id: "t", name: "x", color: "red" }] }).tags[0]!.color).toBe("#0a84ff");

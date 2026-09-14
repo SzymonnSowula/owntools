@@ -1,6 +1,7 @@
 import { logError, logInfo } from "@core/errors";
 import { notify } from "@feature-focus/lib/notify";
 import { makeEntry } from "./activity";
+import { credentialSaver, noteChannelHealth } from "./channelHealth";
 import { applySignature, flattenThread, resolveContent, validateForChannel } from "./limits";
 import { newPost, nowIso, postSummary } from "./model";
 import { networkById } from "./networks";
@@ -160,17 +161,20 @@ export async function publishPost(id: string, opts: { manual?: boolean } = {}): 
           content,
           media: await loadMedia(content.media, byId),
           threadMedia: await Promise.all(content.thread.map((part) => loadMedia(part.media, byId))),
+          saveCreds: credentialSaver(channelId),
         });
         if (out.creds) await useSocialStore.getState().saveCredentials(channelId, out.creds);
         const r: PublishResult = { status: "ok", url: out.url, remoteId: out.remoteId, at: nowIso() };
         if (settings.simulate) r.simulated = true;
         results[channelId] = r;
         logInfo("social", `published ${id} → ${channel.provider} ${out.url ?? out.remoteId ?? ""}`);
+        await noteChannelHealth(channelId, null);
       } catch (err) {
         const retryable = err instanceof ProviderError ? err.retryable : true;
         const message = err instanceof Error ? err.message : String(err);
         results[channelId] = { status: "error", error: `${retryable ? "[retry] " : ""}${message}`, at: nowIso() };
         logError("social", `publish ${id} → ${channel.provider}`, err);
+        await noteChannelHealth(channelId, err);
       }
     }
     const settled = await store.updatePost(id, (p) => settle({ ...p, status: "publishing" }, results, new Date()));
