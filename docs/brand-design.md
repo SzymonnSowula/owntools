@@ -131,17 +131,20 @@ wordmark), lowercase links, ThemeToggle (sun/moon), accent CTA.
 - `.floaty` — hero windows bob ±9px / 7s, per-card `--tilt` and
   negative `animation-delay`.
 - `.rec-dot` — recording pulse, 1.6s.
-- **demo player** (`DemoZoom.tsx` + `.demo-*`): the hero demo-take.mp4
-  tile zooms on hover/click to a near-fullscreen window (portal to body —
-  the hero is an isolated stacking context) "playing" a CSS-only launch
-  video: our own landing inside the frame, ken-burns auto-zooms, a fake
-  cursor, launch-style intro card, REC chrome. Swap the SiteShot replica
-  for a real `<video>` when we record one.
+- **demo player** (`DemoZoom.tsx` + `.demo-*`): the hero's about-us.mp4
+  tile (named demo-take.mp4 until 2026-09-13) zooms to a near-fullscreen
+  window (portal to body — the hero is an isolated stacking context). With
+  `web/public/shots/about-us.mp4` in place (+ a same-name poster, picked up
+  at build time) a click plays that clip with sound and controls; until
+  then hover/click "plays" a CSS-only launch video: our own landing inside
+  the frame, ken-burns auto-zooms, a fake cursor, launch-style intro card,
+  REC chrome.
 - Everything honors `prefers-reduced-motion`.
 
 ## 6. Landing page composition (implemented)
 
-1. **hero** — sky + ascii, floating tool windows + stickers, display
+1. **hero** — sky + ascii, one floating window (the about-us.mp4 video
+   tile, right; the focus timer opposite it was removed 2026-09-13), display
    headline, `btn-light` (download for windows) + `btn-ghost` (free
    tool), "also for macOS — soon", glass info panel.
 2. **01 · one app bento** — numbered mono header with rule line, then a
@@ -172,8 +175,15 @@ wordmark), lowercase links, ThemeToggle (sun/moon), accent CTA.
    (the `LIVE IN BROWSER` badge left with the web launch video maker,
    2026-09-12).
 9. **privacy statement** — centered display type.
-10. **pricing** — `.sky-day`, 2 forced-light plan windows ($0 / $49
-    once + "popular" tab), maker-discount terminal.
+10. **the math** (2026-09-13) — `SubscriptionBill.tsx`: a theme-aware
+    `the-bill.csv` window listing the ten subscriptions the tools replace
+    ($964.93 a year, total in `text-alert`), then an accent strip with the
+    live owntools price; the check date sits in the window bar, no footnotes
+    under it (removed 2026-09-14), and a centred "see the launch prices" button.
+    **pricing** — `.sky-day`, 2 forced-light plan windows ($0 / the live
+    launch price with $49 struck + "popular" tab), a `launch.pricing` ladder
+    window (keys 1-10 $25 → 11-110 $35 → $49; current step outlined in
+    accent, gone steps struck), messages.log terminal.
 11. **faq** — accordion + "help.app" side window.
 12. **footer** — 4 link columns, giant outline wordmark.
 
@@ -205,6 +215,9 @@ wincard/WinDots language. To align with v2:
   specs.
 - Icons: **lucide-react**, 15–17px, stroke, tinted via `currentColor`.
 - Brand glyph: sailboat (sail + hull) — see `WinDots.tsx` BRAND_GLYPH.
+- App icon (2026-09-13): "sky" — the hero's sky with the sail on the
+  horizon, `apps/desktop/src-tauri/app-icon.svg` (+ hand-drawn 16/24/32);
+  regenerate with `node scripts/app-icon.mjs`.
 - Watermark stays "made with owntools".
 
 ## 9. Voice & positioning
