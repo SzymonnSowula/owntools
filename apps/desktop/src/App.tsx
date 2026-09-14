@@ -35,6 +35,7 @@ const TOOLS: readonly Tool[] = [
   "board",
   "social",
   "disk",
+  "settings",
 ];
 
 const CreateModule = lazy(() => import("./shell/CreateModule"));
@@ -46,6 +47,9 @@ const SocialModule = lazy(() => import("@feature-social/SocialView"));
 const DiskModule = lazy(() => import("@feature-disk/DiskView"));
 const MeetModule = lazy(() => import("@feature-meet/MeetView"));
 const CaptureModule = lazy(() => import("@feature-capture/CaptureView"));
+const SettingsModule = lazy(() =>
+  import("@feature-focus/features/settings/SettingsView").then((m) => ({ default: m.SettingsView })),
+);
 
 function LazyPane({ children }: { children: React.ReactNode }) {
   return (
@@ -69,6 +73,7 @@ export default function App() {
   const toggleTimer = useAppStore((s) => s.toggleTimer);
   const tool = useShellStore((s) => s.tool);
   const hubTool = useShellStore((s) => s.hubTool);
+  const settingsTarget = useShellStore((s) => s.settingsTarget);
   const [showOnboarding, setShowOnboarding] = useState(() => !isOnboarded());
 
   useEffect(() => {
@@ -124,21 +129,23 @@ export default function App() {
     };
     window.addEventListener(OPEN_TOOL_EVENT, onOpenTool);
     unsubs.push(() => window.removeEventListener(OPEN_TOOL_EVENT, onOpenTool));
-    // "Set up a model" / "see the privacy log" links from any tool land on
-    // the app-wide settings, which live in focus → Settings.
+    // "Set up a model" / "see the privacy log" links from any tool land on the
+    // Settings screen, at the category holding that setting.
     const onOpenSettings = (e: Event) => {
       const section = (e as CustomEvent<{ section?: string }>).detail?.section;
-      useShellStore.getState().setTool("focus");
-      useShellStore.getState().setFocusOverview(false);
-      useAppStore.getState().setView("settings");
-      if (section) {
-        window.setTimeout(() => {
-          document.querySelector(`[data-settings-section="${section}"]`)?.scrollIntoView({ block: "start", behavior: "smooth" });
-        }, 120);
-      }
+      useShellStore.getState().openSettings(section ?? null);
     };
     window.addEventListener(OPEN_SETTINGS_SECTION_EVENT, onOpenSettings);
     unsubs.push(() => window.removeEventListener(OPEN_SETTINGS_SECTION_EVENT, onOpenSettings));
+    // Ctrl+, (Cmd+, on a Mac) opens Settings from anywhere, as in most desktop apps.
+    const onSettingsKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key === ",") {
+        e.preventDefault();
+        useShellStore.getState().openSettings();
+      }
+    };
+    window.addEventListener("keydown", onSettingsKey);
+    unsubs.push(() => window.removeEventListener("keydown", onSettingsKey));
     if (!isTauri()) return () => unsubs.forEach((u) => u());
     void (async () => {
       const { listen } = await import("@tauri-apps/api/event");
@@ -254,7 +261,9 @@ export default function App() {
         if (n >= 1 && n <= 9) {
           e.preventDefault();
           const id = VIEWS[n - 1]?.id;
-          if (id) {
+          if (id === "settings") {
+            useShellStore.getState().openSettings("focus");
+          } else if (id) {
             setView(id);
             useShellStore.getState().setFocusOverview(false);
           }
@@ -325,6 +334,10 @@ export default function App() {
               <DiskModule />
             </Suspense>
           </main>
+        ) : tool === "settings" ? (
+          <Suspense fallback={<div className="loading">Settings</div>}>
+            <SettingsModule target={settingsTarget} />
+          </Suspense>
         ) : (
           <LazyPane>
             <DictateModule />

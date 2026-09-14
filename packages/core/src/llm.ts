@@ -29,6 +29,7 @@
 
 import { isTauri } from "./env";
 import { logError, logInfo } from "./errors";
+import { openSettings } from "./navigation";
 
 export type LlmProvider = "local" | "anthropic" | "openai";
 
@@ -647,16 +648,17 @@ export function chunkForModel(text: string, maxTokens = 3000): string[] {
 /* Navigation                                                                */
 /* ------------------------------------------------------------------------- */
 
-export const OPEN_SETTINGS_SECTION_EVENT = "owntools:open-settings";
+// The event lives in ./navigation with the rest of the shell's jumps; it is
+// re-exported here because the model card's callers already import it from llm.
+export { OPEN_SETTINGS_SECTION_EVENT } from "./navigation";
 
 /**
- * Takes the person to Settings → Intelligence (the model card). The shell
- * listens for `OPEN_SETTINGS_SECTION_EVENT`; in another window (the pill) the
- * event goes nowhere, so callers there should say "open owntools → Settings".
+ * Takes the person to Settings → Intelligence (the model card). In another
+ * window (the pill) the event goes nowhere, so callers there should say
+ * "open owntools → Settings".
  */
 export function openIntelligenceSettings(): void {
-  if (typeof window === "undefined") return;
-  window.dispatchEvent(new CustomEvent(OPEN_SETTINGS_SECTION_EVENT, { detail: { section: "intelligence" } }));
+  openSettings("intelligence");
 }
 
 // A settings write anywhere (this window or another) makes the cached

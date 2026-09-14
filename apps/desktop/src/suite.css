@@ -678,6 +678,12 @@ button.wincard:hover {
   background: color-mix(in srgb, var(--bg-elevated, #ffffff) 60%, var(--bg, #fafafa));
 }
 
+/* focus → Settings leaves the tool for the Settings screen; the arrow says so */
+.mod-focus .nav-item .nav-item-out {
+  margin-left: auto;
+  opacity: 0.45;
+}
+
 /* Focus overview tiles */
 .tiles {
   display: grid;
@@ -1067,6 +1073,19 @@ button.wincard:hover {
 .theme-item-check {
   margin-left: auto;
   color: var(--color-accent, #0a84ff);
+}
+
+.theme-pop-sep {
+  height: 1px;
+  margin: 5px 4px;
+  background: var(--border, #e5e5e5);
+}
+
+.theme-item-key {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-faint, #999);
 }
 
 .theme-dots {
@@ -2115,7 +2134,8 @@ button.wincard:hover {
 }
 
 .rail-home,
-.rail-quick {
+.rail-quick,
+.rail-settings {
   appearance: none;
   border: 1px solid transparent;
   background: transparent;
@@ -2133,17 +2153,24 @@ button.wincard:hover {
 }
 
 .rail-home:hover,
-.rail-quick:hover {
+.rail-quick:hover,
+.rail-settings:hover {
   background: var(--fill, #f4f4f4);
   border-color: var(--border-subtle, #eee);
   color: var(--text, #111);
 }
 
 .rail-home:active,
-.rail-quick:active { transform: scale(0.94); }
+.rail-quick:active,
+.rail-settings:active { transform: scale(0.94); }
+
+/* the gear turns a quarter while you reach for it - the only hint that it opens something wide */
+.rail-settings > svg { transition: transform 0.35s cubic-bezier(0.34, 1.28, 0.52, 1); }
+.rail-settings:hover > svg { transform: rotate(45deg); }
 
 .rail-home.active,
-.rail-quick.active {
+.rail-quick.active,
+.rail-settings.active {
   background: var(--fill-strong, #ececec);
   border-color: var(--border, #e8e8e8);
   color: var(--text, #111);
@@ -2238,9 +2265,11 @@ button.wincard:hover {
 .rail-home:hover .rail-tip,
 .rail-tool:hover .rail-tip,
 .rail-quick:hover .rail-tip,
+.rail-settings:hover .rail-tip,
 .rail-home:focus-visible .rail-tip,
 .rail-tool:focus-visible .rail-tip,
-.rail-quick:focus-visible .rail-tip {
+.rail-quick:focus-visible .rail-tip,
+.rail-settings:focus-visible .rail-tip {
   opacity: 1;
   transform: translate(0, -50%);
 }
@@ -2405,6 +2434,7 @@ button.wincard:hover {
     transition-duration: 0.01ms;
   }
   .rail-pop { animation: none; }
+  .rail-settings:hover > svg { transform: none; }
   .hub-card:hover,
   .hub-card:focus-visible { transform: none; }
 }

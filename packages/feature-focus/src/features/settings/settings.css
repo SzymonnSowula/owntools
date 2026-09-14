@@ -1,0 +1,755 @@
+/*
+ * Settings - the app-wide screen (SettingsView.tsx). Scoped under .st, every
+ * class prefixed st-, un-layered on purpose, and drawn to match dictate's own
+ * settings (dictate.css) so a tool's settings and the app's read as one app.
+ *
+ * Unlike the tools, this screen is not inside .mod-create, so there is no
+ * reset under it: buttons and inputs are reset here. Colours are the suite
+ * tokens (--color-*), which every theme retints.
+ */
+
+.st {
+  --st-radius: 14px;
+  --st-hover: color-mix(in srgb, var(--color-ink) 5%, transparent);
+  --st-side-w: 236px;
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  color: var(--color-ink);
+  background: var(--color-paper);
+  font-size: 13px;
+  line-height: 1.45;
+  letter-spacing: -0.005em;
+}
+
+.st button {
+  appearance: none;
+  margin: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.st button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.st :focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--color-accent) 60%, transparent);
+  outline-offset: 2px;
+}
+
+/* ---- sidebar ---------------------------------------------------------- */
+
+.st-side {
+  display: flex;
+  flex-direction: column;
+  width: var(--st-side-w);
+  flex: none;
+  min-height: 0;
+  padding: 18px 12px 14px;
+  border-right: 1px solid var(--color-line);
+  background: var(--bg-sidebar, var(--color-card));
+  overflow-y: auto;
+}
+
+.st-side-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 2px 6px 16px;
+}
+
+.st-side-icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  border-radius: 9px;
+  /* ink on paper, inverted: a dark tile by day, a light one at night */
+  color: var(--color-paper);
+  background: var(--color-ink);
+}
+
+.st-side-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.st-side-name {
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.st-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin: 0 2px 14px;
+}
+
+.st-search > svg {
+  position: absolute;
+  left: 10px;
+  width: 14px;
+  height: 14px;
+  color: var(--text-faint, #999);
+  pointer-events: none;
+}
+
+.st-search-input {
+  width: 100%;
+  min-width: 0;
+  padding: 7px 30px 7px 31px;
+  border: 1px solid var(--color-line);
+  border-radius: 10px;
+  background: var(--color-card);
+  color: var(--color-ink);
+  font: inherit;
+  font-size: 12.5px;
+  transition: border-color 0.12s, box-shadow 0.12s;
+}
+
+.st-search-input::placeholder {
+  color: var(--text-faint, #999);
+}
+
+.st-search-input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 18%, transparent);
+}
+
+.st-search-kbd,
+.st .st-search-clear {
+  position: absolute;
+  right: 8px;
+}
+
+.st-search-kbd {
+  min-width: 18px;
+  padding: 0 5px;
+  border: 1px solid var(--color-line);
+  border-radius: 5px;
+  font: 600 10.5px/16px ui-monospace, "SF Mono", Consolas, monospace;
+  text-align: center;
+  color: var(--text-faint, #999);
+  background: var(--color-paper);
+}
+
+.st .st-search-clear {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  color: var(--color-muted);
+}
+
+.st .st-search-clear:hover {
+  background: var(--st-hover);
+  color: var(--color-ink);
+}
+
+.st-search-clear svg {
+  width: 12px;
+  height: 12px;
+}
+
+.st-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.st-nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.st-nav-label {
+  padding: 0 10px 4px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-faint, #999);
+}
+
+.st .st-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 10px;
+  border-radius: 10px;
+  color: var(--color-muted);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  text-align: left;
+  transition: background 0.12s, color 0.12s, box-shadow 0.12s;
+}
+
+.st-nav-item svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  opacity: 0.75;
+}
+
+.st .st-nav-item:hover {
+  background: var(--st-hover);
+  color: var(--color-ink);
+}
+
+.st .st-nav-item.active {
+  background: var(--color-card);
+  color: var(--color-ink);
+  box-shadow: inset 0 0 0 1px var(--color-line), 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.st-nav-item.active svg {
+  opacity: 1;
+  color: var(--color-accent);
+}
+
+.st-nav-item .st-nav-out {
+  width: 13px;
+  height: 13px;
+  margin-left: auto;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.st .st-nav-item.tool:hover .st-nav-out {
+  opacity: 0.6;
+}
+
+.st-nav-empty {
+  margin: 4px 10px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--color-muted);
+}
+
+.st-results {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.st .st-result {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  width: 100%;
+  padding: 7px 10px;
+  border-radius: 10px;
+  text-align: left;
+}
+
+.st .st-result:hover,
+.st .st-result:focus-visible {
+  background: var(--st-hover);
+}
+
+.st-result-label {
+  font-size: 13px;
+  font-weight: 550;
+  color: var(--color-ink);
+}
+
+.st-result-where {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11.5px;
+  color: var(--color-muted);
+}
+
+.st-result-where svg {
+  width: 11px;
+  height: 11px;
+}
+
+/* ---- main column ------------------------------------------------------ */
+
+.st-main {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  background-color: var(--color-paper);
+  background-image: radial-gradient(color-mix(in srgb, var(--color-ink) 12%, transparent) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+
+.st-page {
+  max-width: 780px;
+  margin: 0 auto;
+  padding: 34px 40px 80px;
+  animation: st-page-in 0.18s ease-out;
+}
+
+@keyframes st-page-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+.st-head {
+  margin-bottom: 22px;
+}
+
+.st-kicker {
+  margin: 0 0 7px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-faint, #999);
+}
+
+.st-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.045em;
+  line-height: 1.05;
+}
+
+.st-sub {
+  margin: 8px 0 0;
+  max-width: 580px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--color-muted);
+}
+
+/* ---- cards & rows ----------------------------------------------------- */
+
+.st-card {
+  background: var(--color-card);
+  border: 1px solid var(--color-line);
+  border-radius: var(--st-radius);
+  box-shadow: var(--shadow-card, 0 14px 32px rgba(17, 17, 17, 0.07));
+  overflow: hidden;
+  scroll-margin-top: 24px;
+}
+
+/* The cards the other packages own (Intelligence, Automations, Sync,
+   Privacy) are .card: in focus they wear a little window title bar. Here they
+   sit between st-cards, so the bar goes and the shape matches. Three classes
+   deep, because suite.css draws the bar with two and un-layered rules must not
+   depend on bundle order. */
+.st .st-page .card {
+  padding-top: 20px;
+  border-color: var(--color-line);
+  border-radius: var(--st-radius);
+  scroll-margin-top: 24px;
+}
+
+.st .st-page .card::before,
+.st .st-page .card::after {
+  content: none;
+}
+
+.st-page > * + * {
+  margin-top: 16px;
+}
+
+.st-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px 11px;
+  border-bottom: 1px solid var(--color-line);
+  background: color-mix(in srgb, var(--color-card) 72%, var(--color-paper));
+}
+
+.st-card-title {
+  font-size: 12.5px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.st-card-desc {
+  margin-top: 1px;
+  max-width: 560px;
+  font-size: 11.5px;
+  color: var(--color-muted);
+}
+
+.st-card-body {
+  padding: 16px;
+}
+
+.st-card-body.flush {
+  padding: 0;
+}
+
+.st-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 16px;
+  scroll-margin-top: 24px;
+}
+
+.st-row + .st-row,
+.st-row + .st-row-foot {
+  border-top: 1px solid var(--color-line);
+}
+
+.st-row.stack {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.st-row-text {
+  min-width: 0;
+}
+
+.st-row-label {
+  font-size: 13px;
+  font-weight: 550;
+  letter-spacing: -0.01em;
+}
+
+.st-row-hint {
+  margin-top: 2px;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--color-muted);
+}
+
+.st-row-ctl {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+
+.st-row-under {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.st-row-foot {
+  padding: 10px 16px 12px;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--color-muted);
+}
+
+.st-flash {
+  animation: st-flash 1.6s ease-out;
+}
+
+@keyframes st-flash {
+  0%,
+  35% {
+    background-color: color-mix(in srgb, var(--color-accent) 12%, var(--color-card));
+  }
+}
+
+/* ---- controls --------------------------------------------------------- */
+
+.st-input,
+.st-select {
+  appearance: none;
+  min-width: 0;
+  padding: 7px 11px;
+  border: 1px solid var(--color-line);
+  border-radius: 10px;
+  background: var(--color-card);
+  color: var(--color-ink);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.4;
+  transition: border-color 0.12s, box-shadow 0.12s;
+}
+
+.st-input {
+  width: 100%;
+}
+
+.st-input.mono {
+  font-family: ui-monospace, "SF Mono", Consolas, monospace;
+  letter-spacing: 0.03em;
+}
+
+.st-input::placeholder {
+  color: var(--text-faint, #999);
+}
+
+.st-input:focus,
+.st-select:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 18%, transparent);
+}
+
+.st-select {
+  max-width: 280px;
+  padding-right: 30px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none' stroke='%23888' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 4.5l3 3 3-3'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  cursor: pointer;
+}
+
+.st-number {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.st-number .st-input {
+  width: 72px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.st-number-unit {
+  font-size: 12px;
+  color: var(--color-muted);
+}
+
+/* The switch is a <button>: two classes deep so the button reset above does not take its track away. */
+.st .st-switch {
+  position: relative;
+  width: 36px;
+  height: 21px;
+  flex: none;
+  padding: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-ink) 18%, transparent);
+  transition: background 0.15s;
+}
+
+.st .st-switch[data-state="checked"] {
+  background: var(--color-accent);
+}
+
+.st-switch-thumb {
+  display: block;
+  width: 17px;
+  height: 17px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  transform: translateX(2px);
+  transition: transform 0.15s;
+}
+
+.st-switch[data-state="checked"] .st-switch-thumb {
+  transform: translateX(17px);
+}
+
+.st-seg {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--color-line);
+  border-radius: 999px;
+  background: var(--color-paper);
+}
+
+.st .st-seg button {
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--color-muted);
+  transition: background 0.12s, color 0.12s;
+}
+
+.st .st-seg button:hover {
+  color: var(--color-ink);
+}
+
+.st .st-seg button.active {
+  background: var(--color-card);
+  color: var(--color-ink);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08), inset 0 0 0 1px var(--color-line);
+}
+
+.st .st-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  height: 30px;
+  padding: 0 13px;
+  border: 1px solid var(--color-line);
+  border-radius: 999px;
+  background: var(--color-card);
+  color: var(--color-ink);
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  transition: background 0.12s, border-color 0.12s, filter 0.12s;
+}
+
+.st .st-btn:hover:not(:disabled) {
+  background: var(--st-hover);
+}
+
+.st .st-btn.primary {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: #fff;
+}
+
+.st .st-btn.primary:hover:not(:disabled) {
+  background: var(--color-accent);
+  filter: brightness(1.08);
+}
+
+.st .st-btn.ghost {
+  background: transparent;
+}
+
+.st .st-btn.danger {
+  color: var(--color-alert, #ff453a);
+}
+
+.st-kbd {
+  display: inline-block;
+  min-width: 22px;
+  padding: 2px 7px;
+  border: 1px solid var(--color-line);
+  border-bottom-width: 2px;
+  border-radius: 6px;
+  background: var(--color-paper);
+  font: 600 11.5px/1.4 ui-monospace, "SF Mono", Consolas, monospace;
+  text-align: center;
+  color: var(--color-ink);
+  white-space: nowrap;
+}
+
+.st-badge {
+  padding: 2px 9px;
+  border: 1px solid var(--color-line);
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 650;
+  color: var(--color-muted);
+}
+
+.st-badge.on {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: #fff;
+}
+
+.st-code {
+  padding: 3px 8px;
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--color-ink) 6%, transparent);
+  font: 500 12.5px/1.4 ui-monospace, "SF Mono", Consolas, monospace;
+  letter-spacing: 0.04em;
+}
+
+.st-value {
+  font-size: 12.5px;
+  color: var(--color-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.st-path {
+  font-family: ui-monospace, "SF Mono", Consolas, monospace;
+  font-size: 11px;
+  word-break: break-all;
+}
+
+.st-inline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.st-inline .st-input {
+  flex: 1 1 220px;
+  width: auto;
+}
+
+.st-note {
+  font-size: 12px;
+  color: var(--color-ink);
+}
+
+.st-empty {
+  margin: 0;
+  font-size: 12px;
+  color: var(--color-muted);
+}
+
+.st-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 18px 4px;
+  font-size: 12.5px;
+  color: var(--color-muted);
+}
+
+.st-loading svg {
+  width: 15px;
+  height: 15px;
+  animation: st-spin 0.9s linear infinite;
+}
+
+@keyframes st-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* the theme cards keep their look from suite.css; here they only need room */
+.st .theme-grid {
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+}
+
+/* the scroll guard's search results float above the rows below them */
+.st .guard-search {
+  position: relative;
+}
+
+@media (max-width: 860px) {
+  .st {
+    --st-side-w: 200px;
+  }
+  .st-page {
+    padding: 26px 22px 64px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .st-page,
+  .st-flash,
+  .st-loading svg {
+    animation: none;
+  }
+}

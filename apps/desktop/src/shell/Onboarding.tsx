@@ -293,7 +293,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
                   <span className="onb-tool-desc">
                     Reads the title of the active window and, for browsers, the site host every 2
                     seconds, so focus can show where your day went. Only on this device — nothing is
-                    sent anywhere. Turn it off any time in focus → Settings.
+                    sent anywhere. Turn it off any time in Settings → Privacy.
                   </span>
                 </label>
                 <div className="onb-tool">

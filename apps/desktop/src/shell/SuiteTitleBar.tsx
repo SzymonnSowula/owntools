@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { isTauri } from "@core/env";
+import { isMac, isTauri } from "@core/env";
 import { SUITE_NAME } from "@core/branding";
 import { BrandMark } from "@ui/BrandMark";
 import { THEMES } from "@feature-focus/lib/themes";
@@ -9,6 +9,7 @@ import { useShellStore, type Tool } from "./shellStore";
 function ThemeMenu() {
   const theme = useAppStore((s) => s.settings.theme);
   const setTheme = useAppStore((s) => s.setTheme);
+  const openSettings = useShellStore((s) => s.openSettings);
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 
@@ -69,6 +70,18 @@ function ThemeMenu() {
               ) : null}
             </button>
           ))}
+          <div className="theme-pop-sep" aria-hidden />
+          <button
+            className="theme-item"
+            role="menuitem"
+            onClick={() => {
+              setOpen(false);
+              openSettings();
+            }}
+          >
+            All settings
+            <span className="theme-item-key">{isMac() ? "⌘," : "Ctrl+,"}</span>
+          </button>
         </div>
       ) : null}
     </div>
@@ -86,6 +99,7 @@ const TOOL_LABEL: Record<Tool, string | null> = {
   board: "board",
   social: "social",
   disk: "disk",
+  settings: "settings",
 };
 
 export function SuiteTitleBar() {

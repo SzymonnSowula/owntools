@@ -4,6 +4,7 @@ import { ToolMark } from "@ui/ToolMark";
 import { useEffect, useState, type ReactElement } from "react";
 import { isTauri } from "@core/env";
 import { DICTATION_HOTKEY_LABEL } from "@core/hotkeys";
+import { takeToolPage } from "@core/navigation";
 import { Kbd } from "./components";
 import { dictationHotkeyRegistered, dictationReady, dictationStatus, type EngineStatus } from "./engine";
 import { useInstallSession } from "./install";
@@ -35,7 +36,8 @@ let lastPage: Page = "overview";
  * the whisper status are owned here and handed down.
  */
 export default function DictateView() {
-  const [page, setPage] = useState<Page>(lastPage);
+  // A jump from the Settings screen ("dictate settings") names the page to open on.
+  const [page, setPage] = useState<Page>(() => (lastPage = takeToolPage<Page>("dictate") ?? lastPage));
   const [status, setStatus] = useState<EngineStatus | null>(null);
   /** null = unknown / not Tauri; false = another app owns the hotkey. */
   const [hotkeyOk, setHotkeyOk] = useState<boolean | null>(null);

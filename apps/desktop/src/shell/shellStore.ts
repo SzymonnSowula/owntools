@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { QuickToolKey } from "@feature-tools/keys";
+import type { SettingsTarget } from "@feature-focus/features/settings/SettingsView";
 
 export type Tool =
   | "hub"
@@ -11,7 +12,9 @@ export type Tool =
   | "meet"
   | "board"
   | "social"
-  | "disk";
+  | "disk"
+  /** Not a tool on the rail: the app-wide Settings screen (the gear under it). */
+  | "settings";
 
 /** A quick tool opened over the hub (`@feature-tools/catalogue`), or null. */
 export type HubTool = QuickToolKey | null;
@@ -28,7 +31,11 @@ interface ShellState {
   sessionAuto: boolean;
   /** Workspace whose ritual editor is open (id), or null. */
   setupFor: string | null;
+  /** Where Settings should open (a category or one setting); null = where it was left. */
+  settingsTarget: SettingsTarget | null;
   setTool: (tool: Tool) => void;
+  /** Opens Settings, optionally at one setting (`"scroll-guard"`, `"privacy"`). */
+  openSettings: (section?: string | null) => void;
   setFocusOverview: (v: boolean) => void;
   setHubTool: (hubTool: HubTool) => void;
   openSession: (workspaceId: string, auto?: boolean) => void;
@@ -44,7 +51,10 @@ export const useShellStore = create<ShellState>((set) => ({
   sessionFor: null,
   sessionAuto: false,
   setupFor: null,
+  settingsTarget: null,
   setTool: (tool) => set({ tool }),
+  openSettings: (section = null) =>
+    set({ tool: "settings", settingsTarget: section ? { section, at: Date.now() } : null }),
   setFocusOverview: (focusOverview) => set({ focusOverview }),
   setHubTool: (hubTool) => set({ hubTool }),
   openSession: (workspaceId, auto = false) =>

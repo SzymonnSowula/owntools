@@ -3,6 +3,7 @@ import { ToolMark } from "@ui/ToolMark";
 import { Radio, SlidersHorizontal, Users, X } from "lucide-react";
 import { useEffect, useState, type ReactElement } from "react";
 import { isTauri } from "@core/env";
+import { takeToolPage } from "@core/navigation";
 import { LivePage } from "./pages/LivePage";
 import { MeetingsPage } from "./pages/MeetingsPage";
 import { SettingsPage } from "./pages/SettingsPage";
@@ -27,7 +28,8 @@ let lastPage: Page = "live";
  * at another page (or another tool).
  */
 export default function MeetView() {
-  const [page, setPage] = useState<Page>(lastPage);
+  // A jump from the Settings screen ("meet settings") names the page to open on.
+  const [page, setPage] = useState<Page>(() => (lastPage = takeToolPage<Page>("meet") ?? lastPage));
   const phase = useMeetStore((s) => s.phase);
   const unavailable = useMeetStore((s) => s.unavailable);
   const meetings = useMeetStore((s) => s.meetings);

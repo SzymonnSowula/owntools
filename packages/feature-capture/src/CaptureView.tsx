@@ -3,6 +3,7 @@ import { Camera, Images, SlidersHorizontal } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactElement } from "react";
 import { isTauri } from "@core/env";
 import { CAPTURE_HOTKEY_LABEL } from "@core/hotkeys";
+import { takeToolPage } from "@core/navigation";
 import { ToolMark } from "@ui/ToolMark";
 import { getCaptureBackend } from "./api";
 import { Kbd } from "./components";
@@ -27,7 +28,8 @@ let lastPage: Page = "library";
  */
 export default function CaptureView() {
   const backend = useMemo(() => getCaptureBackend(), []);
-  const [page, setPage] = useState<Page>(lastPage);
+  // A jump from the Settings screen ("capture settings") names the page to open on.
+  const [page, setPage] = useState<Page>(() => (lastPage = takeToolPage<Page>("capture") ?? lastPage));
   const { items } = useLibrary();
   /** null = unknown / not Tauri; false = another app owns the shortcut. */
   const [hotkeyOk, setHotkeyOk] = useState<boolean | null>(null);

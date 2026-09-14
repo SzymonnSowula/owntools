@@ -6,7 +6,6 @@ import { useAppStore } from "@feature-focus/store/useAppStore";
 import { ScrollGuardBanner } from "@feature-focus/components/ScrollGuardBanner";
 import { TodayView } from "@feature-focus/features/today/TodayView";
 import { HabitsView } from "@feature-focus/features/habits/HabitsView";
-import { SettingsView } from "@feature-focus/features/settings/SettingsView";
 import { TasksHub } from "@feature-focus/features/hubs/TasksHub";
 import { NotesHub } from "@feature-focus/features/hubs/NotesHub";
 import { StatsHub } from "@feature-focus/features/hubs/StatsHub";
@@ -20,17 +19,26 @@ const VIEW_MAP = {
   habits: HabitsView,
   stats: StatsHub,
   sounds: SoundsHub,
-  settings: SettingsView,
 } satisfies Partial<Record<View, () => ReactElement>>;
 
-/** Legacy view ids may live in persisted state — fold them into their hub. */
+/**
+ * Legacy view ids may live in persisted state — fold them into their hub.
+ * "settings" is one of them since Settings became its own screen: a session
+ * saved while it was open reopens focus on Today, not on a jump elsewhere.
+ */
 const LEGACY_VIEW_TARGET: Partial<Record<View, View>> = {
   heatmap: "stats",
   notebook: "notes",
   journal: "notes",
   planner: "tasks",
   piano: "sounds",
+  settings: "today",
 };
+
+/** Focus's own settings are a category of the app's Settings screen. */
+function openFocusSettings() {
+  useShellStore.getState().openSettings("focus");
+}
 
 export function normalizeView(view: View): View {
   return LEGACY_VIEW_TARGET[view] ?? view;
@@ -126,6 +134,10 @@ function FocusOverview() {
             className="wincard"
             style={{ transform: `rotate(${i % 2 === 0 ? -0.7 : 0.7}deg)` }}
             onClick={() => {
+              if (item.id === "settings") {
+                openFocusSettings();
+                return;
+              }
               setView(item.id);
               setFocusOverview(false);
             }}
@@ -172,19 +184,29 @@ export function FocusTool() {
             </svg>
             Overview
           </button>
-          {VIEWS.map((item) => (
-            <button
-              key={item.id}
-              className={`nav-item${!overview && normalizeView(view) === item.id ? " active" : ""}`}
-              onClick={() => {
-                setView(item.id);
-                setFocusOverview(false);
-              }}
-            >
-              {FOCUS_ICONS[item.id]}
-              {item.label}
-            </button>
-          ))}
+          {VIEWS.map((item) =>
+            item.id === "settings" ? (
+              <button key={item.id} className="nav-item" onClick={openFocusSettings} title="Opens the Settings screen">
+                {FOCUS_ICONS[item.id]}
+                {item.label}
+                <svg className="nav-item-out" width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden>
+                  <path d="M4 3h5v5M9 3L3.5 8.5" />
+                </svg>
+              </button>
+            ) : (
+              <button
+                key={item.id}
+                className={`nav-item${!overview && normalizeView(view) === item.id ? " active" : ""}`}
+                onClick={() => {
+                  setView(item.id);
+                  setFocusOverview(false);
+                }}
+              >
+                {FOCUS_ICONS[item.id]}
+                {item.label}
+              </button>
+            ),
+          )}
         </nav>
         <div className="sidebar-foot">
           <div className="sidebar-timer">
