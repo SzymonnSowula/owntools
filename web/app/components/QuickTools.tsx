@@ -52,7 +52,7 @@ const CUES = [
 
 export function QuickTools() {
   return (
-    <section id="quick-tools" className="dotted border-y border-line px-5 py-20 md:py-28">
+    <section id="quick-tools" className="cv dotted border-y border-line px-5 py-20 md:py-28" style={{ ["--cv" as string]: "2000px", ["--cv-lg" as string]: "1100px" }}>
       <div className="mx-auto max-w-6xl">
         <Reveal className="max-w-3xl">
           <p className="kicker">quick tools</p>
@@ -61,9 +61,7 @@ export function QuickTools() {
             <br className="hidden sm:block" /> none of them a website.
           </h2>
           <p className="mt-4 max-w-xl text-[15px] leading-7 text-muted">
-            The conversions you would otherwise hand to a stranger&apos;s server, with a watermark
-            and a queue. They open from the hub, run on your machine, and hand the file straight
-            back.
+            Convert and transcribe files on your device, with nothing uploaded.
           </p>
         </Reveal>
 
@@ -74,8 +72,7 @@ export function QuickTools() {
               <Pane className="relative mx-auto w-full max-w-[430px] min-w-0 overflow-hidden p-3 sm:p-4">
                 <p className="text-[15px] font-semibold text-ink">YouTube → transcript</p>
                 <p className="mt-1 text-[11.5px] leading-5 text-muted">
-                  Captions come from YouTube; whisper runs here when there are none, or to
-                  translate.
+                  Captions from YouTube, or whisper on this device.
                 </p>
 
                 <div className="mt-3 flex items-center gap-2">
@@ -109,7 +106,7 @@ export function QuickTools() {
                 <div className="mt-2.5 rounded-md border border-line p-2">
                   <p className="text-[11px] font-semibold text-ink">Or run whisper on the audio</p>
                   <p className="mt-0.5 text-[10px] leading-4 text-muted">
-                    Downloads the audio track (3.3 MB) and transcribes it on this device.
+                    Transcribes the audio track (3.3 MB) on this device.
                   </p>
                   <div className="mt-2 flex flex-wrap items-center gap-2">
                     <span className="rounded border border-line px-1.5 py-1 text-[10px] text-muted">
@@ -141,7 +138,7 @@ export function QuickTools() {
               </Pane>
 
               <span className="layer absolute bottom-5 left-1/2 -translate-x-1/2 whitespace-nowrap !rounded-full bg-[#0b0b0d]/90 px-3 py-1.5 text-[11px] font-semibold text-white">
-                no accounts · no cloud · your files, your machine
+                no account · no upload
               </span>
             </Scene>
           </Reveal>
@@ -162,10 +159,6 @@ export function QuickTools() {
                 </li>
               ))}
             </ul>
-            <p className="mt-4 text-[13px] leading-6 text-muted">
-              Heavy work is lazy-loaded, so opening the hub never pays for a tool you did not
-              use. <span className="font-semibold text-ink">Nothing leaves the machine.</span>
-            </p>
           </Reveal>
         </div>
       </div>

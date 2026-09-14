@@ -1,8 +1,15 @@
-"use client";
+import type { CSSProperties, ReactNode } from "react";
 
-import { useEffect, useRef, type ReactNode } from "react";
-
-/** Fades content up when it scrolls into view. CSS lives in globals (.reveal). */
+/**
+ * A block that rises into place as it scrolls into view. Pure CSS (.reveal in
+ * globals.css, a scroll-driven animation), so it is visible from the first
+ * paint and costs no script: it used to be a client component with its own
+ * IntersectionObserver plus scroll and resize listeners, about forty of them,
+ * each reading layout on every scroll event.
+ *
+ * `delay` is kept for the callers' sake: neighbours in a row still stagger,
+ * by a few pixels of scroll instead of by time.
+ */
 export function Reveal({
   children,
   className,
@@ -12,48 +19,10 @@ export function Reveal({
   className?: string;
   delay?: number;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-
-    let io: IntersectionObserver | null = null;
-    const show = () => {
-      el.classList.add("is-in");
-      io?.disconnect();
-      window.removeEventListener("scroll", check);
-      window.removeEventListener("resize", check);
-    };
-    // Plain position check — also covers cases where IO is starved
-    // (background tabs, anchor jumps, throttled renderers).
-    const check = () => {
-      if (el.getBoundingClientRect().top < window.innerHeight - 30) show();
-    };
-
-    io = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting || entry.boundingClientRect.top < 0) show();
-      },
-      { threshold: 0.15, rootMargin: "0px 0px -40px 0px" },
-    );
-    io.observe(el);
-    window.addEventListener("scroll", check, { passive: true });
-    window.addEventListener("resize", check, { passive: true });
-    check();
-
-    return () => {
-      io?.disconnect();
-      window.removeEventListener("scroll", check);
-      window.removeEventListener("resize", check);
-    };
-  }, []);
-
   return (
     <div
-      ref={ref}
       className={`reveal ${className ?? ""}`}
-      style={delay ? ({ "--reveal-delay": `${delay}s` } as React.CSSProperties) : undefined}
+      style={delay ? ({ "--reveal-shift": `${Math.round(delay * 400)}px` } as CSSProperties) : undefined}
     >
       {children}
     </div>

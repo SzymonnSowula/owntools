@@ -8,7 +8,7 @@
  * illustration, and the copy says so.
  */
 
-import { Captions, Cpu, MessageSquare, SlidersHorizontal } from "lucide-react";
+import { Captions, MessageSquare, SlidersHorizontal } from "lucide-react";
 import { ClaudeCodeMock } from "./ClaudeCodeMock";
 import { Reveal } from "./Reveal";
 
@@ -67,29 +67,24 @@ function MarkTile({ brand }: { brand: Brand }) {
 const POINTS = [
   {
     icon: <SlidersHorizontal size={15} />,
-    title: "works where you code.",
-    desc: "One hotkey drives a whole fleet of agents faster than you can type - Claude Code, Cursor, Codex, or whatever is in your terminal today.",
-  },
-  {
-    icon: <Cpu size={15} />,
-    title: "less typing, more building.",
-    desc: "Talk through the change out loud and the agent gets the context you would not have bothered to type.",
+    title: "prompt your agents out loud.",
+    desc: "Talk to Claude Code, Cursor or Codex instead of typing long prompts.",
   },
   {
     icon: <MessageSquare size={15} />,
-    title: "say what you mean, literally.",
-    desc: "\"new line\", \"scratch that\", \"send it\" - spoken commands, in English and Polish. A profile per app decides the rest: fillers gone in Slack, e-mail tone in Outlook.",
+    title: "voice commands.",
+    desc: "Say \"new line\", \"scratch that\" or \"send it\" - in English or Polish.",
   },
   {
     icon: <Captions size={15} />,
-    title: "captions for anything.",
-    desc: "A live caption overlay for whatever your machine plays or hears - a call, a lecture, a video - with a translation to English under it.",
+    title: "live captions.",
+    desc: "Captions for any audio on your computer, translated to English.",
   },
 ];
 
 export function DictateAnywhere() {
   return (
-    <section id="integrations" className="dotted border-y border-line px-5 py-20 md:py-28">
+    <section id="integrations" className="cv dotted border-y border-line px-5 py-20 md:py-28" style={{ ["--cv" as string]: "1900px", ["--cv-lg" as string]: "1000px" }}>
       <div className="mx-auto max-w-6xl">
         <Reveal>
           <div className="overflow-hidden rounded-[22px] border border-line bg-card shadow-[0_24px_60px_rgba(12,22,44,0.08)]">
@@ -100,16 +95,14 @@ export function DictateAnywhere() {
                   dictate works anywhere <span className="dim">you can type</span>
                 </h2>
                 <p className="mt-4 max-w-md text-[15px] leading-7 text-muted">
-                  A mail window, a doc, a chat box, a form, a terminal. Press the hotkey, say it,
-                  press again - owntools types it into whatever had your cursor. The text is decoded
-                  while you speak, so when you stop only the tail is left to wait for.
+                  Press the hotkey, speak, and the text appears in whatever app has your cursor.
                 </p>
 
                 <ul className="mt-6 flex flex-wrap items-center gap-2">
                   {APPS.map((b) => (
                     <MarkTile key={b.name} brand={b} />
                   ))}
-                  <li className="text-[12.5px] font-medium text-muted">…and every other window</li>
+                  <li className="text-[12.5px] font-medium text-muted">…and any other app</li>
                 </ul>
 
                 <ul className="mt-9 space-y-6">

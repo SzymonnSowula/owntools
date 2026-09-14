@@ -14,7 +14,7 @@
  * one Toolkit card ("screenshots that read"), not a headline.
  */
 
-import { CloudOff, Eraser, Languages, ScanText, Search, Type, Users, Wand2, Wifi } from "lucide-react";
+import { CloudOff, Eraser, Languages, Type, Users, Wand2, Wifi } from "lucide-react";
 import { Pane, SceneCard } from "./Scene";
 import { Reveal } from "./Reveal";
 
@@ -35,27 +35,22 @@ const HELLOS = [
   ["bonjour", "안녕하세요", "ciao"],
 ];
 
-/** A call, four lines in: the mic is you, the speakers are them. */
+/** A call, three lines in: the mic is you, the speakers are them. */
 const CALL: { who: "you" | "them"; text: string }[] = [
   { who: "them", text: "can we lock the pricing this week?" },
   { who: "you", text: "yes - one price, paid once. I'll send the page tonight." },
-  { who: "them", text: "and the mac build? half the team is on macs." },
-  { who: "you", text: "after windows ships. it is on the roadmap." },
+  { who: "them", text: "and the mac build?" },
 ];
 
 export function WhatsInside() {
   return (
-    <section id="inside" className="border-t border-line px-5 py-20 md:py-28">
+    <section id="inside" className="cv border-t border-line px-5 py-20 md:py-28" style={{ ["--cv" as string]: "2900px", ["--cv-lg" as string]: "1250px" }}>
       <div className="mx-auto max-w-6xl">
         <Reveal className="max-w-2xl">
           <p className="kicker">what’s inside</p>
           <h2 className="display mt-3 text-4xl leading-[1.06] sm:text-5xl">
             small things, done properly.
           </h2>
-          <p className="mt-4 max-w-xl text-[15px] leading-7 text-muted">
-            The parts you only notice when they are missing - and every one of them runs on your
-            own machine.
-          </p>
         </Reveal>
 
         <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-6">
@@ -66,8 +61,8 @@ export function WhatsInside() {
               tint="cyan"
               icon={<Wifi size={15} />}
               title="Works offline"
-              lead="The engine runs on your own CPU, so a plane, a basement or a dead hotspot changes nothing."
-              point="No wi-fi, no problem."
+              lead="Everything runs on your own CPU."
+              point="No wi-fi needed."
             >
               <div className="absolute inset-0 flex items-center justify-center">
                 <span className="layer flex h-[52px] items-center gap-3 !rounded-full bg-white/25 px-1.5 pr-4 backdrop-blur-md">
@@ -88,8 +83,8 @@ export function WhatsInside() {
               tint="blue"
               icon={<Type size={15} />}
               title="Use your own words"
-              lead="Names, acronyms and the terms only your field uses, typed in once."
-              point="It spells them your way from then on."
+              lead="Add names and jargon once."
+              point="It spells them your way."
             >
               <Pane className="absolute inset-x-8 top-7 -bottom-8 overflow-hidden p-2.5">
                 <div className="flex items-center gap-2">
@@ -122,8 +117,8 @@ export function WhatsInside() {
               tint="blue"
               icon={<Wand2 size={15} />}
               title="Lands where you type"
-              lead="It types into the window you were already in - a text field, a terminal, a box on the whiteboard."
-              point="No copy, no paste."
+              lead="Text goes straight into the app you are using."
+              point="No copy-paste."
             >
               <div className="absolute inset-x-4 top-1/2 flex -translate-y-1/2 items-end justify-center gap-2">
                 {TARGETS.map((t) => (
@@ -151,8 +146,8 @@ export function WhatsInside() {
               tint="indigo"
               icon={<Languages size={15} />}
               title="99 languages"
-              lead="Whisper understands them all and can turn any of them into English on the way out."
-              point="Say it in whichever one is faster."
+              lead="Speak in any of them."
+              point="It can translate to English, too."
             >
               <div className="absolute inset-0 flex flex-col justify-center gap-1.5 overflow-hidden">
                 {HELLOS.map((row, i) => (
@@ -179,8 +174,8 @@ export function WhatsInside() {
               tint="blue"
               icon={<Eraser size={15} />}
               title="Cleans up after you"
-              lead="The ums, the false starts, the sentence you began twice, the subtitle line no one said."
-              point="What lands is the sentence you meant."
+              lead="Ums and false starts are removed."
+              point="You get the sentence you meant."
             >
               <Pane className="absolute inset-x-5 top-1/2 -translate-y-1/2 p-3.5 text-[13px] leading-6 text-ink">
                 <span className="text-muted line-through decoration-[#ff453a]/70">um, so</span>{" "}
@@ -201,8 +196,8 @@ export function WhatsInside() {
               tint="cyan"
               icon={<CloudOff size={15} />}
               title="Nothing leaves"
-              lead="No account, no upload, no telemetry - there is no server to send it to."
-              point="Every take is a file on your disk."
+              lead="No account, no upload, no telemetry."
+              point="Every file stays on your disk."
             >
               <div className="absolute inset-0 flex items-center justify-center">
                 <Pane className="relative w-[172px] px-3.5 py-3">
@@ -230,7 +225,7 @@ export function WhatsInside() {
               tint="blue"
               icon={<Users size={15} />}
               title="Knows who was talking"
-              lead="Your mic is one channel and what your machine plays is the other, so a call's transcript says which lines were you and which were them."
+              lead="Your mic and your speakers are recorded apart."
               point="No bot joins the call."
             >
               <Pane className="absolute inset-x-8 top-6 -bottom-8 overflow-hidden p-3">

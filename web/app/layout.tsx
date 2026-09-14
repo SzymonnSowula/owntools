@@ -3,17 +3,21 @@ import { Inter, Outfit } from "next/font/google";
 import "./globals.css";
 import { plausibleDomain, siteUrl } from "@/lib/site";
 
+/* Both are variable fonts: one file per script covers every weight. Only latin
+   is preloaded - latin-ext is still declared, so the odd "ś" in a mockup loads
+   it on demand instead of 100 KB of fonts racing the HTML on every visit. */
 const inter = Inter({
   variable: "--font-inter",
-  subsets: ["latin", "latin-ext"],
-  weight: ["400", "500", "600", "700", "800"],
+  subsets: ["latin"],
 });
 
 const outfit = Outfit({
   variable: "--font-outfit",
-  subsets: ["latin", "latin-ext"],
-  weight: ["500", "600", "700", "800"],
+  subsets: ["latin"],
 });
+
+const DESCRIPTION =
+  "Dictate, transcribe, record your screen and your calls, take notes and more. Eight tools in one desktop app that runs on your own device.";
 
 export const viewport: Viewport = {
   themeColor: [
@@ -31,8 +35,7 @@ export const metadata: Metadata = {
     default: "owntools - dictate, transcribe and record on your own device",
     template: "%s · owntools",
   },
-  description:
-    "Dictate into any app, transcribe audio and video, record your screen, record and transcribe your calls, take notes, sketch on a whiteboard, schedule your social posts, see what is eating your disk, translate, and turn a link into a video. One desktop app that runs on your own machine and keeps working offline.",
+  description: DESCRIPTION,
   keywords: [
     "dictation app",
     "voice typing",
@@ -58,15 +61,13 @@ export const metadata: Metadata = {
     url: siteUrl,
     siteName: "owntools",
     title: "owntools - dictate, transcribe and record on your own device",
-    description:
-      "Dictate anywhere, transcribe anything, record your screen and your calls, take notes, sketch on a whiteboard, schedule posts, reclaim disk space, translate. One app, no account, nothing uploaded.",
+    description: DESCRIPTION,
     locale: "en_US",
   },
   twitter: {
     card: "summary_large_image",
     title: "owntools - dictate, transcribe and record on your own device",
-    description:
-      "Dictate anywhere, transcribe anything, record your screen and your calls, take notes, sketch on a whiteboard, schedule posts, reclaim disk space, translate. One app, no account, nothing uploaded.",
+    description: DESCRIPTION,
   },
   alternates: { canonical: siteUrl },
 };

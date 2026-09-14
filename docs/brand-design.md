@@ -89,8 +89,9 @@ day = white cards with pastel wash, night = near-black with glow.
 ### sky sections
 - `.hero-sky.ascii-sky` — hero. Day: bliss-blue gradient; night: dusk
   navy→indigo→warm horizon. ASCII overlay: tiled
-  `/wallpapers/ascii-grid.svg` (procedural white mono chars), masked to
-  fade out toward the bottom. Real photos drop into
+  `/wallpapers/ascii-grid.webp` (white mono chars rendered from the
+  procedural `ascii-grid.svg` - the SVG itself was far too slow to paint),
+  masked to fade out toward the bottom. Real photos drop into
   `web/public/wallpapers/hero.jpg` / `hero-dark.jpg` (CSS falls back to
   gradients when missing).
 - `.sky-day` — the pricing section is **always** daylight (a window to
@@ -122,9 +123,11 @@ wordmark), lowercase links, ThemeToggle (sun/moon), accent CTA.
 
 ## 5. Motion
 
-- `.reveal` — 22px fade-up on enter, 0.7s ease, stagger via
-  `--reveal-delay` (~0.07s steps). IO + scroll-listener fallback
-  (`web/app/components/Reveal.tsx`).
+- `.reveal` — 18px rise over a block's first 120px on screen, a
+  scroll-driven animation (`animation-timeline: view()`), neighbours
+  staggered by `--reveal-shift`; visible from the first paint, no script
+  (`web/app/components/Reveal.tsx`). Studio rows dim away from the middle
+  of the screen the same way (`.ts-row`).
 - `.floaty` — hero windows bob ±9px / 7s, per-card `--tilt` and
   negative `animation-delay`.
 - `.rec-dot` — recording pulse, 1.6s.
@@ -157,8 +160,8 @@ wordmark), lowercase links, ThemeToggle (sun/moon), accent CTA.
    here as washes only: blue/indigo/cyan (tokens) + orange `#ff9f0a`,
    green `#30d158`, pink `#ff375f`. Each card: number + mono tags +
    arrow chip, icon + title, one-line benefit copy, mini product mockup.
-   Below: counter + prev/next arrows strip and a featured-capability
-   banner with per-job CTA.
+   Below: counter + prev/next arrows strip (the featured-capability banner
+   repeated the first card and was removed on 2026-09-14).
 4. **the loop** — 4 numbered `.wincard`s (01 focus → 04 dictate) with →.
 5. **tool deep-dives** — alternating rows, per-tool kicker color
    (screeni cyan · dictate/focus accent · launch indigo), chips.
@@ -197,8 +200,9 @@ wincard/WinDots language. To align with v2:
 ## 8. Assets
 
 - `web/public/wallpapers/` — `hero.jpg`, `hero-dark.jpg`, `sky.jpg`
-  drop-in slots (graceful gradient fallbacks), `ascii-grid.svg`
-  (procedural), `README.md` with specs.
+  drop-in slots (graceful gradient fallbacks), `ascii-grid.webp` (what the
+  page draws) rendered from `ascii-grid.svg` (procedural), `README.md` with
+  specs.
 - Icons: **lucide-react**, 15–17px, stroke, tinted via `currentColor`.
 - Brand glyph: sailboat (sail + hull) — see `WinDots.tsx` BRAND_GLYPH.
 - Watermark stays "made with owntools".

@@ -26,25 +26,25 @@ const USES: { tool: string; icon: keyof typeof ToolIcons; tint: string; what: st
     tool: "meet",
     icon: "meet",
     tint: "#1490f2",
-    what: "The summary, the decisions and the to-dos, written from the transcript when the call ends.",
+    what: "Writes the summary, decisions and to-dos when a call ends.",
   },
   {
     tool: "screeni",
     icon: "video",
     tint: "#32ade6",
-    what: "Chapters for the description, and the sentences worth cutting into a short clip.",
+    what: "Suggests chapters and the moments worth a short clip.",
   },
   {
     tool: "social",
     icon: "social",
     tint: "#4a67ec",
-    what: "A variant per network that fits its limit, in the brand voice your agents read.",
+    what: "Rewrites a post to fit each network.",
   },
   {
     tool: "dictate",
     icon: "dictate",
     tint: "#1e9bf0",
-    what: "Punctuation, paragraphs and the tone a per-app profile asks for - fillers gone in Slack, e-mail tone in Outlook.",
+    what: "Adds punctuation and the right tone for each app.",
   },
 ];
 
@@ -63,15 +63,13 @@ const RULES = [
 
 export function Intelligence() {
   return (
-    <section id="intelligence" className="border-t border-line px-5 py-20 md:py-28">
+    <section id="intelligence" className="cv border-t border-line px-5 py-20 md:py-28" style={{ ["--cv" as string]: "2300px", ["--cv-lg" as string]: "1500px" }}>
       <div className="mx-auto max-w-6xl">
         <Reveal className="max-w-2xl">
           <p className="kicker !text-indigo">intelligence</p>
           <h2 className="display mt-3 text-4xl leading-[1.06] sm:text-5xl">it thinks on your machine.</h2>
           <p className="mt-4 max-w-xl text-[15px] leading-7 text-muted">
-            One language model, installed with a click the way the speech models are, and every
-            tool uses it. It reads your transcripts, your takes and your drafts - and none of that
-            leaves the room.
+            One language model on your device, shared by every tool.
           </p>
         </Reveal>
 
@@ -148,10 +146,8 @@ export function Intelligence() {
                 ))}
               </ul>
               <div className="rounded-[14px] border border-line bg-card p-4 text-[13px] leading-6 text-muted">
-                <span className="font-semibold text-ink">Honest caveat.</span> It needs a few GB of RAM, and
-                the first answer takes a moment on a CPU. A cloud key of your own is optional and off by
-                default; if you add one, Settings → Privacy shows every request it makes, with its
-                purpose.
+                <span className="font-semibold text-ink">Needs about 4 GB of free RAM.</span> Cloud AI is
+                optional and off by default.
               </div>
             </div>
           </Reveal>
@@ -165,8 +161,8 @@ export function Intelligence() {
               tint="cyan"
               icon={<ShieldCheck size={15} />}
               title="A privacy receipt"
-              lead="Settings → Privacy lists this month's network requests - every host, what it was for, bytes out and in - and what never leaves this device."
-              point="Offline mode refuses all of it."
+              lead="See every network request the app makes, and why."
+              point="Offline mode blocks them all."
             >
               <Pane className="absolute inset-x-6 top-6 -bottom-6 overflow-hidden p-3">
                 <p className="flex items-center justify-between font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted">
@@ -197,8 +193,8 @@ export function Intelligence() {
               tint="blue"
               icon={<Workflow size={15} />}
               title="Small automations"
-              lead="Rules, not a workflow engine: every meeting to a Markdown file in a folder you pick, every export to a draft post, a watched folder that gets a transcript beside each recording."
-              point="Set once, then forget they exist."
+              lead="Rules like: save every meeting as Markdown."
+              point="Set once, then forget."
             >
               <div className="absolute inset-x-5 top-1/2 flex -translate-y-1/2 flex-col gap-2">
                 {RULES.map((r) => (
@@ -221,8 +217,8 @@ export function Intelligence() {
               tint="indigo"
               icon={<FolderSync size={15} />}
               title="Sync without an account"
-              lead="Point owntools at a folder another app already syncs - Dropbox, OneDrive, iCloud Drive, Syncthing - and your dictionary, history, boards, meetings, automations and looks follow you."
-              point="Audio, recordings and credentials never sync."
+              lead="Sync through a folder you already use, like Dropbox or iCloud Drive."
+              point="Recordings and keys never sync."
             >
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 pb-6">
                 <span className="layer flex items-center gap-2 !rounded-xl bg-white px-3 py-2 text-[11px] font-semibold text-[#1d1d1f]">

@@ -36,7 +36,7 @@ function Stat({ label, wpm, quiet = false }: { label: string; wpm: number; quiet
 
 export function SpeedCompare() {
   return (
-    <section id="speed" className="border-b border-line px-5 py-20 md:py-28">
+    <section id="speed" className="cv border-b border-line px-5 py-20 md:py-28" style={{ ["--cv" as string]: "1300px", ["--cv-lg" as string]: "900px" }}>
       <div className="mx-auto max-w-6xl">
         <Reveal className="mx-auto max-w-2xl text-center">
           <p className="kicker">speed</p>
@@ -45,10 +45,6 @@ export function SpeedCompare() {
             <br />
             <span className="dim">than typing</span>
           </h2>
-          <p className="mx-auto mt-5 max-w-lg text-[15px] leading-7 text-muted">
-            You think faster than your hands. Press the hotkey, say the whole thought, and it
-            lands as clean text in whatever app you were already in.
-          </p>
         </Reveal>
 
         <div className="mt-12 grid items-stretch gap-5 lg:grid-cols-[minmax(0,0.82fr)_minmax(0,1.18fr)]">
@@ -70,10 +66,7 @@ export function SpeedCompare() {
                   <Delete size={12} /> <Delete size={12} /> <Delete size={12} />
                 </span>
               </Scene>
-              <p className="mt-5 text-[13px] leading-6 text-muted">
-                Half a thought in, and you are already fixing the last word instead of finishing
-                the sentence.
-              </p>
+              <p className="mt-5 text-[13px] leading-6 text-muted">You stop to fix typos mid-thought.</p>
             </div>
           </Reveal>
 
@@ -125,8 +118,7 @@ export function SpeedCompare() {
               </Scene>
 
               <p className="mt-5 text-[13px] leading-6 text-muted">
-                One take, spoken at a normal pace - filler sounds dropped, your own spellings kept,
-                punctuation where you paused. <span className="font-semibold text-ink">On your CPU, offline.</span>
+                Fillers removed, punctuation added. <span className="font-semibold text-ink">Offline.</span>
               </p>
             </div>
           </Reveal>

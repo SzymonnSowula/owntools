@@ -1,20 +1,8 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { Fragment, type ReactNode } from "react";
-import {
-  ArrowDown,
-  ArrowRight,
-  ArrowUpRight,
-  Check,
-  Copy,
-  Download,
-  EyeOff,
-  Highlighter,
-  ListOrdered,
-  ScanText,
-  Sparkles,
-  Square,
-} from "lucide-react";
+import { Fragment, type CSSProperties, type ReactNode } from "react";
+import { preload } from "react-dom";
+import { ArrowDown, ArrowRight, Check, Sparkles } from "lucide-react";
 import { DemoZoom } from "./components/DemoZoom";
 import { Faq } from "./components/Faq";
 import { Toolkit } from "./components/Toolkit";
@@ -39,6 +27,7 @@ import {
   MAC_DOWNLOAD_SOON,
   MacDownloadCta,
 } from "./components/Cta";
+import { imageSize } from "@/lib/imageSize";
 import { polarConfig } from "@/lib/polar";
 import { PRICE, checkoutUrl, contactEmail, downloadUrl, downloadUrlMac, repoUrl, xUrl } from "@/lib/site";
 
@@ -58,7 +47,7 @@ const jsonLd = {
   operatingSystem: "Windows, macOS",
   applicationCategory: "MultimediaApplication",
   description:
-    "Dictate into any app, transcribe audio and video, record your screen, record and transcribe your calls, take notes, sketch on a whiteboard, schedule social posts, see what is eating your disk, translate, and turn a link into a video - a desktop app that runs entirely on your own machine.",
+    "Dictate, transcribe, record your screen and your calls, take notes and more. Eight tools in one desktop app that runs on your own device.",
   offers: [
     { "@type": "Offer", price: "0", priceCurrency: PRICE.currency, name: "Free (badge on exports)" },
     { "@type": "Offer", price: String(PRICE.amount), priceCurrency: PRICE.currency, name: "Pro (lifetime)" },
@@ -74,16 +63,23 @@ const jsonLd = {
    rebuild (`pnpm --dir web build`) — see docs/launch-video.md for the list. */
 const SHOTS_DIR = join(process.cwd(), "public", "shots");
 
-function shot(name: string): { video?: string; poster?: string } {
+function shot(name: string): { video?: string; poster?: string; width?: number; height?: number } {
   const pick = (exts: string[]) =>
     exts.map((ext) => `${name}.${ext}`).find((file) => existsSync(join(SHOTS_DIR, file)));
   const video = pick(["mp4", "webm"]);
   const poster = pick(["png", "jpg", "jpeg", "webp"]);
+  /* a still is served through next/image, which needs its real size */
+  const size = poster ? imageSize(readFileSync(join(SHOTS_DIR, poster))) : null;
   return {
     ...(video ? { video: `/shots/${video}` } : {}),
     ...(poster ? { poster: `/shots/${poster}` } : {}),
+    ...(size ?? {}),
   };
 }
+
+/* a first guess at a section's height for content-visibility (.cv in
+   globals.css): phones, then lg and up */
+const cv = (phone: number, wide: number) => ({ "--cv": `${phone}px`, "--cv-lg": `${wide}px` }) as CSSProperties;
 
 /* ------------------------------ window mockups ------------------------------ */
 
@@ -353,16 +349,8 @@ const TOOL_ROWS: ShowcaseTool[] = [
     tint: "#32ade6",
     trigger: "hit record",
     headline: "recordings that look edited - without editing",
-    desc: "Auto-zoom follows your cursor so viewers always look at the right pixel. The transcript is a second timeline: delete a sentence and the video follows, and the fillers and retakes are found for you. Offline render straight to MP4 60 fps.",
-    chips: [
-      "auto-zoom",
-      "edit the transcript, the video follows",
-      "fillers & retakes found for you",
-      "chapters, ready for YouTube",
-      "short clips picked from the words, 9:16",
-      "auto-captions (Whisper)",
-      "no ffmpeg, no upload",
-    ],
+    desc: "The zoom follows your cursor, and you cut the video by deleting words from its transcript.",
+    chips: ["auto-zoom", "edit by transcript", "auto-captions", "MP4 · 60 fps"],
     media: shot("screeni"),
     ground: "tide",
     mock: <ScreeniCard />,
@@ -374,15 +362,8 @@ const TOOL_ROWS: ShowcaseTool[] = [
     tint: "#1e9bf0",
     trigger: "ctrl + shift + space",
     headline: "write, prompt and reply - with your voice",
-    desc: "One hotkey anywhere: an email, a message, an essay, a form, a prompt box. Text is decoded while you speak, so when you stop only the tail is left to wait for. ~4× faster than typing, on-device, in English and Polish.",
-    chips: [
-      "works in every app",
-      "types while you speak",
-      "voice commands - en & pl",
-      "a profile per app",
-      "live captions, translated to English",
-      "100% offline",
-    ],
+    desc: "One hotkey turns your voice into text in any app - about four times faster than typing.",
+    chips: ["any app", "types as you speak", "voice commands", "offline"],
     media: shot("dictate"),
     ground: "meadow",
     mock: <DictateStage />,
@@ -394,16 +375,8 @@ const TOOL_ROWS: ShowcaseTool[] = [
     tint: "#1490f2",
     trigger: "any call, any app",
     headline: "the call, written down - and who said what",
-    desc: "Zoom, Meet, Teams, a lecture in a tab: meet records your mic and what your machine plays, and the live transcript says which lines were you and which were them. Your notes sit beside it. When the call ends, the on-device model writes the summary, the decisions and the to-dos. Nothing joins the call, nothing is uploaded.",
-    chips: [
-      "mic + system audio, captured locally",
-      "you / them, told apart",
-      "notes beside the transcript",
-      "summary · decisions · to-dos",
-      "to-dos → focus · summary → social",
-      "Markdown export",
-      "windows first",
-    ],
+    desc: "Transcribes any call as it happens, tells you apart from them, and writes the summary and to-dos at the end.",
+    chips: ["no bot joins", "summary & to-dos", "Markdown export", "Windows first"],
     media: shot("meet"),
     ground: "dawn",
     mock: <MeetCard />,
@@ -415,8 +388,8 @@ const TOOL_ROWS: ShowcaseTool[] = [
     tint: "#0a84ff",
     trigger: "one thing at a time",
     headline: "a desk that keeps you honest",
-    desc: "One MIT for the day, a timer that can take over the whole screen, habits, notes and an automatic heatmap of where your hours actually went.",
-    chips: ["fullscreen timer + stopwatch", "tasks & day plan", "notes with backlinks", "scroll-guard for x.com", "screen-time heatmap"],
+    desc: "A fullscreen timer, one task for the day, habits, notes and a map of where your hours went.",
+    chips: ["fullscreen timer", "tasks & habits", "linked notes", "screen-time heatmap"],
     media: shot("focus"),
     ground: "dawn",
     mock: <FocusCard />,
@@ -428,8 +401,8 @@ const TOOL_ROWS: ShowcaseTool[] = [
     tint: "#2b78f5",
     trigger: "ctrl + v",
     headline: "paste a screenshot, think around it",
-    desc: "An infinite canvas for the messy part: boxes, arrows, hand-drawn notes, screenshots dropped straight from the clipboard. Many boards, each one a file on your disk.",
-    chips: ["shapes, arrows & freehand", "paste or drop screenshots", "layers & opacity", "PNG · SVG · .excalidraw", "no account, no sync"],
+    desc: "An endless whiteboard for boxes, arrows and screenshots. Every board is a file on your disk.",
+    chips: ["shapes & arrows", "paste screenshots", "PNG · SVG export"],
     media: shot("board"),
     ground: "mist",
     mock: <BoardCard />,
@@ -441,16 +414,8 @@ const TOOL_ROWS: ShowcaseTool[] = [
     tint: "#4a67ec",
     trigger: "write once",
     headline: "run your social media on autopilot",
-    desc: "A visual calendar for every network you post to. Write once with per-network previews and limits, or let an AI agent queue the week over a local MCP server - every agent-made post waits in a Review queue until you approve it.",
-    chips: [
-      "week · month · list",
-      "review queue for agent posts",
-      "posting slots per channel",
-      "a brand-voice doc every agent reads",
-      "activity log with undo",
-      "local REST + MCP API",
-      "bluesky · mastodon · telegram · discord · slack",
-    ],
+    desc: "One calendar for all your networks. AI agents can queue posts too, and each one waits for your approval.",
+    chips: ["week · month · list", "AI agents over MCP", "review queue", "7 networks live"],
     media: shot("social"),
     ground: "dusk",
     mock: <SocialCard />,
@@ -462,8 +427,8 @@ const TOOL_ROWS: ShowcaseTool[] = [
     tint: "#0a84ff",
     trigger: "where did it all go",
     headline: "see what is eating the drive",
-    desc: "Scan a drive and read it as a treemap: every folder sized by what it actually costs you. Find the duplicates, the caches and the leftovers nobody meant to keep, then send them to the Recycle Bin - never a permanent delete.",
-    chips: ["treemap · sunburst · lists", "duplicate finder", "installed apps by size", "snapshots & what changed", "recycle bin only"],
+    desc: "A map of your drive that finds duplicates and old caches, and only ever moves files to the Recycle Bin.",
+    chips: ["treemap", "duplicate finder", "apps by size", "Recycle Bin only"],
     media: shot("disk"),
     ground: "mist",
     mock: <DiskCard />,
@@ -475,8 +440,8 @@ const TOOL_ROWS: ShowcaseTool[] = [
     tint: "#5e5ce6",
     trigger: "paste a url",
     headline: "a launch video from a link",
-    desc: "owntools reads the page - name, tagline, colors, hero shot - and cuts a keynote-style video from it. Six style packs, 16:9, 9:16 or 1:1, rendered on your machine.",
-    chips: ["URL → video", "6 style packs", "brand color auto-detect", "MP4 in seconds"],
+    desc: "Paste a URL and get a keynote-style video made from the page, rendered on your device.",
+    chips: ["6 style packs", "16:9 · 9:16 · 1:1", "brand colors detected"],
     media: shot("launch"),
     ground: "dusk",
     mock: <LaunchCard />,
@@ -489,7 +454,7 @@ const MOMENTS = [
     motif: "voice" as const,
     window: "rather-talk.you",
     title: "when you'd rather talk than type",
-    desc: "An email, a message, an essay, a long reply, a form nobody enjoys filling in. Press the hotkey, say it, press again - clean text lands wherever your cursor already is.",
+    desc: "Say the email, the essay or the reply - clean text lands where your cursor is.",
     tools: ["dictate"],
   },
   {
@@ -497,7 +462,7 @@ const MOMENTS = [
     motif: "rec" as const,
     window: "just-show-it.you",
     title: "when showing beats explaining",
-    desc: "A bug, a lesson, a how-to for someone who isn't in the room. Hit record and the zoom follows your cursor, so whoever watches always looks at the right thing.",
+    desc: "Record a bug, a lesson or a how-to, and the zoom follows your cursor.",
     tools: ["screeni"],
   },
   {
@@ -505,7 +470,7 @@ const MOMENTS = [
     motif: "wave" as const,
     window: "hours-of-audio.you",
     title: "when you're sitting on hours of audio",
-    desc: "A lecture, an interview, a meeting you recorded, a voice memo from a walk. Drop the file in and read it back as text or subtitles - without uploading a second of it.",
+    desc: "Turn a lecture, an interview or a voice memo into text or subtitles, without uploading it.",
     tools: ["dictate", "screeni"],
   },
   {
@@ -513,7 +478,7 @@ const MOMENTS = [
     motif: "meet" as const,
     window: "the-call-you-wont-remember.you",
     title: "when it's a call you will not remember",
-    desc: "A client, a lecturer, a stand-up, a doctor. meet records what your machine plays and what you say, keeps the two apart, and leaves you the summary, the decisions and the to-dos - nothing joins the call, nothing is uploaded.",
+    desc: "Get the transcript, the decisions and the to-dos, with no bot on the call.",
     tools: ["meet"],
   },
   {
@@ -521,7 +486,7 @@ const MOMENTS = [
     motif: "timer" as const,
     window: "quiet-hour.you",
     title: "when the day needs a quiet hour",
-    desc: "One task that actually matters, a timer that can take over the whole screen, notes that link to each other, and an honest map of where the hours went.",
+    desc: "Pick one task and let a fullscreen timer guard the hour.",
     tools: ["focus"],
   },
   {
@@ -529,7 +494,7 @@ const MOMENTS = [
     motif: "sketch" as const,
     window: "wont-fit-in-a-line.you",
     title: "when the idea won't fit in a line",
-    desc: "A plan, a flow, a diagram that keeps changing shape. Put it on an endless board, draw around it, and come back tomorrow to find it exactly where you left it.",
+    desc: "Sketch the plan on an endless board that stays exactly where you left it.",
     tools: ["board"],
   },
   {
@@ -537,7 +502,7 @@ const MOMENTS = [
     motif: "treemap" as const,
     window: "drive-is-full.you",
     title: "when the drive says it is full",
-    desc: "The warning nobody has time for. Scan it once and read the whole disk as a treemap - the folders that actually cost you, the duplicates, the caches - then bin what you pick, straight to the Recycle Bin.",
+    desc: "See what fills it, then send the junk to the Recycle Bin.",
     tools: ["disk"],
   },
   {
@@ -545,7 +510,7 @@ const MOMENTS = [
     motif: "week" as const,
     window: "the-week-is-written.you",
     title: "when the posts are written but the week isn't",
-    desc: "Five networks, one announcement, and a calendar that shows the whole week at a glance. Queue them from the composer - or let an agent do the queuing - and every post waits for your yes.",
+    desc: "Queue the whole week in one calendar - every post waits for your yes.",
     tools: ["social"],
   },
 ];
@@ -657,14 +622,14 @@ const FREE_TOOLS = [
     title: "Speech to text",
     ground: "meadow" as const,
     motif: "voice" as const,
-    desc: "Transcribe any audio or video file, on your own device.",
+    desc: "Any audio or video file to text, offline.",
     href: "#pricing",
   },
   {
     title: "Subtitle (.srt) generator",
     ground: "tide" as const,
     motif: "caption" as const,
-    desc: "Timed captions from speech, exported as SRT.",
+    desc: "Timed captions from speech, saved as SRT.",
     href: "#pricing",
   },
   {
@@ -688,21 +653,10 @@ const SOCIAL_WEEK: { day: string; posts: { tint: string; sent?: boolean }[] }[] 
 
 /* a friend checks in — the pitch in someone else's words */
 const CHAT: { who: string; at: string; me?: boolean; text: string }[] = [
-  { who: "friend", at: "22:14", text: "hey! how is it going? did you ever test that owntools thing?" },
-  {
-    who: "you",
-    at: "22:16",
-    me: true,
-    text: "every day now. I talk, it types - notes, emails, prompts. and the screen recordings come out looking edited.",
-  },
-  { who: "friend", at: "22:16", text: "worth it? is it another subscription" },
-  {
-    who: "you",
-    at: "22:17",
-    me: true,
-    text: "paid once, unlocked forever. cheapest thing I bought this year and the one I open the most.",
-  },
-  { who: "friend", at: "22:18", text: "ok. downloading it now." },
+  { who: "friend", at: "22:14", text: "did you try owntools?" },
+  { who: "you", at: "22:16", me: true, text: "every day. I talk, it types." },
+  { who: "friend", at: "22:16", text: "another subscription?" },
+  { who: "you", at: "22:17", me: true, text: "no - paid once. the app I open the most." },
 ];
 
 /* ------------------------------ roadmap ------------------------------ */
@@ -733,10 +687,10 @@ const COURSE_PROGRESS = `${(((NOW_INDEX < 0 ? PORTS_DONE - 1 : NOW_INDEX) + 0.5)
 const AGENTS = ["OpenClaw", "Hermes", "Claude", "ChatGPT", "Codex", "Cursor"];
 
 const SOCIAL_POINTS = [
-  { t: "one calendar, every network.", d: "Week, month or list. Drag a post to another slot, filter by channel, tag or status." },
-  { t: "write once, tune per network.", d: "A global text plus a tab for each channel, live previews, per-network character limits, threads where they exist, Unicode bold and italic where they don't - and, with the on-device model, a variant per network that fits its limit." },
-  { t: "agents plan, you approve.", d: "A local REST + MCP server with a token. An agent-made post waits in a Review queue until you approve it - on by default. Posting slots per channel mean an agent says \"add to queue\" instead of inventing 3 a.m., a retry never double-posts, and a brand-voice document tells every agent how you sound." },
-  { t: "publishes from your machine.", d: "owntools runs in the tray and sends each post straight to the network at its time - retries, a notification, a catch-up sheet if the app was closed, and an activity log with undo." },
+  { t: "one calendar, every network.", d: "Drag posts around a week, month or list view." },
+  { t: "write once, tune per network.", d: "Live previews and each network's character limit as you type." },
+  { t: "agents plan, you approve.", d: "Agents queue posts through a local MCP server, and nothing goes out without your yes." },
+  { t: "posts from your device.", d: "Each post goes out on time from the tray, with retries and an undo log." },
 ];
 
 /* A treemap of a drive: big blocks are the folders eating the space, and the
@@ -921,6 +875,10 @@ function SectionHead({
 /* ------------------------------ page ------------------------------ */
 
 export default function Home() {
+  /* the ASCII texture on the hero sky is the largest thing in the first
+     screen, so it is fetched with the HTML rather than found in the CSS later */
+  preload("/wallpapers/ascii-grid.webp", { as: "image", type: "image/webp", fetchPriority: "high" });
+
   return (
     <div id="top">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
@@ -937,10 +895,8 @@ export default function Home() {
           <nav className="flex items-center gap-3 text-sm font-medium text-muted md:gap-5">
             <a href="#tools" className="hidden transition hover:text-ink md:block">tools</a>
             <a href="#intelligence" className="hidden transition hover:text-ink md:block">on-device</a>
-            <a href="#who" className="hidden transition hover:text-ink md:block">what it’s for</a>
-            <a href="#roadmap" className="hidden transition hover:text-ink md:block">roadmap</a>
-            <a href="#free-tools" className="hidden transition hover:text-ink md:block">free tools</a>
             <a href="#pricing" className="hidden transition hover:text-ink md:block">pricing</a>
+            <a href="#faq" className="hidden transition hover:text-ink md:block">faq</a>
             <ThemeToggle />
             {/* before launch this leads to pricing, where the status is spelled out */}
             <a href={downloadUrl ?? "#pricing"} className="btn btn-accent !h-9 !px-4 text-[13px]">
@@ -974,15 +930,13 @@ export default function Home() {
             <br />
             your device.
           </h1>
-          {/* The hook does what the headline cannot: the headline is a promise,
-              this says what the thing is and why it is different, in two short
-              sentences a non-native reader gets on one pass. It replaces both a
-              badge and a vaguer subtitle that used to sit here. */}
+          {/* The headline is a promise; this line says what the thing is, in
+              words a non-native reader gets on one pass. */}
           <p
             className="mx-auto mt-7 max-w-xl text-balance text-lg font-medium text-white md:text-xl"
             style={{ textShadow: "0 1px 12px rgba(10,30,60,0.4)" }}
           >
-            Tools that will get you ahead. Nothing ever leaves your machine.
+            Eight tools in one desktop app. Nothing leaves your computer.
           </p>
           <ul className="mx-auto mt-7 flex flex-wrap items-center justify-center gap-2">
             {HERO_VERBS.map((verb) => (
@@ -1040,7 +994,7 @@ export default function Home() {
             className="mx-auto mt-6 text-[13px] font-medium text-white/75"
             style={{ textShadow: "0 1px 14px rgba(10,30,60,0.45)" }}
           >
-            paid once · no accounts · works with the wi-fi off
+            paid once · no account · works offline
           </p>
         </div>
       </section>
@@ -1048,7 +1002,7 @@ export default function Home() {
       {/* 01 — one app bento. Every tile is a scene: a ground for weather, panes
           for depth, and at least one thing running off the frame so the tile
           reads as a window onto the app rather than a swatch with a logo. */}
-      <section className="mx-auto max-w-6xl px-5 py-16 md:py-24">
+      <section className="cv mx-auto max-w-6xl px-5 py-16 md:py-24" style={cv(2000, 1000)}>
         <Reveal>
           <div className="flex items-center gap-4">
             <p className="font-mono text-[11px] font-bold uppercase tracking-[0.2em]">
@@ -1095,8 +1049,7 @@ export default function Home() {
                   <p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-muted">dictation</p>
                   <h3 className="display mt-1.5 text-xl">speak to any app.</h3>
                   <p className="mt-1.5 max-w-xl text-sm leading-6 text-muted">
-                    Press a key, talk, press it again. Clean text lands wherever your cursor is - a
-                    note, an email, code, a prompt. Your voice never leaves the room.
+                    Press a key and talk - the text appears where your cursor is.
                   </p>
                 </div>
               </div>
@@ -1197,7 +1150,7 @@ export default function Home() {
                   <p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-muted">screeni</p>
                   <h3 className="display mt-1.5 text-balance text-lg">a screen recorder that automates all the work.</h3>
                   <p className="mt-1.5 text-sm leading-6 text-muted">
-                    The zoom follows your cursor. Silence cuts itself. Captions write themselves.
+                    Auto-zoom, silence cuts and captions, done for you.
                   </p>
                 </div>
               </div>
@@ -1236,8 +1189,7 @@ export default function Home() {
                   <p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-muted">one-time purchase</p>
                   <h3 className="display mt-1.5 text-lg">stop renting your tools.</h3>
                   <p className="mt-1.5 text-sm leading-6 text-muted">
-                    Our goal is to replace as many subscription apps as we can with one app you pay
-                    for once.
+                    One payment instead of a stack of subscriptions.
                   </p>
                 </div>
               </div>
@@ -1247,7 +1199,7 @@ export default function Home() {
       </section>
 
       {/* the toolkit — browse capabilities by tool */}
-      <section className="dotted overflow-hidden border-y border-line py-16 md:py-24">
+      <section className="cv dotted overflow-hidden border-y border-line py-16 md:py-24" style={cv(1100, 900)}>
         <div className="mx-auto max-w-6xl px-5">
           <Reveal>
             <Toolkit />
@@ -1256,13 +1208,10 @@ export default function Home() {
       </section>
 
       {/* the studio — one tool at a time */}
-      <section id="tools" className="py-20 md:py-28">
+      <section id="tools" className="cv py-20 md:py-28" style={cv(7600, 6400)}>
         <div className="mx-auto max-w-7xl px-5">
           <Reveal className="mx-auto max-w-2xl text-center">
             <h2 className="display text-4xl md:text-5xl">eight tools, one desk, zero cloud</h2>
-            <p className="mx-auto mt-4 max-w-xl text-muted">
-              Use one of them or all eight - nothing here assumes what your job is.
-            </p>
           </Reveal>
           <div className="mt-16 md:mt-24">
             <ToolShowcase tools={TOOL_ROWS} />
@@ -1275,7 +1224,7 @@ export default function Home() {
       <QuickTools />
 
       {/* social — the scheduler agents can drive */}
-      <section id="social" className="border-t border-line py-20 md:py-28">
+      <section id="social" className="cv border-t border-line py-20 md:py-28" style={cv(1700, 1100)}>
         <div className="mx-auto max-w-6xl px-5">
           <Reveal className="mx-auto max-w-3xl text-center">
             <p className="kicker">social</p>
@@ -1283,7 +1232,7 @@ export default function Home() {
               run your social media on <span className="marker">autopilot</span> with AI agents
             </h2>
             <p className="mx-auto mt-5 max-w-2xl text-[15px] leading-7 text-muted md:text-base">
-              Plan, generate, and schedule posts automatically to 30+ social media networks - then review and edit everything in a visual calendar.
+              Schedule posts from one calendar, or let an AI agent plan the week for your approval.
             </p>
             <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
               <span className="text-[12px] font-semibold uppercase tracking-[0.12em] text-muted">use any agent</span>
@@ -1311,9 +1260,8 @@ export default function Home() {
                 ))}
               </ul>
               <div className="mt-6 rounded-[14px] border border-line bg-card p-4 text-[13px] leading-6 text-muted">
-                <span className="font-semibold text-ink">honest status.</span> Live today: Bluesky, Mastodon, Telegram, Discord, Slack, Dev.to, Medium.
-                X and LinkedIn: with your own free developer app. Threads, Instagram, Facebook, Reddit, Pinterest, TikTok, YouTube and ~20 more:
-                in the catalogue, publishing arrives in later builds.
+                <span className="font-semibold text-ink">Live now:</span> Bluesky, Mastodon, Telegram, Discord, Slack,
+                Dev.to and Medium. X and LinkedIn work with your own developer app; more networks are coming.
               </div>
             </Reveal>
           </div>
@@ -1327,50 +1275,50 @@ export default function Home() {
       <SpeedCompare />
 
       {/* personas */}
-      <section id="who" className="mx-auto max-w-6xl px-5 py-16 md:py-24">
-        <SectionHead
-          kicker="what it's for"
-          title="eight moments, not eight job titles"
-          sub="There is no niche here. If you talk, record, listen or just need to concentrate, one of these is already your day."
-        />
-        <div className="mt-12 grid gap-5 sm:grid-cols-2">
-          {MOMENTS.map((p, i) => (
-            <Reveal
-              key={p.title}
-              delay={(i % 2) * 0.08}
-              className={i === MOMENTS.length - 1 && MOMENTS.length % 2 ? "sm:col-span-2" : undefined}
-            >
-              <div className="wincard h-full" style={{ transform: `rotate(${i % 2 ? 0.4 : -0.4}deg)` }}>
-                <div className="wincard-bar">
-                  <WinDots />
-                  <span className="wincard-title">{p.window}</span>
-                </div>
-                <div className="flex gap-4 p-6 sm:gap-5">
-                  <Scene ground={p.ground} className="h-[92px] w-[92px] shrink-0 !rounded-xl">
-                    {MOTIFS[p.motif]}
-                  </Scene>
-                  <div className="min-w-0">
-                    <h3 className="display text-xl">{p.title}</h3>
-                    <p className="mt-2 text-[14px] leading-6 text-muted">{p.desc}</p>
-                    <div className="mt-3 flex gap-1.5">
-                      {p.tools.map((t) => (
-                        <span key={t} className="rounded-full bg-accent/10 px-2.5 py-0.5 text-[11px] font-semibold text-accent">
-                          {t}
-                        </span>
-                      ))}
+      {/* personas - a full-width section around the column, so content-visibility's
+          paint containment has room for the cards' shadows */}
+      <section id="who" className="cv px-5 py-16 md:py-24" style={cv(2100, 1100)}>
+        <div className="mx-auto max-w-6xl">
+          <SectionHead kicker="what it's for" title="eight moments, not eight job titles" />
+          <div className="mt-12 grid gap-5 sm:grid-cols-2">
+            {MOMENTS.map((p, i) => (
+              <Reveal
+                key={p.title}
+                delay={(i % 2) * 0.08}
+                className={i === MOMENTS.length - 1 && MOMENTS.length % 2 ? "sm:col-span-2" : undefined}
+              >
+                <div className="wincard h-full" style={{ transform: `rotate(${i % 2 ? 0.4 : -0.4}deg)` }}>
+                  <div className="wincard-bar">
+                    <WinDots />
+                    <span className="wincard-title">{p.window}</span>
+                  </div>
+                  <div className="flex gap-4 p-6 sm:gap-5">
+                    <Scene ground={p.ground} className="h-[92px] w-[92px] shrink-0 !rounded-xl">
+                      {MOTIFS[p.motif]}
+                    </Scene>
+                    <div className="min-w-0">
+                      <h3 className="display text-xl">{p.title}</h3>
+                      <p className="mt-2 text-[14px] leading-6 text-muted">{p.desc}</p>
+                      <div className="mt-3 flex gap-1.5">
+                        {p.tools.map((t) => (
+                          <span key={t} className="rounded-full bg-accent/10 px-2.5 py-0.5 text-[11px] font-semibold text-accent">
+                            {t}
+                          </span>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            </Reveal>
-          ))}
+              </Reveal>
+            ))}
+          </div>
         </div>
       </section>
 
       {/* free tools */}
-      <section id="free-tools" className="dotted border-y border-line px-5 py-14 md:py-20">
+      <section id="free-tools" className="cv dotted border-y border-line px-5 py-14 md:py-20" style={cv(900, 480)}>
         <div className="mx-auto max-w-6xl">
-          <SectionHead kicker="free tools" title="useful on their own" sub="A taste of the studio - free in the desktop app, no sign-up." />
+          <SectionHead kicker="free tools" title="useful on their own" sub="Free in the desktop app, no sign-up." />
           <div className="mx-auto mt-10 grid max-w-xl gap-4 lg:max-w-5xl lg:grid-cols-3">
             {FREE_TOOLS.map((tool, i) => (
               <Reveal key={tool.title} delay={i * 0.07}>
@@ -1396,7 +1344,7 @@ export default function Home() {
       </section>
 
       {/* a message from the founder */}
-      <section className="px-5 py-20 md:py-28">
+      <section className="cv px-5 py-20 md:py-28" style={cv(760, 640)}>
         <div className="mx-auto max-w-[640px]">
           <Reveal>
             <div className="wincard">
@@ -1405,35 +1353,18 @@ export default function Home() {
               </div>
               <div className="space-y-4 p-7 text-[15px] leading-7 text-muted sm:p-10 md:text-[15.5px] md:leading-8">
                 <p className="text-ink">
-                  I counted it one evening: four apps to get through one working day. one to turn
-                  my voice into text, one to record the screen, one to hold the notes, one to keep
-                  me off the internet for an hour.
+                  I needed four apps to get through a working day: dictation, screen recording, notes
+                  and a focus timer.
                 </p>
                 <p>
-                  four logins, four charges every month, and every one of them sending my voice and
-                  my screen to a server I will never see.
+                  Four logins, four monthly bills, and each one sent my voice or my screen to a
+                  server.
                 </p>
                 <p>
-                  <span className="text-ink">
-                    why pay for all the other tools if you can have it in one simple app?
-                  </span>{" "}
-                  that question is the whole thing. I could not find an honest answer, so I stopped
-                  looking and started building.
+                  owntools does all of it on your own computer. No account, it works offline, and
+                  everything you make stays a file you own.
                 </p>
-                <p>
-                  owntools is the desk I wanted: dictate, record, write, sketch, focus. one window, one
-                  hotkey, no account. it keeps working with the wi-fi off, and everything you make
-                  stays a file on your machine - not a row in somebody’s database.
-                </p>
-                <p>
-                  I am building it on my own and in the open. it is free while it grows, and if it
-                  ever saves you an hour, one payment keeps it yours for good - no renewals, no
-                  seats, no plan to outgrow.
-                </p>
-                <p>
-                  if something is missing, write to me. I read all of it, and most of what is in the
-                  app started as somebody’s message.
-                </p>
+                <p>Missing something? Write to me - I read every message.</p>
                 <p className="pt-2 text-ink">szymon - building owntools</p>
               </div>
             </div>
@@ -1445,14 +1376,12 @@ export default function Home() {
       <SubscriptionBill />
 
       {/* pricing — a window to the sky */}
-      <section id="pricing" className="sky-day ground ground--wide px-5 py-16 md:py-24">
+      <section id="pricing" className="cv sky-day ground ground--wide px-5 py-16 md:py-24" style={cv(2300, 1500)}>
         <div className="mx-auto max-w-4xl">
           <Reveal className="text-center">
             <p className="text-xs font-bold uppercase tracking-[0.16em] opacity-60">pricing</p>
-            <h2 className="display mt-3 text-4xl md:text-5xl">owntools, your way</h2>
-            <p className="mt-3 opacity-75">
-              the full app is free - exports carry a small badge. one payment removes it forever.
-            </p>
+            <h2 className="display mt-3 text-4xl md:text-5xl">free, or paid once</h2>
+            <p className="mt-3 opacity-75">Every tool is free. Pro removes the badge from exports, for good.</p>
           </Reveal>
           <CheckoutNotice />
           <div className="mt-12 grid gap-6 md:grid-cols-2">
@@ -1464,13 +1393,12 @@ export default function Home() {
                 </div>
                 <div className="p-7">
                   <h3 className="display text-lg">free</h3>
-                  <p className="text-[13px] text-[#6e6e73]">see what the fuss is about</p>
+                  <p className="text-[13px] text-[#6e6e73]">every tool, no limits</p>
                   <p className="display mt-3 text-5xl font-extrabold">$0</p>
                   <ul className="mt-5 space-y-2.5 text-sm text-[#6e6e73]">
-                    <li className="flex gap-2"><Check size={15} className="mt-0.5 text-accent" /> all eight tools, no limits</li>
-                    <li className="flex gap-2"><Check size={15} className="mt-0.5 text-accent" /> 60 fps MP4 export with audio</li>
-                    <li className="flex gap-2"><Check size={15} className="mt-0.5 text-accent" /> on-device dictation &amp; captions</li>
-                    <li className="flex gap-2"><Check size={15} className="mt-0.5 text-accent" /> small “made with owntools” badge on videos</li>
+                    <li className="flex gap-2"><Check size={15} className="mt-0.5 text-accent" /> all eight tools</li>
+                    <li className="flex gap-2"><Check size={15} className="mt-0.5 text-accent" /> MP4 export up to 60 fps</li>
+                    <li className="flex gap-2"><Check size={15} className="mt-0.5 text-accent" /> a small badge on exported videos</li>
                   </ul>
                   <DownloadCta className="btn mt-7 w-full border border-[#1d1d1f]/20 bg-white font-semibold text-[#1d1d1f] hover:bg-[#f5f5f7]">
                     download
@@ -1498,10 +1426,9 @@ export default function Home() {
                   />
                   <LiveStepNote className="mt-1.5 block text-[12.5px] font-semibold text-accent" />
                   <ul className="mt-4 space-y-2.5 text-sm text-[#6e6e73]">
-                    <li className="flex gap-2"><Check size={15} className="mt-0.5 text-accent" /> everything in free</li>
-                    <li className="flex gap-2"><Check size={15} className="mt-0.5 text-accent" /> no badge - ever</li>
-                    <li className="flex gap-2"><Check size={15} className="mt-0.5 text-accent" /> offline license key, no account</li>
+                    <li className="flex gap-2"><Check size={15} className="mt-0.5 text-accent" /> no badge on exports</li>
                     <li className="flex gap-2"><Check size={15} className="mt-0.5 text-accent" /> lifetime updates</li>
+                    <li className="flex gap-2"><Check size={15} className="mt-0.5 text-accent" /> offline key, no account</li>
                   </ul>
                   <CheckoutCta href={checkoutHref} className="btn btn-accent mt-7 w-full">
                     get the pro key
@@ -1558,8 +1485,8 @@ export default function Home() {
       </section>
 
       {/* faq */}
-      <section id="faq" className="mx-auto max-w-6xl px-5 py-16 md:py-24">
-        <div className="grid gap-12 lg:grid-cols-[1fr_320px]">
+      <section id="faq" className="cv px-5 py-16 md:py-24" style={cv(1500, 1100)}>
+        <div className="mx-auto grid max-w-6xl gap-12 lg:grid-cols-[1fr_320px]">
           <div>
             <Reveal>
               <p className="kicker">support</p>
@@ -1576,9 +1503,7 @@ export default function Home() {
                 <span className="wincard-title">help.app</span>
               </div>
               <div className="p-6">
-                <p className="text-sm leading-6 text-muted">
-                  Can’t find the answer you’re looking for? Ask directly - every message gets read.
-                </p>
+                <p className="text-sm leading-6 text-muted">Still have a question? Ask - every message gets read.</p>
                 {xUrl ? (
                   <a href={xUrl} rel="noreferrer" className="btn btn-primary mt-5 !h-10 w-full text-[13px]">
                     ask on x <ArrowRight size={14} />
@@ -1600,7 +1525,7 @@ export default function Home() {
 
       {/* footer */}
       {/* roadmap — the course, mostly sailed */}
-      <section id="roadmap" className="mx-auto max-w-6xl px-5 pb-16 pt-4 md:pb-24">
+      <section id="roadmap" className="cv mx-auto max-w-6xl px-5 pb-16 pt-4 md:pb-24" style={cv(520, 420)}>
         <Reveal>
           <div className="flex items-end justify-between gap-4">
             <div>
@@ -1654,11 +1579,11 @@ export default function Home() {
                 next port - <span className="text-indigo">mate</span>
               </p>
               <p className="mt-1 text-[14px] text-muted">
-                Say what has to be done. Get it back done - on this machine, every step yours to approve.
+                An agent that gets things done with your tools, and asks before every step.
               </p>
             </div>
             <div className="flex flex-wrap gap-2 md:ml-auto">
-              {["asks first", "stays local", "your tools are its hands"].map((c) => (
+              {["asks first", "stays local"].map((c) => (
                 <span key={c} className="rounded-full border border-indigo/25 px-2.5 py-1 text-[12px] font-medium text-indigo">
                   {c}
                 </span>
@@ -1709,7 +1634,7 @@ export default function Home() {
               <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted">company</p>
               <div className="mt-3 flex flex-col gap-2 text-muted">
                 {xUrl ? (
-                  <a className="transition hover:text-ink" href={xUrl} rel="noreferrer">building in public on x</a>
+                  <a className="transition hover:text-ink" href={xUrl} rel="noreferrer">owntools on x</a>
                 ) : null}
                 <a className="transition hover:text-ink" href="#faq">faq</a>
                 <a className="transition hover:text-ink" href="/changelog">changelog</a>

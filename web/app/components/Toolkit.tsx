@@ -19,7 +19,6 @@ import {
   Mic,
   Music,
   Palette,
-  Rocket,
   Scissors,
   Shapes,
   Subtitles,
@@ -27,13 +26,13 @@ import {
   Users,
   ZoomIn,
 } from "lucide-react";
-import { DownloadCta } from "./Cta";
 
 /**
  * "the owntools toolkit" — capabilities browsed by job (voice / media /
  * create / focus), yaps.ai-style layout: numbered tinted cards with mini
- * mockups in a right-bleeding row, counter + arrows strip, and a featured
- * capability banner. Every card carries its own hue (Apple system colors).
+ * mockups in a right-bleeding row and a counter + arrows strip. Every card
+ * carries its own hue (Apple system colors). The featured-capability banner
+ * under the row repeated the first card word for word and went on 2026-09-14.
  */
 
 /* tints — Apple system hues; used only as card washes in this section */
@@ -51,7 +50,6 @@ function MockShell({ children }: { children: ReactNode }) {
 }
 
 function ListeningMock() {
-  const bars = [5, 9, 14, 8, 12, 6, 10, 15, 7, 11, 4];
   return (
     <MockShell>
       <div className="flex items-center gap-2 rounded-full bg-[#0b0b0d] px-3 py-2">
@@ -313,7 +311,7 @@ function TemplatesMock() {
           <span className="absolute right-1.5 top-4 h-4 w-5 rotate-[5deg] rounded-sm border border-line bg-card shadow-sm" />
         </div>
       </div>
-      <p className="mt-2 text-[10px] font-medium text-muted">3 templates, owntools aesthetic</p>
+      <p className="mt-2 text-[10px] font-medium text-muted">6 style packs</p>
     </MockShell>
   );
 }
@@ -447,7 +445,6 @@ const TOOLKIT: Record<
   {
     strip: string;
     cards: Card[];
-    feature: { icon: ReactNode; tint: string; title: string; tag: string; desc: string; cta: string };
   }
 > = {
   voice: {
@@ -455,8 +452,8 @@ const TOOLKIT: Record<
     cards: [
       {
         title: "desktop dictation",
-        tags: "windows · any app",
-        desc: "Speak - it types wherever your cursor is.",
+        tags: "any app",
+        desc: "Speak, and it types where your cursor is.",
         tint: ORANGE,
         icon: <Mic size={15} />,
         mock: <ListeningMock />,
@@ -471,16 +468,16 @@ const TOOLKIT: Record<
       },
       {
         title: "meetings, live",
-        tags: "mic + system audio · who said what",
-        desc: "Any call on this machine, written down as it happens.",
+        tags: "who said what",
+        desc: "Any call, transcribed as it happens.",
         tint: CYAN,
         icon: <Users size={15} />,
         mock: <MeetingsMock />,
       },
       {
         title: "file transcription",
-        tags: "desktop · audio or video",
-        desc: "Drop a file, read it as text - locally.",
+        tags: "audio or video",
+        desc: "Drop in a file, get the text.",
         tint: BLUE,
         icon: <FileAudio size={15} />,
         mock: <TranscribeMock />,
@@ -494,14 +491,6 @@ const TOOLKIT: Record<
         mock: <RecordMock />,
       },
     ],
-    feature: {
-      icon: <Mic size={16} />,
-      tint: ORANGE,
-      title: "desktop dictation",
-      tag: "system-wide · whisper on your cpu",
-      desc: "Press your shortcut, speak, press it again - clean text lands in whatever app is in front of you, from a document to a search box. Nothing leaves your machine.",
-      cta: "explore dictation",
-    },
   },
   media: {
     strip: "caption, cut and convert",
@@ -525,7 +514,7 @@ const TOOLKIT: Record<
       {
         title: "auto cut",
         tags: "pauses · dead air",
-        desc: "The take tightens itself; the source stays whole.",
+        desc: "Pauses are cut out for you.",
         tint: ORANGE,
         icon: <Scissors size={15} />,
         mock: <SilenceMock />,
@@ -547,14 +536,6 @@ const TOOLKIT: Record<
         mock: <FormatsMock />,
       },
     ],
-    feature: {
-      icon: <Subtitles size={16} />,
-      tint: INDIGO,
-      title: "subtitles",
-      tag: "timed output · separate file",
-      desc: "Generate a standalone SRT from any audio or video file, review every line, then publish - captions written by your CPU, not a cloud.",
-      cta: "get the subtitle maker",
-    },
   },
   create: {
     strip: "think it through, announce it loudly",
@@ -570,7 +551,7 @@ const TOOLKIT: Record<
       {
         title: "screenshots that read",
         tags: "ctrl+shift+4 · mark up · ocr",
-        desc: "Freeze the screen, mark it up, copy the text out of it.",
+        desc: "Mark up a screenshot and copy its text.",
         tint: CYAN,
         icon: <Crop size={15} />,
         mock: <CaptureMock />,
@@ -578,14 +559,14 @@ const TOOLKIT: Record<
       {
         title: "url → video",
         tags: "paste a link",
-        desc: "Your page in, your announcement out.",
+        desc: "Paste a link, get a launch video.",
         tint: INDIGO,
         icon: <LinkIcon size={15} />,
         mock: <UrlMock />,
       },
       {
         title: "keynote templates",
-        tags: "3 styles",
+        tags: "6 styles",
         desc: "Big type, product shots, floating windows.",
         tint: PINK,
         icon: <LayoutTemplate size={15} />,
@@ -594,7 +575,7 @@ const TOOLKIT: Record<
       {
         title: "brand auto-detect",
         tags: "colors · logo · shot",
-        desc: "Your palette, pulled straight from your page.",
+        desc: "Colors and logo, taken from your page.",
         tint: ORANGE,
         icon: <Palette size={15} />,
         mock: <BrandMock />,
@@ -602,28 +583,20 @@ const TOOLKIT: Record<
       {
         title: "offline render",
         tags: "webcodecs · 60 fps",
-        desc: "Frame-accurate MP4, made on your machine.",
+        desc: "Frame-accurate MP4, rendered on your device.",
         tint: CYAN,
         icon: <Clapperboard size={15} />,
         mock: <RenderMock />,
       },
       {
         title: "translation",
-        tags: "100+ languages in",
-        desc: "Carry the meaning into English as you speak.",
+        tags: "99 languages",
+        desc: "Speak any language, read it in English.",
         tint: GREEN,
         icon: <Languages size={15} />,
         mock: <TranslateMock />,
       },
     ],
-    feature: {
-      icon: <Rocket size={16} />,
-      tint: INDIGO,
-      title: "launch video maker",
-      tag: "url → mp4 · on your machine",
-      desc: "Paste your URL and render a keynote-style launch video in your own colors - no sign-up, no upload.",
-      cta: "get the launch studio",
-    },
   },
   focus: {
     strip: "plan, focus and review",
@@ -631,14 +604,14 @@ const TOOLKIT: Record<
       {
         title: "fullscreen timer",
         tags: "timer · stopwatch",
-        desc: "One key, and the timer owns the whole screen.",
+        desc: "A timer that takes over the screen.",
         tint: BLUE,
         icon: <Timer size={15} />,
         mock: <TimerMock />,
       },
       {
         title: "tasks & day plan",
-        tags: "one mit a day",
+        tags: "one task a day",
         desc: "Pick the task that matters. Park the rest.",
         tint: GREEN,
         icon: <ListChecks size={15} />,
@@ -647,7 +620,7 @@ const TOOLKIT: Record<
       {
         title: "linked notes",
         tags: "plain files · backlinks",
-        desc: "Notes that stay yours, linked like thoughts.",
+        desc: "Plain-file notes with backlinks.",
         tint: ORANGE,
         icon: <FileText size={15} />,
         mock: <NotesMock />,
@@ -661,14 +634,6 @@ const TOOLKIT: Record<
         mock: <HeatmapMock />,
       },
     ],
-    feature: {
-      icon: <Timer size={16} />,
-      tint: BLUE,
-      title: "deep-focus desk",
-      tag: "fullscreen · tasks · habits · heatmap",
-      desc: "One MIT for the day, a timer that can take over the screen, and an honest map of your hours - a desk that keeps you honest.",
-      cta: "explore focus",
-    },
   },
 };
 
@@ -699,9 +664,6 @@ export function Toolkit() {
             <br />
             show and share.
           </h2>
-          <p className="mt-4 text-muted">
-            Capture it, shape it, share it - and keep every file in your own hands.
-          </p>
         </div>
         <div className="lg:pb-2 lg:text-right">
           <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-muted">browse by job</p>
@@ -777,24 +739,6 @@ export function Toolkit() {
             <ArrowRight size={14} />
           </button>
         </div>
-      </div>
-
-      {/* featured capability banner */}
-      <div
-        className="mt-6 flex flex-col gap-4 rounded-2xl border border-line bg-card p-5 md:flex-row md:items-center md:gap-6"
-        style={{ ["--tint" as string]: t.feature.tint }}
-      >
-        <div className="flex shrink-0 items-center gap-3 md:w-64">
-          <span className="glow-icon">{t.feature.icon}</span>
-          <div>
-            <p className="display text-[16px] font-bold">{t.feature.title}</p>
-            <p className="mt-0.5 text-[9px] font-bold uppercase tracking-[0.14em] text-muted">{t.feature.tag}</p>
-          </div>
-        </div>
-        <p className="flex-1 text-sm leading-6 text-muted">{t.feature.desc}</p>
-        <DownloadCta className="btn btn-primary !h-10 shrink-0 !px-5 text-[13px]">
-          {t.feature.cta} <ArrowRight size={14} />
-        </DownloadCta>
       </div>
     </div>
   );

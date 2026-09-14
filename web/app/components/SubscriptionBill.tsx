@@ -19,7 +19,7 @@ import { LivePrice, LiveStepNote } from "./pricing/LivePrice";
 
 export function SubscriptionBill() {
   return (
-    <section id="the-math" className="border-t border-line px-5 py-20 md:py-28">
+    <section id="the-math" className="cv border-t border-line px-5 py-20 md:py-28" style={{ ["--cv" as string]: "1500px", ["--cv-lg" as string]: "1300px" }}>
       <div className="mx-auto max-w-5xl">
         <Reveal className="mx-auto max-w-2xl text-center">
           <p className="kicker">the math</p>
@@ -29,8 +29,7 @@ export function SubscriptionBill() {
             <span className="dim">or one app paid once</span>
           </h2>
           <p className="mx-auto mt-5 max-w-lg text-[15px] leading-7 text-muted">
-            The same ten jobs, bought the usual way: the cheapest paid plan of each, for one person,
-            billed yearly.
+            The cheapest yearly plan of each, for one person.
           </p>
         </Reveal>
 

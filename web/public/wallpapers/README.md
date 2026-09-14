@@ -1,15 +1,17 @@
 # wallpapers
 
-Drop-in slots for real photo wallpapers. The CSS references these files with
-procedural gradient fallbacks underneath — if a file is missing, the gradient
-renders instead, nothing breaks.
+| file              | used by                                          | what it is                                               |
+| ----------------- | ------------------------------------------------ | -------------------------------------------------------- |
+| `ascii-grid.webp` | `.ground::before` - every scene, the hero sky and the pricing sky | the ASCII drizzle, as the page actually draws it          |
+| `ascii-grid.svg`  | nothing at runtime                               | the source the WebP is rendered from                     |
 
-| file            | used by                                        | what to drop here                                      |
-| --------------- | ---------------------------------------------- | ------------------------------------------------------ |
-| `hero.jpg`      | `.hero-sky` (day hero) + `.sky-day` (pricing, cropped to its bottom/meadow; dark theme adds a dark wash) | grass field + blue sky with ASCII code (the "bliss × matrix" shot) |
-| `hero-dark.jpg` | `.hero-sky` (night theme hero)                 | dusk/dawn sky, deep navy → warm horizon                |
-| `ascii-grid.svg`| `.ascii-sky::before` overlay                   | generated — regenerate only if you want new characters |
+The page shows the texture at 520×420 CSS px, 24 % opacity, masked towards the
+bottom. It used to reference the SVG directly: 1,916 `<text>` nodes, each with
+its own opacity, replayed for every scene on every raster - measured on
+2026-09-14 at 24 s of raster work and a third of the frames dropped over one
+scroll of the landing. The WebP (780×630, quality 50) draws in no time and is
+preloaded with the hero, where it is the largest thing on the first screen.
 
-Recommended: ≥1920px wide, JPEG quality ~75, keep each under ~400 KB.
-`ascii-grid.svg` is procedural (white monospace chars, tiled 640×520,
-masked to fade toward the bottom of the section).
+To change the characters: edit or regenerate the SVG, render it at 780×630 in a
+browser (draw it onto a canvas, `toDataURL("image/png")`), then encode with
+sharp: `sharp(png).webp({ quality: 50, alphaQuality: 50, effort: 6 })`.

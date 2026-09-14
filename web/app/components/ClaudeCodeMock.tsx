@@ -51,21 +51,21 @@ const ART = [
   "..##......##..",
 ];
 
+/* one path, a unit square per "#" - it was a <span> per cell, 112 of them */
+const ART_PATH = ART.flatMap((row, y) => [...row].map((c, x) => (c === "#" ? `M${x} ${y}h1v1h-1z` : ""))).join("");
+
 function WelcomeArt() {
   return (
-    <span className="mx-auto my-3 grid w-fit" aria-hidden>
-      {ART.map((row, y) => (
-        <span key={y} className="flex">
-          {[...row].map((c, x) => (
-            <span
-              key={x}
-              className="h-[5px] w-[5px]"
-              style={{ background: c === "#" ? "#d97757" : "transparent" }}
-            />
-          ))}
-        </span>
-      ))}
-    </span>
+    <svg
+      className="mx-auto my-3 block"
+      width={ART[0].length * 5}
+      height={ART.length * 5}
+      viewBox={`0 0 ${ART[0].length} ${ART.length}`}
+      shapeRendering="crispEdges"
+      aria-hidden
+    >
+      <path d={ART_PATH} fill="#d97757" />
+    </svg>
   );
 }
 
@@ -108,10 +108,8 @@ export function ClaudeCodeMock() {
           <span className="select-none text-[#d97757]">&gt;</span>
           <p className="min-w-0 text-[#e8e8ea]">
             In <span className="text-[#7aa2f7]">@settings-view.tsx</span> add a dark mode toggle
-            right under the language picker, persist the choice in the prefs store so it survives a
-            restart, and make it follow the system theme when nobody has picked one yet. Then update
-            the tests that cover the settings panel, and check the timer overlay still reads
-            properly on the dark background.
+            under the language picker, save the choice in the prefs store, and follow the system
+            theme until someone picks one. Then update the settings tests.
           </p>
         </div>
         <p className="mt-1.5 pl-4 italic text-[#6f6f78]">…spoken, not typed - on screen 3.4 s after I stopped talking</p>

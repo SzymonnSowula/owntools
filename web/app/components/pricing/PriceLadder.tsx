@@ -31,8 +31,7 @@ export function PriceLadder() {
         ))}
       </ol>
       <p className="border-t border-[#1d1d1f]/10 px-5 py-4 text-[13px] leading-6 text-[#6e6e73]">
-        Every step buys the same key: all the tools, every update, no renewal. The checkout counts
-        the keys itself, so the price shown here is the price you pay.
+        Every step buys the same key, with every future update.
       </p>
     </div>
   );
