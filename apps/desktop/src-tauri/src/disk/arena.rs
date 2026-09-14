@@ -689,8 +689,11 @@ pub(crate) mod tests {
     #[test]
     fn paths_round_trip() {
         let a = sample();
+        // path_of joins with the platform's separator, so on macOS the
+        // fixture's Windows root gets `/` after it.
+        let sep = std::path::MAIN_SEPARATOR;
         assert_eq!(a.path_of(0), "C:\\root");
-        assert_eq!(a.path_of(8), "C:\\root\\Docs\\sub\\b.pdf");
+        assert_eq!(a.path_of(8), format!("C:\\root{sep}Docs{sep}sub{sep}b.pdf"));
         assert_eq!(a.find_path("C:\\root\\Docs\\sub\\b.pdf"), Some(8));
         assert_eq!(a.find_path("C:\\root"), Some(0));
         assert_eq!(a.find_path("C:\\root\\"), Some(0));

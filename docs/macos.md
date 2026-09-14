@@ -276,10 +276,54 @@ with a Mac runs it.
 4. **What to send back.** macOS version and chip (Apple menu → About This
    Mac), screenshots of anything wrong, and the log:
    `~/Library/Logs/app.owntools.desktop/owntools.log`.
-5. **Expect WebKit, not Chromium.** On macOS the UI runs in WKWebView. The
-   frontend has only ever run in WebView2, so media APIs are the first suspects
-   when the recorder or the export misbehaves: the recorder asks
-   `MediaRecorder` for WebM only (`feature-editor/src/lib/recorder.ts`) and
-   names every take `screen.webm` (`projectIo.ts`), and the export's
-   non-WebCodecs fallback is WebM-only as well (`exportVideo.ts`). Dictation
-   already falls back to `audio/mp4` (`core/src/audio.ts`).
+5. **Expect WebKit, not Chromium.** On macOS the UI runs in WKWebView, which
+   uses the system's WebKit, so what works depends on the Mac's macOS / Safari
+   version. The frontend has only ever run in WebView2. What WebKit has
+   (researched 2026-09-14, not yet seen on hardware):
+   - **`getDisplayMedia`** goes through the system picker (macOS 14+). Tauri's
+     auto-granted media permission broke it on macOS 14.0; WebKit fixed that in
+     2024, which points to macOS 14.6 / Safari 17.6+ (inferred;
+     [wry #1195](https://github.com/tauri-apps/wry/issues/1195) is still open).
+     It captures **no system audio**, and on macOS 15+ ScreenCaptureKit ignores
+     `NSWindowSharingNone`, so **the recorder bar will most likely be in the
+     take** (Apple DTS: there is no public API to prevent capture).
+   - **`MediaRecorder`** writes MP4 (H.264 + AAC) since Safari 14.1 and WebM
+     only since Safari 18.4. The recorder asks for WebM only
+     (`feature-editor/src/lib/recorder.ts`) and names every take `screen.webm`
+     (`projectIo.ts`), so an older WebKit writes MP4 bytes under a `.webm`
+     name. The export's non-WebCodecs fallback is WebM-only too
+     (`exportVideo.ts`). Dictation already falls back to `audio/mp4`.
+   - **WebCodecs**: `VideoEncoder` since Safari 16.4, `AudioEncoder` only since
+     Safari 26 (AAC and Opus; no MP3 or FLAC), so an MP4 export *with sound*
+     needs Safari 26. Feature-detect, never assume.
+
+   §9 is the native answer to all three.
+
+---
+
+## 9. Better on a Mac than on Windows
+
+The port is not the goal; the Mac has system features Windows does not, and
+owntools should use them. Researched 2026-09-14 against Apple's and Tauri's
+docs (Tauri 2.11.5 in the lock) — none of it has run on hardware yet. Ordered
+by value for effort; the prerequisite is what decides *when*.
+
+**Decide first: the minimum macOS.** 11.0 today. 14.2 would buy the system
+screen-sharing picker, Core Audio process taps (the only way meet can hear the
+other side without a virtual driver) and a WebKit without the capture bug
+above. Macs that cannot run 14 are from 2017 or older.
+
+| # | What | For | Prerequisite |
+| --- | --- | --- | --- |
+| 1 | **Menu bar and Dock.** `TrayIcon::set_title` puts the running focus timer or the REC time next to the menu bar icon (macOS only). `set_badge_label` / `set_badge_count` for posts waiting for review. `set_progress_bar` draws export and model-download progress on the Dock tile. `set_activation_policy(Accessory)` while closed to the tray, `Regular` when the window opens — a menu bar app when hidden, a normal app when not. `titleBarStyle: "Overlay"` + `trafficLightPosition` for real traffic lights instead of the Windows-style buttons in `SuiteTitleBar`. | focus, screeni, social, dictate | none — all in Tauri already |
+| 2 | **Vision text recognition** (`VNRecognizeTextRequest`, macOS 10.15+, through `objc2-vision`) replaces capture's "OCR: not on this platform yet". Polish is reported as supported on current macOS by third parties, not by Apple — read `supportedRecognitionLanguages` at runtime. | capture | none |
+| 3 | **`owntools://` links** (tauri-plugin-deep-link): Shortcuts, Raycast, Alfred and Stream Deck start a focus session, dictation, a recording or a new board. Plus **Services menu** actions on selected text in any app — "Add to focus tasks", "Draft a post", "Summarize" (`NSServices` in Info.plist with `NSRequiredContext`, or macOS hides them; a handler through objc2). | focus, social, Intelligence | the app installed in /Applications (schemes cannot be registered at runtime) |
+| 4 | **Keychain** for social tokens and the cloud API key instead of `credentials.json` (`keyring` / `security-framework`, file keychain, no entitlement). | social, Intelligence | Developer ID — with ad-hoc signing every update re-prompts |
+| 5 | **meet on a Mac**: Core Audio process tap for "them" + the mic for "you", same segment events as WASAPI. Needs `NSAudioCaptureUsageDescription`. | meet | macOS 14.2, Developer ID |
+| 6 | **Native recorder on ScreenCaptureKit**: the system picker, the app's own windows excluded by the content filter (the only reliable way now that `NSWindowSharingNone` is ignored), `showsCursor = false` so the editor draws the *only* pointer — WebView2 on Windows always bakes the real one in — system audio (13+), microphone (15+), `SCRecordingOutput` straight to a file, and the content rect for `captureRect` without shape matching. | screeni | macOS 14, Developer ID (without the picker macOS 15 re-asks for Screen Recording monthly) |
+| 7 | **Apple Intelligence as an Intelligence backend** (Foundation Models): no 2.5 GB download on Apple Silicon. Apple publishes Apache-2.0 C bindings, so Rust can call it without writing Swift. 4K-token context and **no Polish** — English-first, Qwen stays the default. Same story for `SpeechAnalyzer` (on-device long-form transcription, no Polish): an optional English engine, Parakeet stays. | meet summaries, social, dictate | macOS 26, Apple Silicon, Apple Intelligence on |
+| 8 | **Widgets and Controls**: a focus widget on the desktop / in Notification Center with Start and Pause (interactive, macOS 14+), today's tasks, the next scheduled post; Control Center and menu bar controls for dictate / focus / record (macOS 26). A Swift widget extension built in Xcode, signed with its own entitlements and copied into `Contents/PlugIns` (Tauri has no extension support; `bundle.macOS.files` copies without signing), plus an App Group with the team-ID prefix to share state. App Intents / Spotlight actions are Swift-only and come after this. | focus, dictate, screeni, social | Developer ID, a Swift extension + a CI step, macOS 14 / 26 |
+
+Rows 1–3 can ship before the Apple certificate; from row 4 on, the $99
+membership is a prerequisite anyway — ad-hoc signed builds lose every
+permission and keychain grant on each update.
