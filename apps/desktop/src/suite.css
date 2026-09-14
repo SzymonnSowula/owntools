@@ -2053,33 +2053,36 @@ button.wincard:hover {
    desktop the same cards shrink into the middle of the screen. Zooming the
    two surfaces keeps every proportion of the medium-window look and simply
    makes them larger (cards, type, gaps alike); the breakpoints are viewport
-   widths, so a medium window stays exactly as it was. */
+   widths, so a medium window stays exactly as it was. Every factor is 10%
+   below the first version (1.15 / 1.3 / 1.5 for the hub, 1.2 / 1.45 / 1.7
+   for the overview): maximizing the window made the page jump at you, while
+   the medium window already looked right (2026-09-15). */
 @media (min-width: 1500px) {
   .hub {
-    zoom: 1.15;
+    zoom: 1.04;
   }
   .focus-overview {
-    zoom: 1.2;
+    zoom: 1.08;
     padding-top: 40px !important;
   }
 }
 
 @media (min-width: 1800px) {
   .hub {
-    zoom: 1.3;
+    zoom: 1.17;
   }
   .focus-overview {
-    zoom: 1.45;
+    zoom: 1.3;
     padding-top: 48px !important;
   }
 }
 
 @media (min-width: 2400px) {
   .hub {
-    zoom: 1.5;
+    zoom: 1.35;
   }
   .focus-overview {
-    zoom: 1.7;
+    zoom: 1.53;
   }
 }
 
