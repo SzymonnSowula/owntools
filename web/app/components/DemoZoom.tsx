@@ -6,10 +6,10 @@ import { Play, X } from "lucide-react";
 import { WinDots, ToolIcons } from "./WinDots";
 
 /**
- * The about-us.mp4 hero tile. It opens into a near-fullscreen player that
- * grows out of the tile.
+ * The screen-capture.mp4 hero tile. It opens into a near-fullscreen player
+ * that grows out of the tile.
  *
- * The clip is web/public/shots/about-us.mp4 (+ a poster with the same name),
+ * The clip is web/public/shots/screen-capture.mp4 (+ a poster with the same name),
  * looked up at build time in page.tsx like the studio rows: when it is there
  * the tile shows its poster and a click plays it with sound and controls.
  * Until then the tile keeps the CSS-only loop - hover zooms out and "plays"
@@ -84,12 +84,13 @@ function runtime(seconds: number) {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 }
 
-export function DemoZoom({ media }: { media?: { video?: string; poster?: string } }) {
+export function DemoZoom({ media }: { media?: { video?: string; poster?: string; duration?: number } }) {
   const video = media?.video;
   const poster = video ? media?.poster : undefined;
   const [phase, setPhase] = useState<Phase>("closed");
   const [mounted, setMounted] = useState(false);
-  const [duration, setDuration] = useState(0);
+  /* read off the clip's header at build time (page.tsx shot()) */
+  const [duration, setDuration] = useState(media?.duration ?? 0);
   const tileRef = useRef<HTMLDivElement>(null);
   const tileVideoRef = useRef<HTMLVideoElement>(null);
   const playerRef = useRef<HTMLDivElement>(null);
@@ -98,8 +99,9 @@ export function DemoZoom({ media }: { media?: { video?: string; poster?: string 
 
   useEffect(() => setMounted(true), []);
 
-  /* the runtime under the poster; metadata can arrive before hydration, when
-     no React listener is attached yet, so read what is already there too */
+  /* a tile without a poster holds the clip itself, so the runtime can come
+     off that too; metadata can arrive before hydration, when no React
+     listener is attached yet, so read what is already there too */
   useEffect(() => {
     const el = tileVideoRef.current;
     if (!el) return;
@@ -235,19 +237,32 @@ export function DemoZoom({ media }: { media?: { video?: string; poster?: string 
           e.preventDefault();
           openDemo();
         }}
-        aria-label={video ? "play the about us video" : "play the owntools demo"}
+        aria-label={video ? "play the video: this is how the screen recorder works" : "play the owntools demo"}
       >
         <div className="wincard-bar">
           <WinDots icon={ToolIcons.video} />
-          <span className="wincard-title">about-us.mp4</span>
+          <span className="wincard-title">screen-capture.mp4</span>
         </div>
         <div className="relative bg-[#101012] p-3">
-          {video ? (
+          {video && poster ? (
+            /* the poster is all the tile shows; the clip is the player's to
+               fetch, once someone presses play. A <video> here pulled 1-4 MB
+               of it on every visit - phones too, where this corner is
+               display: none - and lazy keeps even the picture off those */
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              src={poster}
+              alt=""
+              loading="lazy"
+              decoding="async"
+              className="block h-[110px] w-full rounded-[8px] bg-[#101a2e] object-cover"
+            />
+          ) : video ? (
             <video
               ref={tileVideoRef}
-              /* #t=0.1 = a real first frame when there is no poster */
+              /* no poster: #t=0.1 makes a real first frame the picture, at
+                 the price of megabytes of the clip on every visit */
               src={`${video}#t=0.1`}
-              poster={poster}
               muted
               playsInline
               preload="metadata"
@@ -265,12 +280,13 @@ export function DemoZoom({ media }: { media?: { video?: string; poster?: string 
               <div className="relative left-[18%] top-[22%] h-[60%] w-[64%] rounded-[6px] border border-white/20 bg-white/90 shadow-xl" />
             </div>
           )}
-          <span className="absolute left-1/2 top-[45%] flex -translate-x-1/2 -translate-y-1/2 items-center gap-1.5 rounded-full bg-black/55 px-3 py-1.5 text-[10px] font-semibold text-white backdrop-blur-sm">
-            <Play size={10} /> {video ? "play" : "hover to play"}
+          <span className="absolute left-1/2 top-[45%] flex -translate-x-1/2 -translate-y-1/2 items-center gap-1.5 whitespace-nowrap rounded-full bg-black/55 px-3 py-1.5 text-[10px] font-semibold text-white backdrop-blur-sm">
+            {/* the runtime rides on the button, so the note below keeps its line */}
+            <Play size={10} /> {video ? `play${duration ? ` · ${runtime(duration)}` : ""}` : "hover to play"}
           </span>
           <p className="mt-2 flex items-center gap-1.5 text-[11px] font-semibold text-white/80">
             {video ? (
-              <>about us{duration ? ` · ${runtime(duration)}` : ""}</>
+              <>this is how the screen recorder works</>
             ) : (
               <>
                 <span className="rec-dot inline-block h-2 w-2 rounded-full bg-[#ff453a]" /> REC 00:12 · auto-zoom on
@@ -298,13 +314,13 @@ export function DemoZoom({ media }: { media?: { video?: string; poster?: string 
             ref={playerRef}
             role="dialog"
             aria-modal="true"
-            aria-label={video ? "about us video" : "owntools demo"}
+            aria-label={video ? "this is how the screen recorder works" : "owntools demo"}
             className="wincard wincard--light relative w-full max-w-5xl will-change-transform"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="wincard-bar">
               <WinDots icon={ToolIcons.video} />
-              <span className="wincard-title">about-us.mp4</span>
+              <span className="wincard-title">screen-capture.mp4</span>
               <button
                 className="ml-auto flex h-6 w-6 items-center justify-center rounded-full text-[#6e6e73] transition hover:bg-black/10 hover:text-[#1d1d1f]"
                 onClick={closeDemo}

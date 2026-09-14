@@ -131,19 +131,21 @@ wordmark), lowercase links, ThemeToggle (sun/moon), accent CTA.
 - `.floaty` — hero windows bob ±9px / 7s, per-card `--tilt` and
   negative `animation-delay`.
 - `.rec-dot` — recording pulse, 1.6s.
-- **demo player** (`DemoZoom.tsx` + `.demo-*`): the hero's about-us.mp4
-  tile (named demo-take.mp4 until 2026-09-13) zooms to a near-fullscreen
-  window (portal to body — the hero is an isolated stacking context). With
-  `web/public/shots/about-us.mp4` in place (+ a same-name poster, picked up
-  at build time) a click plays that clip with sound and controls; until
-  then hover/click "plays" a CSS-only launch video: our own landing inside
-  the frame, ken-burns auto-zooms, a fake cursor, launch-style intro card,
-  REC chrome.
+- **demo player** (`DemoZoom.tsx` + `.demo-*`): the hero's
+  screen-capture.mp4 tile (about-us.mp4 until 2026-09-15, demo-take.mp4
+  until 2026-09-13) zooms to a near-fullscreen window (portal to body — the
+  hero is an isolated stacking context). With
+  `web/public/shots/screen-capture.mp4` in place (+ a same-name poster,
+  picked up at build time) the tile shows the poster, the runtime on its play
+  button and the note "this is how the screen recorder works", and a click
+  plays the clip with sound and controls; without it hover/click "plays" a
+  CSS-only launch video: our own landing inside the frame, ken-burns
+  auto-zooms, a fake cursor, launch-style intro card, REC chrome.
 - Everything honors `prefers-reduced-motion`.
 
 ## 6. Landing page composition (implemented)
 
-1. **hero** — sky + ascii, one floating window (the about-us.mp4 video
+1. **hero** — sky + ascii, one floating window (the screen-capture.mp4 video
    tile, right; the focus timer opposite it was removed 2026-09-13), display
    headline, `btn-light` (download for windows) + `btn-ghost` (free
    tool), "also for macOS — soon", glass info panel.

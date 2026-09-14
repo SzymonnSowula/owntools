@@ -613,9 +613,10 @@ body {
 
 /* ------------------------------ demo player ----------------------------- */
 
-/* the expanded about-us.mp4 player grows out of the hero tile via a FLIP
-   transition driven from DemoZoom.tsx (measured transforms, no keyframes
-   needed). The loop below is what it plays until shots/about-us.mp4 exists. */
+/* the expanded screen-capture.mp4 player grows out of the hero tile via a
+   FLIP transition driven from DemoZoom.tsx (measured transforms, no keyframes
+   needed). The loop below is what it plays when shots/screen-capture.mp4 is
+   missing. */
 .demo-screen {
   position: relative;
   aspect-ratio: 16 / 9;

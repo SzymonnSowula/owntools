@@ -18,6 +18,10 @@ recordings
 *.webm
 *.mp4
 !apps/desktop/src-tauri/icons/**
+# ...except the landing's clips: shot() finds them at build time, and a deploy
+# without them quietly falls back to the drawn stand-ins
+!web/public/shots/*.mp4
+!web/public/shots/*.webm
 
 # Editor / OS
 .vscode/*
