@@ -9,7 +9,7 @@
     "tauri": "pnpm --filter desktop tauri",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit -p apps/desktop/tsconfig.json && tsc --noEmit -p web/tsconfig.json",
+    "typecheck": "tsc --noEmit -p apps/desktop/tsconfig.json && pnpm --filter web typecheck",
     "check": "pnpm typecheck && pnpm test"
   },
   "packageManager": "pnpm@10.33.2",

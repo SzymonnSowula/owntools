@@ -6,7 +6,8 @@
     "dev": "next dev --webpack -p 3006",
     "build": "next build",
     "start": "next start -p 3006",
-    "lint": "eslint"
+    "lint": "eslint",
+    "typecheck": "next typegen && tsc --noEmit"
   },
   "dependencies": {
     "aws4fetch": "^1.0.20",
