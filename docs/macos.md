@@ -5,11 +5,13 @@ verify, and how to build it. Payments and launch: `docs/payments.md`. The
 release mechanics both platforms share: `docs/release.md`.
 
 The macOS port was written against the APIs, not against a Mac — there was no
-Apple hardware in reach. Everything below is either compiled and unit-tested on
-CI's macOS runner, or marked **unverified** so nobody discovers the difference
-on launch day. Work the checklist in §7 the first time you have a MacBook in
-front of you; it is ordered so the things that would sink the product fail
-first.
+Apple hardware in reach. Anything not marked **unverified** below is meant to
+be compiled and unit-tested on CI's macOS runner — but until 2026-09-14 that
+runner never got past `tauri-build`'s feature check (see "On CI"), so no macOS
+code had actually been compiled before then. Work the checklist in §7 the
+first time you have a MacBook in front of you; it is ordered so the things
+that would sink the product fail first. §8 is how to get a build onto a Mac
+that is not yours.
 
 ---
 
@@ -33,15 +35,20 @@ rustup target add aarch64-apple-darwin x86_64-apple-darwin
 `tauri.macos.conf.json` is picked up automatically next to `tauri.conf.json`
 (as is `Info.plist`), so nothing has to be passed on the command line: it
 switches the bundle targets to `app` + `dmg`, sets the deployment target to
-macOS 11, turns on the hardened runtime, points at `entitlements.plist`, and
-sets `macOSPrivateApi`.
+macOS 11, turns on the hardened runtime and points at `entitlements.plist`.
 
-That last one is not optional: the dictation pill is a **transparent,**
-**undecorated** window, and on macOS the transparent-background API is
-private. Tauri gates it behind both the config flag and a cargo feature
-(declared for the macOS target only in `Cargo.toml`, so the Windows build
-is untouched). Without them the pill comes up as an opaque grey rectangle.
-It also rules out a Mac App Store build — which is fine, because a
+`macOSPrivateApi` is not optional either: the dictation pill is a
+**transparent, undecorated** window, and on macOS the transparent-background
+API is private. Tauri gates it behind both the config flag and the cargo
+feature `macos-private-api`, and **both live in the shared files** —
+`app.macOSPrivateApi` in `tauri.conf.json`, the feature on the main `tauri`
+line of `Cargo.toml`. `tauri-build` compares that line with the config and does
+not read `[target.'cfg(target_os = "macos")']` tables; with the feature
+declared there (the first version of the port) every macOS build stopped with
+"The `tauri` dependency features on the `Cargo.toml` file does not match the
+allowlist" before a line of our code compiled. On Windows the flag and the
+feature change nothing. Without them the pill comes up as an opaque grey
+rectangle. It also rules out a Mac App Store build — which is fine, because a
 sandboxed build could not run the disk analyzer anyway.
 
 ### On CI
@@ -242,3 +249,37 @@ In this order — the things that would sink the product fail first.
 Everything in this list is compiled and unit-tested; none of it has been run on
 a Mac. Say so to the first testers — an honest "beta on macOS" costs less than
 a bad review.
+
+---
+
+## 8. A build for someone else's Mac
+
+No Mac on the desk is not a blocker for testing: CI builds the app, a person
+with a Mac runs it.
+
+1. **Build.** Actions → **macOS test build** → Run workflow
+   (`gh workflow run macos-test-build.yml`; the target defaults to universal,
+   which runs on Apple Silicon and Intel). It is `tauri build` with an ad-hoc
+   signature (`signingIdentity: "-"` — Apple Silicon will not start an unsigned
+   binary) and without updater artifacts, so it needs no secrets. Expect
+   roughly half an hour for universal; `aarch64-apple-darwin` alone is faster
+   when the Mac is known to be Apple Silicon.
+2. **Hand it over.** The run page carries an `owntools-macos-…` artifact (kept
+   14 days) with the `.dmg` and a zipped `.app` as a spare. Send the `.dmg`.
+3. **On the Mac.** Drag owntools into Applications, then once in Terminal:
+   `xattr -dr com.apple.quarantine /Applications/owntools.app` — without a
+   Developer ID and notarization macOS calls the app "damaged" otherwise.
+   Permissions as in §3. **Every new test build is a new signature**, and TCC
+   ties Microphone / Screen Recording / Accessibility grants to it: after an
+   update the old entries silently stop applying, so remove owntools from those
+   lists and allow it again rather than debugging a "broken" feature.
+4. **What to send back.** macOS version and chip (Apple menu → About This
+   Mac), screenshots of anything wrong, and the log:
+   `~/Library/Logs/app.owntools.desktop/owntools.log`.
+5. **Expect WebKit, not Chromium.** On macOS the UI runs in WKWebView. The
+   frontend has only ever run in WebView2, so media APIs are the first suspects
+   when the recorder or the export misbehaves: the recorder asks
+   `MediaRecorder` for WebM only (`feature-editor/src/lib/recorder.ts`) and
+   names every take `screen.webm` (`projectIo.ts`), and the export's
+   non-WebCodecs fallback is WebM-only as well (`exportVideo.ts`). Dictation
+   already falls back to `audio/mp4` (`core/src/audio.ts`).

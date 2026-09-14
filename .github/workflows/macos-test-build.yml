@@ -1,0 +1,107 @@
+name: macOS test build
+
+# A .dmg for trying owntools on a real Mac before there is an Apple Developer
+# ID: ad-hoc signed, not notarized, no updater artifacts, no release.
+#
+#   Actions → "macOS test build" → Run workflow   (or: gh workflow run macos-test-build.yml)
+#
+# then download the `owntools-macos-…` artifact from the run page and hand the
+# .dmg to whoever has the Mac. The job summary says how to open an unsigned
+# app. Shipping builds stay in release.yml. Checklist for the tester:
+# docs/macos.md §7 and §8.
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Which Macs the build runs on"
+        type: choice
+        default: universal-apple-darwin
+        options:
+          - universal-apple-darwin
+          - aarch64-apple-darwin
+          - x86_64-apple-darwin
+
+concurrency:
+  group: macos-test-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dmg:
+    name: dmg (${{ inputs.target }})
+    runs-on: macos-14
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          # A universal binary is two real builds stitched together.
+          targets: ${{ inputs.target == 'universal-apple-darwin' && 'aarch64-apple-darwin,x86_64-apple-darwin' || inputs.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
+          key: macos-test-${{ inputs.target }}
+
+      - run: pnpm install --frozen-lockfile
+
+      # signingIdentity "-" = ad-hoc: Apple Silicon refuses to start a binary
+      # with no signature at all, and a Developer ID is not on this repo yet.
+      # No updater artifacts: they need the updater's private key, and a test
+      # build is never offered as an update.
+      - name: Build
+        working-directory: apps/desktop
+        run: >-
+          pnpm tauri build --target ${{ inputs.target }}
+          --config '{"bundle":{"createUpdaterArtifacts":false,"macOS":{"signingIdentity":"-"}}}'
+
+      - name: Collect
+        id: collect
+        run: |
+          out="apps/desktop/src-tauri/target/${{ inputs.target }}/release/bundle"
+          mkdir -p mac-test
+          cp "$out"/dmg/*.dmg mac-test/
+          # The .app as a zip as well, in case the .dmg will not mount; ditto
+          # keeps the bundle's symlinks and its signature intact.
+          ditto -c -k --keepParent "$out/macos/owntools.app" mac-test/owntools.app.zip
+          codesign --verify --deep --verbose=2 "$out/macos/owntools.app"
+          ls -la mac-test
+          echo "sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: owntools-macos-${{ inputs.target }}-${{ steps.collect.outputs.sha }}
+          path: mac-test/*
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: How to open it
+        run: |
+          cat >> "$GITHUB_STEP_SUMMARY" <<'EOF'
+          ## Trying this build on a Mac
+
+          1. Download the artifact below and unzip it: you get `owntools_…dmg` (and `owntools.app.zip` as a spare).
+          2. Open the .dmg and drag **owntools** into **Applications**.
+          3. This build is not notarized, so macOS would call it "damaged". Once, in Terminal:
+
+             ```
+             xattr -dr com.apple.quarantine /Applications/owntools.app
+             ```
+
+          4. Open owntools. Allow the microphone when asked. For screen recording, allow it in
+             System Settings → Privacy & Security → Screen Recording, then quit and reopen owntools.
+             For dictation into other apps, add owntools under Privacy & Security → Accessibility.
+          5. Every new test build is a different signature: macOS forgets those permissions,
+             so remove owntools from the lists and allow it again.
+          6. Send back screenshots and the log: `~/Library/Logs/app.owntools.desktop/owntools.log`.
+
+          What to test, in order: docs/macos.md §7.
+          EOF
