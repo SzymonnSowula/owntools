@@ -1,21 +1,5 @@
-import { uid } from "../lib/ids";
-import { addDays, todayIso } from "../lib/dates";
-import type {
-  AppData,
-  Habit,
-  Note,
-  SoundMix,
-  Task,
-} from "../types";
-
-function hash01(s: string): number {
-  let h = 2166136261;
-  for (let i = 0; i < s.length; i++) {
-    h ^= s.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return (h >>> 0) / 4294967295;
-}
+import { systemSpeechLang } from "@core/env";
+import type { AppData, SoundMix } from "../types";
 
 export function defaultSounds(): SoundMix {
   return {
@@ -33,101 +17,17 @@ export function defaultSounds(): SoundMix {
   };
 }
 
+/**
+ * The dataset a first start (or a missing file) begins with: preferences and
+ * the three built-in lists, and nothing else. There used to be demo tasks,
+ * notes, habits with invented streaks and a day plan here - first in Polish,
+ * later in English - and they read as somebody else's data sitting in your
+ * app. The empty states in each view say what goes there instead.
+ * `demoContent.ts` takes the old demo items back out of existing workspaces.
+ */
 export function seedState(): AppData {
-  const now = new Date().toISOString();
-  const today = todayIso();
-  const year = new Date().getFullYear();
-
-  const tasks: Task[] = [
-    {
-      id: uid(),
-      title: "Finish the weekly plan and pick one MIT",
-      listId: "today",
-      priority: 3,
-      due: today,
-      done: false,
-      subtasks: [
-        { id: uid(), title: "Review the calendar", done: true },
-        { id: uid(), title: "Cross out what doesn't matter", done: false },
-      ],
-      createdAt: now,
-      mit: true,
-    },
-    {
-      id: uid(),
-      title: "90 minutes of deep work, inbox closed",
-      listId: "today",
-      priority: 2,
-      due: today,
-      done: false,
-      subtasks: [],
-      createdAt: now,
-      mit: false,
-    },
-    {
-      id: uid(),
-      title: "Reply to two postponed threads",
-      listId: "inbox",
-      priority: 1,
-      done: false,
-      subtasks: [],
-      createdAt: now,
-      mit: false,
-    },
-    {
-      id: uid(),
-      title: "Prepare notes for the Friday review",
-      listId: "later",
-      priority: 1,
-      done: false,
-      subtasks: [],
-      createdAt: now,
-      mit: false,
-    },
-  ];
-
-  const notes: Note[] = [
-    {
-      id: uid(),
-      content:
-        "Rule of the day: one thing that, once done, makes everything else matter less.",
-      color: "sage",
-      x: 32,
-      y: 28,
-      z: 2,
-      pinned: true,
-      archived: false,
-      createdAt: now,
-      updatedAt: now,
-    },
-    {
-      id: uid(),
-      content:
-        "Phone in the other room. Rain noise. 50/10 timer. After the session — a short walk.",
-      color: "mist",
-      x: 280,
-      y: 120,
-      z: 1,
-      pinned: false,
-      archived: false,
-      createdAt: now,
-      updatedAt: now,
-    },
-  ];
-
-  const habits: Habit[] = [
-    { id: uid(), name: "Movement", checks: seedHabitChecks("Movement"), createdAt: now },
-    {
-      id: uid(),
-      name: "Reading",
-      checks: seedHabitChecks("Reading"),
-      createdAt: now,
-    },
-    { id: uid(), name: "Water", checks: seedHabitChecks("Water"), createdAt: now },
-  ];
-
   return {
-    version: 2,
+    version: 3,
     view: "today",
     settings: {
       theme: "light",
@@ -138,7 +38,7 @@ export function seedState(): AppData {
       heatmapGoalMinutes: 180,
       contributeOnTaskComplete: false,
       autostart: false,
-      speechLang: "pl-PL",
+      speechLang: systemSpeechLang(),
       usageTracking: true,
       closeToTray: true,
       scrollGuardEnabled: false,
@@ -150,11 +50,11 @@ export function seedState(): AppData {
       { id: "today", name: "Today", builtin: "today" },
       { id: "later", name: "Later", builtin: "later" },
     ],
-    tasks,
-    notes,
-    habits,
+    tasks: [],
+    notes: [],
+    habits: [],
     heatmap: {},
-    heatmapYear: year,
+    heatmapYear: new Date().getFullYear(),
     usage: {},
     timer: {
       running: false,
@@ -165,32 +65,7 @@ export function seedState(): AppData {
       preset: "25",
       endAt: null,
     },
-    planner: [
-      {
-        id: uid(),
-        date: today,
-        start: "08:30",
-        end: "09:00",
-        title: "Warm-up and MIT",
-        done: false,
-      },
-      {
-        id: uid(),
-        date: today,
-        start: "09:00",
-        end: "11:00",
-        title: "Deep work",
-        done: false,
-      },
-      {
-        id: uid(),
-        date: today,
-        start: "14:00",
-        end: "14:50",
-        title: "Inbox and admin",
-        done: false,
-      },
-    ],
+    planner: [],
     journal: [],
     sounds: defaultSounds(),
     record: { id: null, playing: false, volume: 0.5 },
@@ -199,26 +74,8 @@ export function seedState(): AppData {
   };
 }
 
-/** Clean dataset for a freshly created workspace — no demo content, and the
- * current preferences carry over so the vibe doesn't reset. */
+/** A freshly created workspace: empty, with the current preferences carried over. */
 export function blankState(settings?: AppData["settings"]): AppData {
   const base = seedState();
-  return {
-    ...base,
-    settings: settings ? { ...settings } : base.settings,
-    tasks: [],
-    notes: [],
-    habits: [],
-    planner: [],
-  };
-}
-
-function seedHabitChecks(name: string): Record<string, boolean> {
-  const checks: Record<string, boolean> = {};
-  const end = todayIso();
-  for (let i = 0; i < 18; i++) {
-    const iso = addDays(end, -i);
-    checks[iso] = hash01(`habit-${name}-${iso}`) > 0.28;
-  }
-  return checks;
+  return { ...base, settings: settings ? { ...settings } : base.settings };
 }

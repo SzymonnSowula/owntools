@@ -223,7 +223,8 @@ export interface NotebookState {
 }
 
 export interface AppData {
-  version: 2;
+  /** 3 = saved without the old demo content (store/demoContent.ts). */
+  version: 3;
   view: View;
   settings: Settings;
   lists: TaskList[];

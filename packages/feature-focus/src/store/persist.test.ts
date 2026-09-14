@@ -51,9 +51,9 @@ function clone<T>(value: T): T {
 }
 
 describe("migrate", () => {
-  it("upgrades a v1 dataset to version 2 (a missing version counts as v1)", () => {
-    expect(migrate(v1Dataset()).version).toBe(2);
-    expect(migrate({ ...v1Dataset(), version: undefined }).version).toBe(2);
+  it("upgrades a v1 dataset to the current version (a missing version counts as v1)", () => {
+    expect(migrate(v1Dataset()).version).toBe(3);
+    expect(migrate({ ...v1Dataset(), version: undefined }).version).toBe(3);
   });
 
   it("keeps every heatmap day and backfills seconds from minutes", () => {
@@ -105,7 +105,7 @@ describe("migrate", () => {
     expect(data.timer).toMatchObject({ mode: "focus", preset: "25", endAt: null });
   });
 
-  it("leaves an already-migrated v2 dataset alone", () => {
+  it("keeps everything a v2 dataset already had", () => {
     const v2 = {
       ...v1Dataset(),
       version: 2,
@@ -126,7 +126,7 @@ describe("migrate", () => {
       },
     };
     const data = migrate(clone(v2));
-    expect(data.version).toBe(2);
+    expect(data.version).toBe(3);
     expect(data.usage).toEqual(v2.usage);
     expect(data.settings).toMatchObject({
       usageTracking: false,

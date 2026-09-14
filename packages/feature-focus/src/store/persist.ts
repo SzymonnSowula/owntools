@@ -1,5 +1,6 @@
 import { isTauri } from "../lib/env";
 import type { AppData } from "../types";
+import { stripDemoContent } from "./demoContent";
 
 const KEY = "focus-data";
 const WS_KEY = "focus-workspaces";
@@ -216,11 +217,14 @@ export function validateBackup(raw: unknown): raw is Record<string, unknown> {
 /**
  * Bring any persisted dataset (or restored backup) up to the current shape.
  * v1 heatmap days carry `minutes` only — the backfill below derives `seconds`,
- * so nothing is thrown away on the way to v2.
+ * so nothing is thrown away on the way to v2. v3 is the first version saved
+ * without the old demo content: anything older has it taken out, once.
  */
 export function migrate(raw: Record<string, unknown>): AppData {
-  const data = { ...raw } as unknown as AppData;
-  data.version = 2;
+  const before = typeof raw.version === "number" ? raw.version : 1;
+  let data = { ...raw } as unknown as AppData;
+  if (before < 3) data = stripDemoContent(data);
+  data.version = 3;
   data.heatmap = data.heatmap ?? {};
   data.usage = data.usage ?? {};
   data.settings = {

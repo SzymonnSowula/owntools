@@ -15,6 +15,7 @@ import type {
   TransitionKind,
   WebcamSettings,
 } from "../types";
+import { systemSpeechLang } from "@core/env";
 import { normalizeInputTrack } from "./inputTrack";
 
 /**
@@ -269,6 +270,6 @@ export function normalizeProject(raw: Project | (Partial<Project> & Record<strin
     autoZoom: typeof r.autoZoom === "boolean" ? r.autoZoom : true,
     webcamOffset: typeof r.webcamOffset === "number" ? r.webcamOffset : 0,
     aspect: r.aspect ?? "16:9",
-    speechLang: r.speechLang ?? "pl-PL",
+    speechLang: r.speechLang ?? systemSpeechLang(),
   };
 }

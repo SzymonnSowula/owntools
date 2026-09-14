@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { systemSpeechLang } from "@core/env";
 import type {
   Caption,
   Chapter,
@@ -86,7 +87,7 @@ export function emptyProject(partial?: Partial<Project>): Project {
     script: { ...DEFAULT_SCRIPT, fillersRemoved: [], retakesRemoved: [] },
     cursorAlign: { ...DEFAULT_CURSOR_ALIGN },
     aspect: "16:9",
-    speechLang: "pl-PL",
+    speechLang: systemSpeechLang(),
     ...partial,
   };
 }
@@ -308,7 +309,7 @@ export const useAppStore = create<AppState>((set, get) => {
   scriptView: "transcript",
   history: [],
   historyIndex: -1,
-  speechLang: "pl-PL",
+  speechLang: systemSpeechLang(),
 
   setView: async (view) => {
     set({ view, compactChrome: view === "recorder" });

@@ -138,7 +138,7 @@ function PanelBody({
 
 const LANGS: { id: Project["speechLang"]; label: string }[] = [
   { id: "en-US", label: "English" },
-  { id: "pl-PL", label: "Polski" },
+  { id: "pl-PL", label: "Polish" },
 ];
 
 /** The empty state is the way in: transcribe, and the words become the timeline. */

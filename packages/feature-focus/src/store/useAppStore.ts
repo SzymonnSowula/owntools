@@ -318,7 +318,10 @@ export const useAppStore = create<AppState>((set, get) => ({
       workspaceId: active,
       ready: true,
     });
-    if (!loaded) scheduleSave(get);
+    // Also when something was loaded: `migrate` may have brought it up to the
+    // current version (and taken the old demo content out), and that should be
+    // what is on disk from now on, not only in memory.
+    scheduleSave(get);
     if (loopTimer == null) {
       loopTimer = window.setInterval(() => get().tickTimer(), 250);
     }
@@ -375,7 +378,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       if (next.piano.ambient) {
         setAmbientParams(next.piano.tempo, next.piano.volume, true);
       }
-      if (!loaded) scheduleSave(get);
+      // saved either way, so a dataset migrate() just upgraded lands on disk too
+      scheduleSave(get);
       void saveWorkspacesMeta({ version: 1, active: id, list: next.workspaces });
     } finally {
       switchingWorkspace = false;

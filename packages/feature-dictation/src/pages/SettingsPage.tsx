@@ -101,7 +101,7 @@ export function SettingsPage({ hotkeyOk, status }: { hotkeyOk: boolean | null; s
           label="Drop what was never said"
           hint={
             <>
-              <code>[BLANK_AUDIO]</code>, subtitle boilerplate (“Napisy stworzone przez…”) and the
+              <code>[BLANK_AUDIO]</code>, subtitle boilerplate (“Subtitles by the Amara.org community”) and the
               repeated-word loops whisper invents out of silence.
             </>
           }

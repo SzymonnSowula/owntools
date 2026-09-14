@@ -35,3 +35,15 @@ export function isMac(): boolean {
 export function isWindows(): boolean {
   return platformOs() === "windows";
 }
+
+/**
+ * The speech language a new workspace or recording starts with: the system's,
+ * when it is one of the two the speech defaults know, else English. It used
+ * to be hard-coded to Polish, which told whisper to hear Polish in an English
+ * speaker's first take.
+ */
+export function systemSpeechLang(): "pl-PL" | "en-US" {
+  if (typeof navigator === "undefined") return "en-US";
+  const first = navigator.languages?.[0] ?? navigator.language ?? "";
+  return /^pl(-|$)/i.test(first) ? "pl-PL" : "en-US";
+}

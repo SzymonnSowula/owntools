@@ -31,7 +31,7 @@ const DEMO_LINES = [
   "Nothing is recorded — each clip is deleted once its words are on screen.",
   "Drag the bar to move it; the gear sets the sources and the text size.",
   "Translation to English runs through Whisper when it is installed.",
-  "Dobra, to tyle na dziś — dzięki wszystkim za spotkanie.",
+  "Right, that's all for today - thanks, everyone.",
 ];
 
 /**
