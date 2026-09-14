@@ -1,9 +1,8 @@
-import { closeSync, existsSync, fstatSync, openSync, readFileSync, readSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { Fragment, type CSSProperties, type ReactNode } from "react";
 import { preload } from "react-dom";
 import { ArrowDown, ArrowRight, Check, Sparkles } from "lucide-react";
-import { DemoZoom } from "./components/DemoZoom";
 import { Faq } from "./components/Faq";
 import { Toolkit } from "./components/Toolkit";
 import { ToolShowcase, type ShowcaseTool } from "./components/ToolShowcase";
@@ -28,7 +27,6 @@ import {
   MacDownloadCta,
 } from "./components/Cta";
 import { imageSize } from "@/lib/imageSize";
-import { mp4Duration } from "@/lib/mp4Duration";
 import { polarConfig } from "@/lib/polar";
 import { PRICE, checkoutUrl, contactEmail, downloadUrl, downloadUrlMac, repoUrl, xUrl } from "@/lib/site";
 
@@ -64,34 +62,18 @@ const jsonLd = {
    rebuild (`pnpm --dir web build`) — see docs/launch-video.md for the list. */
 const SHOTS_DIR = join(process.cwd(), "public", "shots");
 
-function shot(name: string): { video?: string; poster?: string; width?: number; height?: number; duration?: number } {
+function shot(name: string): { video?: string; poster?: string; width?: number; height?: number } {
   const pick = (exts: string[]) =>
     exts.map((ext) => `${name}.${ext}`).find((file) => existsSync(join(SHOTS_DIR, file)));
   const video = pick(["mp4", "webm"]);
   const poster = pick(["png", "jpg", "jpeg", "webp"]);
   /* a still is served through next/image, which needs its real size */
   const size = poster ? imageSize(readFileSync(join(SHOTS_DIR, poster))) : null;
-  /* and a clip's runtime, for a tile that prints it without fetching the clip */
-  const duration = video?.endsWith(".mp4") ? clipSeconds(join(SHOTS_DIR, video)) : null;
   return {
     ...(video ? { video: `/shots/${video}` } : {}),
     ...(poster ? { poster: `/shots/${poster}` } : {}),
     ...(size ?? {}),
-    ...(duration ? { duration } : {}),
   };
-}
-
-/* the movie header, a few box headers in - not the megabytes around them */
-function clipSeconds(file: string): number | null {
-  const fd = openSync(file, "r");
-  try {
-    return mp4Duration((at, length) => {
-      const chunk = Buffer.alloc(length);
-      return chunk.subarray(0, readSync(fd, chunk, 0, length, at));
-    }, fstatSync(fd).size);
-  } finally {
-    closeSync(fd);
-  }
 }
 
 /* a first guess at a section's height for content-visibility (.cv in
@@ -362,7 +344,7 @@ const TOOL_ROWS: ShowcaseTool[] = [
   {
     name: "screeni",
     icon: "video",
-    file: "demo-take.mp4",
+    file: "screen-capture.mp4",
     tint: "#32ade6",
     trigger: "hit record",
     headline: "recordings that look edited - without editing",
@@ -925,19 +907,10 @@ export default function Home() {
 
       {/* hero — the sky above the desk */}
       <section className="hero-sky ground ground--wide relative overflow-hidden">
-        {/* One window, well outside the text column: the screen recorder at
-            work. There were four of these plus two sticky notes, which framed
-            nothing and turned the first screen into scatter; the focus timer
-            that stayed opposite it went on 2026-09-13 (and with it the
-            aria-hidden - what is left in here is a button). The clip is
-            web/public/shots/screen-capture.mp4 (+ a poster with the same
-            name); without it the tile plays the drawn loop. */}
-        <div className="pointer-events-none absolute inset-0 hidden xl:block">
-          <div className="relative mx-auto h-full max-w-[1600px]">
-            <div className="pointer-events-auto absolute bottom-[27%] right-[3%]"><DemoZoom media={shot("screen-capture")} /></div>
-          </div>
-        </div>
-
+        {/* No windows up here any more: four of them plus two sticky notes
+            turned the first screen into scatter, the focus timer went on
+            2026-09-13, and the screen recorder clip moved into its studio row
+            on 2026-09-15. */}
         <div className="relative mx-auto max-w-3xl px-5 pb-24 pt-36 text-center md:pb-36 md:pt-52">
           <h1
             className="display text-5xl font-extrabold sm:text-6xl md:text-[80px] md:leading-[0.98] lg:text-[92px]"
