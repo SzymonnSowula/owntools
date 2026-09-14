@@ -1,9 +1,11 @@
 import { create } from "zustand";
-import { confirmDialog } from "@ui/Dialog";
+import { alertDialog, confirmDialog } from "@ui/Dialog";
 import { backend } from "./api";
 import type {
   Breakdown,
+  CleanupCheck,
   NodeInfo,
+  Protection,
   QuickWin,
   RecentRoot,
   ScanProgress,
@@ -12,8 +14,9 @@ import type {
   TrashProgress,
   VolumeInfo,
 } from "./api/types";
+import { adminDialog, appsQueryFor, binBlockDialog, binSentence, mergeOutcomes, protectedDialog, skipSentence, summarizeCleanup } from "./lib/cleanup";
 import type { ColorMode } from "./lib/colors";
-import { baseName, formatBytes } from "./lib/format";
+import { formatBytes } from "./lib/format";
 
 /**
  * disk — UI state. The tree itself lives in the backend; this store keeps
@@ -71,6 +74,19 @@ export interface Notice {
   /** Stays until the user dismisses it. What actually happened to their files
    *  must not vanish after four seconds while they are looking elsewhere. */
   sticky?: boolean;
+  /** A way on from here: Applications, filtered to what the cleanup left alone. */
+  appsQuery?: string;
+}
+
+/**
+ * How a cleanup moves its items, when not the plain way. The duplicates page
+ * passes `backend().dupesTrash`, which reads every copy again first, and its
+ * own sentence for the confirmation.
+ */
+export interface TrashHow {
+  move?: (ids: number[], options?: { elevated?: boolean }) => Promise<TrashOutcome>;
+  /** Replaces "They go to the Recycle Bin, not away for good…" in the confirmation. */
+  note?: string;
 }
 
 export interface DiskStore extends Prefs {
@@ -94,9 +110,13 @@ export interface DiskStore extends Prefs {
   notice: Notice | null;
   /** Set while a Recycle Bin move is running, so the UI can say so. */
   trashing: TrashProgress | null;
+  /** What Applications' filter opens with, when something sent the user there. */
+  appsQuery: string;
 
   init(): Promise<void>;
   setTab(tab: Tab): void;
+  /** Applications, with its filter set to `query`. */
+  openApps(query?: string): void;
   scan(root: string): Promise<void>;
   scanHome(): Promise<void>;
   scanFolder(): Promise<void>;
@@ -115,9 +135,9 @@ export interface DiskStore extends Prefs {
   toggleCleanup(item: NodeInfo): void;
   clearCleanup(): void;
   runCleanup(): Promise<void>;
-  trashNow(items: NodeInfo[], what?: string): Promise<TrashOutcome | null>;
+  trashNow(items: NodeInfo[], what?: string, how?: TrashHow): Promise<TrashOutcome | null>;
   refreshSidebar(): Promise<void>;
-  notify(text: string, kind?: Notice["kind"], sticky?: boolean): void;
+  notify(text: string, kind?: Notice["kind"], sticky?: boolean, appsQuery?: string): void;
   dismissNotice(): void;
   reveal(path: string): void;
   open(path: string): void;
@@ -148,6 +168,7 @@ export const useDiskStore = create<DiskStore>((set, get) => ({
   breakdown: null,
   notice: null,
   trashing: null,
+  appsQuery: "",
 
   async init() {
     const api = backend();
@@ -207,6 +228,10 @@ export const useDiskStore = create<DiskStore>((set, get) => ({
 
   setTab(tab) {
     set({ tab });
+  },
+
+  openApps(query) {
+    set({ tab: "apps", appsQuery: query ?? "" });
   },
 
   async scan(root) {
@@ -314,19 +339,53 @@ export const useDiskStore = create<DiskStore>((set, get) => ({
     if (outcome) set((s) => ({ cleanup: s.cleanup.filter((c) => !outcome.removed.includes(c.id)) }));
   },
 
-  async trashNow(items, what) {
+  async trashNow(items, what, how) {
     if (!items.length) return null;
-    const total = items.reduce((a, i) => a + i.size, 0);
+    const api = backend();
+    const move = how?.move ?? ((ids: number[], options?: { elevated?: boolean }) => api.trash(ids, options));
+    // Parts of installed programs never go to the Recycle Bin, and nothing a bin
+    // would not take (the backend enforces both); asking first lets the dialog
+    // say so before anything moves.
+    const check: CleanupCheck = await api.cleanupCheck(items.map((i) => i.id)).catch(() => ({ protections: [], bins: [] }));
+    const guarded: Protection[] = check.protections;
+    const guardedIds = new Set(guarded.map((p) => p.id));
+    const movable = items.filter((i) => !guardedIds.has(i.id));
+    if (!movable.length) {
+      const open = await confirmDialog({ kind: "warning", ...protectedDialog(guarded), okLabel: "Open Applications", cancelLabel: "Close" });
+      if (open) get().openApps(appsQueryFor(guarded[0]));
+      return null;
+    }
+    const blocked = binBlockDialog(check.bins, movable.length);
+    if (blocked) {
+      await alertDialog({ kind: "warning", ...blocked });
+      return null;
+    }
+    const total = movable.reduce((a, i) => a + i.size, 0);
     const ok = await confirmDialog({
       kind: "danger",
       title: "Move to the Recycle Bin?",
-      message: `${items.length} item${items.length === 1 ? "" : "s"} · ${formatBytes(total)}${what ? ` from ${what}` : ""}. They go to the Recycle Bin, not away for good — you can restore them from there.`,
+      message: `${movable.length} item${movable.length === 1 ? "" : "s"} · ${formatBytes(total)}${what ? ` from ${what}` : ""}. ${how?.note ?? "They go to the Recycle Bin, not away for good — you can restore them from there."}${skipSentence(guarded)}${binSentence(check.bins)}`,
       okLabel: "Move to Recycle Bin",
     });
     if (!ok) return null;
-    set({ trashing: { done: 0, total: items.length, path: items[0]?.path ?? "" }, notice: null });
+    set({ trashing: { done: 0, total: movable.length, path: movable[0]?.path ?? "" }, notice: null });
     try {
-      const outcome = await backend().trash(items.map((i) => i.id));
+      let outcome: TrashOutcome = await move(movable.map((i) => i.id));
+      // Windows protects some places (Program Files, Windows\Temp, Windows.old):
+      // one question here, then one prompt from Windows for all of them.
+      const protectedByWindows = outcome.failed.filter((f) => f.needsAdmin);
+      if (protectedByWindows.length) {
+        set({ trashing: null });
+        const again = await confirmDialog({ kind: "warning", ...adminDialog(protectedByWindows) });
+        if (again) {
+          const retried = protectedByWindows.map((f) => f.id);
+          set({ trashing: { done: 0, total: retried.length, path: protectedByWindows[0].path } });
+          outcome = mergeOutcomes(outcome, await move(retried, { elevated: true }), retried);
+        }
+      }
+      // The items held back before the move belong in the result as much as
+      // any the backend held back on its own.
+      outcome = { ...outcome, skipped: [...guarded, ...outcome.skipped.filter((p) => !guardedIds.has(p.id))] };
       const removed = new Set(outcome.removed);
       set((s) => ({
         dataVersion: s.dataVersion + 1,
@@ -336,19 +395,8 @@ export const useDiskStore = create<DiskStore>((set, get) => ({
       }));
       // A cleanup is the one thing here that changes the user's disk, and it can
       // run for minutes. Its result stays on screen until they dismiss it.
-      if (outcome.failed.length) {
-        get().notify(
-          `${outcome.removed.length} moved to the Recycle Bin · ${formatBytes(outcome.freed)} freed · ${outcome.failed.length} could not be moved — ${baseName(outcome.failed[0].path)}: ${outcome.failed[0].error}`,
-          "error",
-          true,
-        );
-      } else {
-        get().notify(
-          `${outcome.removed.length} item${outcome.removed.length === 1 ? "" : "s"} moved to the Recycle Bin · ${formatBytes(outcome.freed)} freed. They are in the Recycle Bin until you empty it.`,
-          "ok",
-          true,
-        );
-      }
+      const summary = summarizeCleanup(outcome);
+      get().notify(summary.text, summary.kind, true, summary.appsQuery ?? undefined);
       void get().refreshSidebar();
       return outcome;
     } catch (err) {
@@ -370,8 +418,8 @@ export const useDiskStore = create<DiskStore>((set, get) => ({
     set({ quickWins, breakdown, recent, volumes });
   },
 
-  notify(text, kind = "ok", sticky = false) {
-    set({ notice: { text, kind, sticky } });
+  notify(text, kind = "ok", sticky = false, appsQuery) {
+    set({ notice: { text, kind, sticky, appsQuery } });
     if (noticeTimer) clearTimeout(noticeTimer);
     noticeTimer = null;
     if (sticky) return;

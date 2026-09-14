@@ -146,6 +146,7 @@ function Collection({ onMenu }: { onMenu(menu: MenuState): void }) {
         ) : null}
       </div>
       {win?.caution ? <div className="dk-caution">Check these before you clean: build output and disk images can be live work.</div> : null}
+      {win?.admin ? <div className="dk-caution">Windows protects these folders. It asks for administrator permission during the cleanup, and they still go to the Recycle Bin.</div> : null}
       <NodeTable items={items} selectedId={selectedId} onSelect={select} onDrill={drill} onMenu={onMenu} checkable showPath emptyText={loading ? "Looking…" : "Nothing found"} />
     </div>
   );

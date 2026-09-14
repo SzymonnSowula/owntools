@@ -13,10 +13,18 @@ type SortKey = "size" | "name" | "publisher" | "installed";
 export function AppsPage() {
   const dataVersion = useDiskStore((s) => s.dataVersion);
   const summary = useDiskStore((s) => s.summary);
+  const appsQuery = useDiskStore((s) => s.appsQuery);
   const { reveal, drill, setTab, notify } = useDiskStore.getState();
   const [apps, setApps] = useState<AppInfo[] | null>(null);
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: "size", dir: -1 });
+
+  // Sent here from the cleanup (a program it left alone): filter to it, once.
+  useEffect(() => {
+    if (!appsQuery) return;
+    setQuery(appsQuery);
+    useDiskStore.setState({ appsQuery: "" });
+  }, [appsQuery]);
 
   const load = (refresh = false) => {
     setApps(null);
@@ -33,7 +41,9 @@ export function AppsPage() {
   const sizeOf = (a: AppInfo) => a.scannedBytes ?? a.estimatedBytes;
   const list = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const filtered = (apps ?? []).filter((a) => !q || a.name.toLowerCase().includes(q) || a.publisher.toLowerCase().includes(q));
+    const filtered = (apps ?? []).filter(
+      (a) => !q || a.name.toLowerCase().includes(q) || a.publisher.toLowerCase().includes(q) || (a.location ?? "").toLowerCase().includes(q),
+    );
     const cmp = (a: AppInfo, b: AppInfo) => {
       switch (sort.key) {
         case "name":
@@ -64,8 +74,8 @@ export function AppsPage() {
     const ok = await confirmDialog({
       kind: "warning",
       title: `Uninstall ${app.name}?`,
-      message: "Its own uninstaller opens and takes it from there. Nothing is removed until you confirm inside it.",
-      okLabel: "Open uninstaller",
+      message: "This starts its own uninstaller, the same one Windows Settings runs. Most uninstallers ask before they remove anything; a few start right away.",
+      okLabel: "Start uninstaller",
     });
     if (!ok) return;
     try {
@@ -91,7 +101,7 @@ export function AppsPage() {
         <div className="dk-page-controls">
           <label className="dk-search">
             <Search size={13} />
-            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Filter apps…" />
+            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Filter by name or folder…" />
           </label>
           <button className="dk-btn" onClick={() => load(true)} title="Read the list again">
             <RefreshCw size={13} /> Refresh

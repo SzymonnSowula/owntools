@@ -2,6 +2,7 @@ import type {
   AppInfo,
   Breakdown,
   ChildrenPage,
+  CleanupCheck,
   DupesDone,
   DupesProgress,
   DupesResult,
@@ -49,11 +50,20 @@ export interface DiskBackend {
 
   reveal(path: string): Promise<void>;
   open(path: string): Promise<void>;
-  trash(ids: number[]): Promise<TrashOutcome>;
+  /** `elevated`: let Windows ask for administrator permission (the retry for `needsAdmin` failures). */
+  trash(ids: number[], options?: { elevated?: boolean }): Promise<TrashOutcome>;
+  /** What a cleanup of `ids` would leave alone and put in each Recycle Bin, before anything is asked or moved. */
+  cleanupCheck(ids: number[]): Promise<CleanupCheck>;
 
   dupesStart(rootId: number, minBytes: number): Promise<void>;
   dupesCancel(): Promise<void>;
   dupesResult(): Promise<DupesResult | null>;
+  /**
+   * Moves ticked copies from the last search — each one read again right before
+   * it goes, together with a copy that stays; anything no longer identical, or
+   * the last copy of a file, is refused into `failed`. Progress: `onDupesProgress`, phase `check`.
+   */
+  dupesTrash(ids: number[], options?: { elevated?: boolean }): Promise<TrashOutcome>;
 
   apps(refresh?: boolean): Promise<AppInfo[]>;
   appUninstall(id: string): Promise<void>;

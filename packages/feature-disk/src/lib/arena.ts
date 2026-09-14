@@ -501,6 +501,8 @@ export class TsArena {
         bytes: b.bytes,
         count: b.count,
         caution: b.caution,
+        // The demo is a user profile: nothing in it needs an administrator.
+        admin: false,
         items: b.ids
           .sort((x, y) => y[0] - x[0])
           .slice(0, 80)

@@ -4,8 +4,15 @@
 //! leftovers, emulators) take the topmost match and do not look inside it,
 //! so nothing is counted twice; file rules (large media, installers, disk
 //! images) run everywhere else.
+//!
+//! Two places are never walked: installed programs' own folders (passed in as
+//! `keep_out` — the `node_modules` inside an Electron app or npm's inside
+//! `Program Files\nodejs` is part of that program, see `installed.rs`) and the
+//! Recycle Bin / System Volume Information, which are not anybody's to move
+//! into the Recycle Bin.
 
 use serde::Serialize;
+use std::collections::HashSet;
 
 use super::arena::{Arena, Node, NodeInfo};
 use super::category::{CAT_AUDIO, CAT_VIDEO};
@@ -20,6 +27,9 @@ pub struct QuickWin {
     pub count: u32,
     /// Ask before cleaning: build output and disk images can be live work.
     pub caution: bool,
+    /// Windows protects these: moving them takes administrator permission,
+    /// which Windows asks for during the cleanup.
+    pub admin: bool,
     pub items: Vec<NodeInfo>,
 }
 
@@ -40,17 +50,18 @@ enum Rule {
     Emulators,
 }
 
-const RULES: [(Rule, &str, &str, &str, bool); 10] = [
-    (Rule::Downloads, "downloads", "Downloads", "Everything in your Downloads folders", false),
-    (Rule::Caches, "caches", "Caches & logs", "App caches, temp folders, logs and crash dumps — apps rebuild these", false),
-    (Rule::PackageCaches, "packages", "Package caches", "npm, pnpm, pip, cargo, NuGet, Gradle, Maven, Playwright stores — re-downloaded on demand", false),
-    (Rule::NodeModules, "node_modules", "node_modules", "Dependencies of projects; `npm install` brings them back", false),
-    (Rule::Build, "build", "Build artifacts", "target, dist, build, .next, __pycache__ and friends — rebuilt by the next build", true),
-    (Rule::LargeMedia, "media", "Large media", "Video and audio files over 100 MB", true),
-    (Rule::Installers, "installers", "Installers", "Setup files, disk images and ISOs sitting in Downloads", false),
-    (Rule::DiskImages, "vm", "Disk images & VMs", "Virtual disks (vhdx, vmdk, iso…) over 100 MB — WSL and Docker live here too", true),
-    (Rule::Leftovers, "leftovers", "System leftovers", "Windows.old, the Recycle Bin, update downloads", false),
-    (Rule::Emulators, "emulators", "Emulators & simulators", "Android system images and AVDs, iOS simulators", true),
+/// `(rule, id, label, hint, caution, admin)`
+const RULES: [(Rule, &str, &str, &str, bool, bool); 10] = [
+    (Rule::Downloads, "downloads", "Downloads", "Everything in your Downloads folders", false, false),
+    (Rule::Caches, "caches", "Caches & logs", "App caches, temp folders, logs and crash dumps — apps rebuild these", false, false),
+    (Rule::PackageCaches, "packages", "Package caches", "npm, pnpm, pip, cargo, NuGet, Gradle, Maven, Playwright stores — re-downloaded on demand", false, false),
+    (Rule::NodeModules, "node_modules", "node_modules", "Dependencies of projects; `npm install` brings them back", false, false),
+    (Rule::Build, "build", "Build artifacts", "target, dist, build, .next, __pycache__ and friends — rebuilt by the next build", true, false),
+    (Rule::LargeMedia, "media", "Large media", "Video and audio files over 100 MB", true, false),
+    (Rule::Installers, "installers", "Installers", "Setup files, disk images and ISOs sitting in Downloads", false, false),
+    (Rule::DiskImages, "vm", "Disk images & VMs", "Virtual disks (vhdx, vmdk, iso…) over 100 MB — WSL and Docker live here too", true, false),
+    (Rule::Leftovers, "leftovers", "System leftovers", "Windows.old, update downloads, Windows' own temp files and crash reports", false, true),
+    (Rule::Emulators, "emulators", "Emulators & simulators", "Android system images and AVDs, iOS simulators", true, false),
 ];
 
 fn lower(name: &str) -> String {
@@ -142,12 +153,22 @@ fn is_build_dir(arena: &Arena, id: u32, name: &str, parent: &str) -> bool {
     }
 }
 
+/// Checked before the cache names: `Windows\Temp` is a cache by name, but only
+/// an administrator can empty it.
 fn is_leftover(name: &str, parent: &str) -> bool {
-    matches!(name, "windows.old" | "$recycle.bin" | "$windows.~bt" | "$windows.~ws" | "$getcurrent")
+    matches!(name, "windows.old" | "$windows.~bt" | "$windows.~ws" | "$getcurrent")
         || (name == "download" && parent == "softwaredistribution")
         || (name == "temp" && parent == "windows")
         || (name == "livekernelreports" && parent == "windows")
         || (name == "minidump" && parent == "windows")
+}
+
+/// Folders nothing here may suggest or walk into. The Recycle Bin cannot be
+/// moved into itself (emptying it deletes for good, which this tool does not
+/// do), and walking it would offer last week's cleanup back as fresh
+/// `node_modules`.
+fn is_off_limits(name: &str) -> bool {
+    matches!(name, "$recycle.bin" | "system volume information")
 }
 
 fn is_emulator(name: &str, parent: &str) -> bool {
@@ -174,7 +195,8 @@ impl Bucket {
     }
 }
 
-pub fn quick_wins(arena: &Arena) -> Vec<QuickWin> {
+/// `keep_out`: node ids of installed programs' folders (`installed::installed_node_ids`).
+pub fn quick_wins(arena: &Arena, keep_out: &HashSet<u32>) -> Vec<QuickWin> {
     if arena.nodes.is_empty() {
         return Vec::new();
     }
@@ -195,6 +217,9 @@ pub fn quick_wins(arena: &Arena) -> Vec<QuickWin> {
             lower(&arena.nodes[node.parent as usize].name)
         };
         if node.is_dir() {
+            if keep_out.contains(&id) || is_off_limits(&name) {
+                continue;
+            }
             let depth_from_root = arena.depth_of(id);
             if name == "downloads" && depth_from_root <= 4 && !in_downloads {
                 let b = &mut buckets[idx(Rule::Downloads)];
@@ -210,10 +235,10 @@ pub fn quick_wins(arena: &Arena) -> Vec<QuickWin> {
                 Some(Rule::NodeModules)
             } else if is_package_cache(&name, &parent_name) {
                 Some(Rule::PackageCaches)
-            } else if is_cache_dir(&name) {
-                Some(Rule::Caches)
             } else if is_leftover(&name, &parent_name) {
                 Some(Rule::Leftovers)
+            } else if is_cache_dir(&name) {
+                Some(Rule::Caches)
             } else if is_emulator(&name, &parent_name) {
                 Some(Rule::Emulators)
             } else if is_build_dir(arena, id, &name, &parent_name) {
@@ -252,7 +277,7 @@ pub fn quick_wins(arena: &Arena) -> Vec<QuickWin> {
         .iter()
         .zip(buckets.into_iter())
         .filter(|(_, b)| b.count > 0 && b.bytes > 0)
-        .map(|((_, id, label, hint, caution), mut b)| {
+        .map(|((_, id, label, hint, caution, admin), mut b)| {
             b.ids.sort_unstable_by(|a, c| c.cmp(a));
             b.ids.truncate(MAX_ITEMS);
             QuickWin {
@@ -262,6 +287,7 @@ pub fn quick_wins(arena: &Arena) -> Vec<QuickWin> {
                 bytes: b.bytes,
                 count: b.count,
                 caution: *caution,
+                admin: *admin,
                 items: b.ids.into_iter().filter_map(|(_, i)| arena.info(i)).collect(),
             }
         })
@@ -278,7 +304,7 @@ mod tests {
     #[test]
     fn finds_downloads_and_installers() {
         let a = sample();
-        let wins = quick_wins(&a);
+        let wins = quick_wins(&a, &HashSet::new());
         let downloads = wins.iter().find(|w| w.id == "downloads").expect("downloads rule");
         assert_eq!(downloads.bytes, 3_500_000);
         assert_eq!(downloads.count, 2);
@@ -286,5 +312,42 @@ mod tests {
         // setup.exe is 500 KB — under the 5 MB installer threshold.
         assert!(wins.iter().all(|w| w.id != "installers"));
         assert!(wins.windows(2).all(|p| p[0].bytes >= p[1].bytes));
+    }
+
+    /// A drive-shaped tree on disk: Windows' own temp folder, a Recycle Bin
+    /// holding last week's cleanup, and an installed app with dependencies inside.
+    #[test]
+    fn protected_places_are_not_quick_wins() {
+        use crate::disk::scan::{scan, ScanOptions};
+        use std::sync::{atomic::AtomicBool, Arc};
+
+        let base = std::env::temp_dir().join(format!("owntools-quickwins-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        let put = |rel: &str, bytes: usize| {
+            let path = base.join(rel);
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(path, vec![1u8; bytes]).unwrap();
+        };
+        put("Windows/Temp/cbs.persist.log", 4096);
+        put("$Recycle.Bin/S-1-5-21/$R123/node_modules/left-pad/index.js", 4096);
+        put("Program Files/Some App/resources/app/node_modules/dep/index.js", 4096);
+        put("Projects/site/node_modules/dep/index.js", 4096);
+
+        let arena = scan(&base, ScanOptions { threads: 2, ..Default::default() }, Arc::new(AtomicBool::new(false)), |_| {}).unwrap();
+        let app = arena.find_path(&base.join("Program Files").join("Some App").to_string_lossy()).unwrap();
+        let wins = quick_wins(&arena, &HashSet::from([app]));
+
+        let leftovers = wins.iter().find(|w| w.id == "leftovers").expect("Windows\\Temp is a system leftover, not a cache");
+        assert!(leftovers.admin);
+        assert_eq!(leftovers.items.iter().map(|i| i.name.as_str()).collect::<Vec<_>>(), ["Temp"]);
+        assert!(wins.iter().all(|w| w.id != "caches"), "Windows\\Temp must not also count as a cache");
+
+        let modules = wins.iter().find(|w| w.id == "node_modules").expect("the project's node_modules");
+        assert!(!modules.admin);
+        let paths: Vec<&str> = modules.items.iter().map(|i| i.path.as_str()).collect();
+        assert_eq!(paths.len(), 1, "only the project's: {paths:?}");
+        assert!(paths[0].contains("Projects"), "{paths:?}");
+
+        let _ = std::fs::remove_dir_all(&base);
     }
 }

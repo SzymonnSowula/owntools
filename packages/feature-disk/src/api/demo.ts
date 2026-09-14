@@ -1,21 +1,25 @@
 import { TsArena, type Entry } from "../lib/arena";
 import { buildDemoSpec } from "../lib/demoTree";
 import { diffTrees } from "../lib/diff";
-import { baseName } from "../lib/format";
+import { baseName, formatBytes } from "../lib/format";
+import { eligibleFiles } from "../lib/protect";
 import type { DiskBackend } from "./backend";
 import type {
   AppInfo,
+  BinUse,
   DupeGroup,
   DupesDone,
   DupesProgress,
   DupesResult,
   MonitorSample,
   NodeInfo,
+  Protection,
   RecentRoot,
   ScanDone,
   ScanProgress,
   ScanSummary,
   SnapshotMeta,
+  TrashFailure,
   TrashProgress,
   VolumeInfo,
 } from "./types";
@@ -96,6 +100,56 @@ interface Snap {
   tree: Entry;
 }
 
+const normPath = (p: string) => p.replace(/\//g, "\\").replace(/\\+$/, "").toLowerCase();
+const within = (inner: string, outer: string) => inner === outer || inner.startsWith(`${outer}\\`);
+
+/** `bin.rs` in miniature: Windows' default bin size, 10 % of the first 40 GiB + 5 % of the rest. */
+function defaultBinCapacity(total: number): number {
+  return Math.floor(Math.min(total, 40 * GB) / 10 + Math.max(0, total - 40 * GB) / 20);
+}
+
+/** What a cleanup of `ids` would put in each demo drive's Recycle Bin (C: already holds 1.2 GB). */
+function binsFor(a: TsArena, ids: number[]): BinUse[] {
+  const byRoot = new Map<string, { items: number; adding: number }>();
+  for (const id of ids) {
+    if (!a.nodes[id] || a.removed(id)) continue;
+    const root = `${a.pathOf(id).slice(0, 2).toUpperCase()}\\`;
+    const entry = byRoot.get(root) ?? { items: 0, adding: 0 };
+    entry.items += 1;
+    entry.adding += a.nodes[id].size;
+    byRoot.set(root, entry);
+  }
+  return Array.from(byRoot, ([root, { items, adding }]) => {
+    const volume = volumes.find((v) => v.path.toLowerCase() === root.toLowerCase());
+    const hasBin = volume?.kind === "fixed";
+    const capacity = hasBin && volume ? defaultBinCapacity(volume.total) : 0;
+    const used = hasBin && root === "C:\\" ? 1.2 * GB : 0;
+    return {
+      root,
+      hasBin,
+      reason: hasBin ? null : `${root} is a ${volume?.kind ?? "network"} drive, which has no Recycle Bin`,
+      capacity,
+      used,
+      adding,
+      items,
+      evicts: hasBin ? Math.min(used, Math.max(0, used + adding - capacity)) : 0,
+    };
+  });
+}
+
+/** `installed.rs` in miniature: the demo apps' folders, in either direction. */
+function protectionsFor(a: TsArena, ids: number[]): Protection[] {
+  const out: Protection[] = [];
+  for (const id of ids) {
+    if (!a.nodes[id] || a.removed(id)) continue;
+    const path = a.pathOf(id);
+    const item = normPath(path);
+    const apps = APPS.filter((app) => app.location && (within(normPath(app.location), item) || within(item, normPath(app.location)))).map((app) => ({ id: app.id, name: app.name }));
+    if (apps.length) out.push({ id, path, apps, services: [] });
+  }
+  return out;
+}
+
 export function createDemoBackend(): DiskBackend {
   let arena: TsArena | null = null;
   let scanId = 0;
@@ -150,7 +204,7 @@ export function createDemoBackend(): DiskBackend {
     return a;
   };
 
-  return {
+  const api: DiskBackend = {
     volumes: async () => volumes.map((v) => ({ ...v })),
     home: async () => DEMO_ROOT,
     recent: async () => recent.map((r) => ({ ...r })),
@@ -226,45 +280,72 @@ export function createDemoBackend(): DiskBackend {
 
     reveal: async () => {},
     open: async () => {},
-    trash: async (ids) => {
+    trash: async (ids, options) => {
       const a = need();
+      const elevated = options?.elevated ?? false;
       const removed: number[] = [];
       let freed = 0;
-      const failed: { id: number; path: string; error: string }[] = [];
+      const failed: TrashFailure[] = [];
+      const skipped = protectionsFor(a, ids);
+      const guarded = new Set(skipped.map((p) => p.id));
+      // The Recycle Bin guard, as in bin.rs: no bin, or more than the bin holds, and nothing on that drive moves.
+      const refusedBy = new Map<string, string>();
+      for (const bin of binsFor(a, ids.filter((id) => !guarded.has(id)))) {
+        if (!bin.hasBin) refusedBy.set(bin.root, `${bin.reason} — it would be deleted for good, so it was left alone`);
+        else if (bin.adding > bin.capacity)
+          refusedBy.set(bin.root, `${formatBytes(bin.adding)} together is more than the Recycle Bin on ${bin.root} holds (${formatBytes(bin.capacity)}); Windows would erase part of it for good. Move less at a time`);
+      }
+      const movable = ids.filter((id) => {
+        if (guarded.has(id)) return false;
+        const why = a.nodes[id] ? refusedBy.get(`${a.pathOf(id).slice(0, 2).toUpperCase()}\\`) : undefined;
+        if (why) failed.push({ id, path: a.pathOf(id), error: why, needsAdmin: false });
+        return !why;
+      });
       // The real shell move takes seconds per folder; pace the demo so the
       // progress row is exercised here too.
       let step = 0;
-      for (const id of ids) {
+      for (const id of movable) {
         const n = a.nodes[id];
-        trashProgress.emit({ done: step++, total: ids.length, path: n ? a.pathOf(id) : "" });
+        const path = n ? a.pathOf(id) : "";
+        trashProgress.emit({ done: step++, total: movable.length, path });
         await new Promise((r) => setTimeout(r, 120));
         if (!n || a.removed(id)) continue;
         if (n.name === "NTUSER.DAT") {
-          failed.push({ id, path: a.pathOf(id), error: "file in use" });
+          failed.push({ id, path, error: "a file in it is open in another program", needsAdmin: false });
+          continue;
+        }
+        // Stand-in for a folder Windows protects: it moves once permission is given.
+        if (!elevated && normPath(path).includes("\\appdata\\local\\packages\\")) {
+          failed.push({ id, path, error: "Windows protects it: needs administrator permission", needsAdmin: true });
           continue;
         }
         freed += n.size;
         a.remove(id);
         removed.push(id);
       }
-      trashProgress.emit({ done: ids.length, total: ids.length, path: "" });
+      trashProgress.emit({ done: movable.length, total: movable.length, path: "" });
       dupesResult = null;
-      return { removed, freed, failed };
+      return { removed, freed, failed, skipped };
+    },
+    cleanupCheck: async (ids) => {
+      const a = need();
+      const protections = protectionsFor(a, ids);
+      const guarded = new Set(protections.map((p) => p.id));
+      return { protections, bins: binsFor(a, ids.filter((id) => !guarded.has(id))) };
     },
 
     dupesStart: async (rootId, minBytes) => {
       const a = need();
       dupesCancelled = false;
+      // The rules of protect.rs: apps, tool & package folders, code projects and programs are left out.
+      const { ids: eligible, leftOut } = eligibleFiles(a, rootId, minBytes);
       const bySize = new Map<string, number[]>();
-      let scanned = 0;
-      a.walk(rootId, (id, n) => {
-        if (n.flags & 1) return true;
-        if (n.size < Math.max(1, minBytes)) return false;
-        scanned += 1;
+      const scanned = eligible.length;
+      for (const id of eligible) {
+        const n = a.nodes[id];
         const key = `${n.size}:${n.content ?? `u${id}`}`;
         (bySize.get(key) ?? bySize.set(key, []).get(key)!).push(id);
-        return false;
-      });
+      }
       const candidates = Array.from(bySize.values()).filter((ids) => ids.length > 1);
       const total = candidates.reduce((s, ids) => s + ids.length, 0);
       const bytesTotal = candidates.reduce((s, ids) => s + a.nodes[ids[0]].size * ids.length, 0);
@@ -275,7 +356,7 @@ export function createDemoBackend(): DiskBackend {
       const steps = 14;
       const tick = () => {
         if (dupesCancelled) {
-          dupesDone.emit({ ok: true, error: null, result: { rootId, minBytes, scannedFiles: scanned, candidateFiles: total, groupCount: 0, extraCopies: 0, wasted: 0, groups: [], cancelled: true } });
+          dupesDone.emit({ ok: true, error: null, result: { rootId, minBytes, scannedFiles: scanned, candidateFiles: total, groupCount: 0, extraCopies: 0, wasted: 0, groups: [], leftOut, cancelled: true } });
           return;
         }
         step += 1;
@@ -301,6 +382,7 @@ export function createDemoBackend(): DiskBackend {
           extraCopies: groups.reduce((s, g) => s + g.files.length - 1, 0),
           wasted,
           groups,
+          leftOut,
           cancelled: false,
         };
         dupesDone.emit({ ok: true, error: null, result: dupesResult });
@@ -311,6 +393,39 @@ export function createDemoBackend(): DiskBackend {
       dupesCancelled = true;
     },
     dupesResult: async () => dupesResult,
+    dupesTrash: async (ids, options) => {
+      const a = need();
+      const result = dupesResult;
+      if (!result) throw new Error("look for duplicates again first");
+      const wanted = new Set(ids);
+      const claimed = new Set<number>();
+      const refused: TrashFailure[] = [];
+      const movable: number[] = [];
+      const touched = result.groups.filter((g) => g.files.some((f) => wanted.has(f.id)));
+      const total = ids.length + touched.length;
+      let done = 0;
+      for (const g of touched) {
+        const ticked = g.files.filter((f) => wanted.has(f.id));
+        ticked.forEach((f) => claimed.add(f.id));
+        // The real check reads each ticked copy and a copy that stays; pace it like that.
+        done += ticked.length + 1;
+        dupesProgress.emit({ phase: "check", done, total, bytesDone: 0, bytesTotal: 0 });
+        await new Promise((r) => setTimeout(r, 90));
+        const stays = g.files.some((f) => !wanted.has(f.id) && !a.removed(f.id)) || g.more > 0;
+        for (const f of ticked) {
+          if (!stays) refused.push({ id: f.id, path: f.path, error: "every copy of this file was ticked — one copy always stays", needsAdmin: false });
+          else if (a.removed(f.id)) refused.push({ id: f.id, path: f.path, error: "already gone", needsAdmin: false });
+          else movable.push(f.id);
+        }
+      }
+      for (const id of ids) {
+        if (!claimed.has(id)) refused.push({ id, path: a.nodes[id] ? a.pathOf(id) : "", error: "not on the duplicates list any more — look for duplicates again", needsAdmin: false });
+      }
+      const outcome = await api.trash(movable, options);
+      // trash() drops the whole search; the duplicates page keeps it, minus what moved.
+      dupesResult = forgetMoved(result, new Set(outcome.removed));
+      return { ...outcome, failed: [...outcome.failed, ...refused] };
+    },
 
     apps: async () => {
       const a = arena;
@@ -401,5 +516,21 @@ export function createDemoBackend(): DiskBackend {
     onScanDone: (cb) => done.on(cb),
     onDupesProgress: (cb) => dupesProgress.on(cb),
     onDupesDone: (cb) => dupesDone.on(cb),
+  };
+  return api;
+}
+
+/** A search minus the copies that moved; groups left with one copy go. */
+function forgetMoved(result: DupesResult, gone: Set<number>): DupesResult {
+  const groups = result.groups
+    .map((g) => ({ ...g, files: g.files.filter((f) => !gone.has(f.id)) }))
+    .filter((g) => g.files.length + g.more > 1);
+  const extra = (g: DupeGroup) => g.files.length + g.more - 1;
+  return {
+    ...result,
+    groups,
+    groupCount: groups.length,
+    extraCopies: groups.reduce((s, g) => s + extra(g), 0),
+    wasted: groups.reduce((s, g) => s + g.size * extra(g), 0),
   };
 }

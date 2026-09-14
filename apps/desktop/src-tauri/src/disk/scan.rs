@@ -17,6 +17,8 @@ use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
+#[cfg(any(windows, target_os = "macos"))]
+use super::arena::F_CLOUD;
 use super::arena::{Arena, DirExtra, Node, F_DIR, F_ERROR, F_HIDDEN, F_LINK, F_PACKED, F_SYSTEM, NONE};
 use super::category::category_of_name;
 
@@ -67,9 +69,10 @@ struct Listing {
     error: bool,
 }
 
-/// FILETIME (100 ns since 1601) → unix seconds.
+/// FILETIME (100 ns since 1601) → unix seconds. The duplicate finder compares
+/// an open file against the scan with this same conversion (`dupes.rs`).
 #[cfg(windows)]
-fn filetime_secs(ft: u64) -> i64 {
+pub(super) fn filetime_secs(ft: u64) -> i64 {
     if ft == 0 {
         return i64::MIN;
     }
@@ -114,8 +117,8 @@ fn read_entry(entry: &std::fs::DirEntry, cluster: u64) -> Option<Entry> {
     use std::os::windows::fs::MetadataExt;
     use windows::Win32::Storage::FileSystem::{
         FILE_ATTRIBUTE_COMPRESSED, FILE_ATTRIBUTE_HIDDEN, FILE_ATTRIBUTE_OFFLINE,
-        FILE_ATTRIBUTE_RECALL_ON_DATA_ACCESS, FILE_ATTRIBUTE_REPARSE_POINT, FILE_ATTRIBUTE_SPARSE_FILE,
-        FILE_ATTRIBUTE_SYSTEM,
+        FILE_ATTRIBUTE_RECALL_ON_DATA_ACCESS, FILE_ATTRIBUTE_RECALL_ON_OPEN, FILE_ATTRIBUTE_REPARSE_POINT,
+        FILE_ATTRIBUTE_SPARSE_FILE, FILE_ATTRIBUTE_SYSTEM,
     };
     let name = entry.file_name();
     let name: Box<str> = name.to_string_lossy().into_owned().into_boxed_str();
@@ -145,6 +148,9 @@ fn read_entry(entry: &std::fs::DirEntry, cluster: u64) -> Option<Entry> {
             | FILE_ATTRIBUTE_OFFLINE.0
             | FILE_ATTRIBUTE_RECALL_ON_DATA_ACCESS.0)
         != 0;
+    if attrs & (FILE_ATTRIBUTE_OFFLINE.0 | FILE_ATTRIBUTE_RECALL_ON_DATA_ACCESS.0 | FILE_ATTRIBUTE_RECALL_ON_OPEN.0) != 0 {
+        flags |= F_CLOUD;
+    }
     let alloc = if packed {
         flags |= F_PACKED;
         match packed_size(&entry.path()) {
@@ -176,6 +182,15 @@ fn read_entry(entry: &std::fs::DirEntry, cluster: u64) -> Option<Entry> {
     }
     if ft.is_dir() {
         return Some(Entry { name, is_dir: true, size: 0, alloc: 0, mtime, ctime, flags: flags | F_DIR, cat: 0 });
+    }
+    #[cfg(target_os = "macos")]
+    {
+        // iCloud Drive's "Optimise Mac storage": the file is a stub until read.
+        use std::os::macos::fs::MetadataExt as _;
+        const SF_DATALESS: u32 = 0x4000_0000;
+        if meta.st_flags() & SF_DATALESS != 0 {
+            flags |= F_CLOUD;
+        }
     }
     let size = meta.len();
     let alloc = meta.blocks() * 512;

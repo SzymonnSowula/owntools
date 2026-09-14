@@ -581,6 +581,11 @@
   flex: none;
 }
 
+.dk-win-admin {
+  color: var(--color-muted);
+  flex: none;
+}
+
 .dk-win-count {
   font-size: 11px;
   color: var(--color-muted);
@@ -1614,6 +1619,34 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* A row the cleanup will leave alone: part of an installed program. */
+.dk-cleanup-tag-slot {
+  display: flex;
+  justify-content: flex-end;
+  flex: none;
+  width: 132px;
+}
+
+.dk-cleanup-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  /* Mixed with ink, so it reads on Day and Night alike. */
+  color: color-mix(in srgb, var(--dk-warn) 62%, var(--color-ink));
+  background: color-mix(in srgb, var(--dk-warn) 16%, transparent);
+  cursor: pointer;
+}
+
+.dk-cleanup-tag:hover {
+  background: color-mix(in srgb, var(--dk-warn) 26%, transparent);
+}
+
 .dk-cleanup-bar {
   display: flex;
   align-items: center;
@@ -1673,6 +1706,30 @@
   background: color-mix(in srgb, currentColor 14%, transparent);
 }
 
+.dk-notice-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dk-notice-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  padding: 1px 7px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: inherit;
+  background: color-mix(in srgb, currentColor 12%, transparent);
+  cursor: pointer;
+}
+
+.dk-notice-action:hover {
+  background: color-mix(in srgb, currentColor 20%, transparent);
+}
+
 /* The cleanup runs for minutes on a big folder: say so, and say where it is. */
 .dk-trashing {
   display: flex;
@@ -1702,13 +1759,15 @@
   }
 }
 
+/* Text mixed with ink rather than a fixed dark shade: the result of a cleanup
+   has to be readable on the Night theme too. */
 .dk-notice.ok {
-  color: #1d7a3a;
+  color: color-mix(in srgb, var(--dk-ok) 45%, var(--color-ink));
   background: color-mix(in srgb, var(--dk-ok) 14%, transparent);
 }
 
 .dk-notice.error {
-  color: #b42318;
+  color: color-mix(in srgb, var(--dk-danger) 60%, var(--color-ink));
   background: color-mix(in srgb, var(--dk-danger) 12%, transparent);
 }
 
@@ -2213,6 +2272,76 @@
 
 .dk-group-verdict.remove {
   color: var(--dk-danger);
+}
+
+.dk-group-files .dk-check:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+/* what the duplicates search left out, and why */
+.dk-leftout {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 9px 14px;
+  border-radius: 12px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--color-muted);
+  background: color-mix(in srgb, var(--dk-ok) 8%, var(--color-card));
+  border: 1px solid color-mix(in srgb, var(--dk-ok) 22%, var(--color-line));
+}
+
+.dk-leftout svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--dk-ok);
+}
+
+.dk-leftout b {
+  font-weight: 650;
+  color: var(--color-ink);
+}
+
+/* the outcome of a move, on the duplicates page itself: whole, not one clipped line */
+.dk-notice.block {
+  display: flex;
+  align-items: flex-start;
+  padding: 8px 8px 8px 14px;
+  border-radius: 12px;
+  line-height: 1.45;
+  white-space: normal;
+}
+
+.dk-notice.block .dk-notice-text {
+  flex: 1;
+  overflow: visible;
+}
+
+.dk-left-alone {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 8px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--color-line);
+  background: var(--color-card);
+  font-size: 12px;
+}
+
+.dk-left-alone li {
+  display: flex;
+  gap: 12px;
+  min-width: 0;
+}
+
+.dk-left-alone li .muted {
+  flex: 0 1 auto;
+  max-width: 55%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* apps */

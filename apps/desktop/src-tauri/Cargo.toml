@@ -98,6 +98,9 @@ windows = { version = "0.61", features = [
   "Foundation",
   "Foundation_Collections",
 ] }
+# disk: `#[implement]` for the Recycle Bin move's progress sink expands to
+# `::windows_core` paths, so the crate has to be named here — same version as `windows`.
+windows-core = "0.61"
 # disk: installed apps come from the registry's Uninstall keys.
 winreg = "0.55"
 # Same major as wry's, so the COM types line up with tauri's `PlatformWebview`.

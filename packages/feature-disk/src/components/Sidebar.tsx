@@ -1,4 +1,4 @@
-import { Clock, Copy, Eye, Folder, HardDrive, Home, Loader2, TriangleAlert } from "lucide-react";
+import { Clock, Copy, Eye, Folder, HardDrive, Home, Loader2, ShieldAlert, TriangleAlert } from "lucide-react";
 import { CATEGORY_LABELS, CATS } from "../api/types";
 import { CATEGORY_COLORS } from "../lib/colors";
 import { baseName, formatBytes, formatCount, formatPercent } from "../lib/format";
@@ -146,7 +146,11 @@ export function Sidebar() {
                 const active = center.kind === "quickwin" && center.id === w.id;
                 return (
                   <li key={w.id}>
-                    <button className={`dk-win${active ? " active" : ""}`} onClick={() => setCenter(active ? { kind: "tree" } : { kind: "quickwin", id: w.id })} title={w.hint}>
+                    <button
+                      className={`dk-win${active ? " active" : ""}`}
+                      onClick={() => setCenter(active ? { kind: "tree" } : { kind: "quickwin", id: w.id })}
+                      title={w.admin ? `${w.hint} — Windows asks for administrator permission` : w.hint}
+                    >
                       <span className="dk-win-icon" aria-hidden>
                         {QUICK_ICONS[w.id] ?? "•"}
                       </span>
@@ -154,6 +158,7 @@ export function Sidebar() {
                         <span className="dk-win-label">
                           {w.label}
                           {w.caution ? <TriangleAlert size={11} className="dk-win-caution" /> : null}
+                          {w.admin ? <ShieldAlert size={11} className="dk-win-admin" aria-label="needs administrator permission" /> : null}
                         </span>
                         <span className="dk-win-count">{formatCount(w.count)} item{w.count === 1 ? "" : "s"}</span>
                       </span>

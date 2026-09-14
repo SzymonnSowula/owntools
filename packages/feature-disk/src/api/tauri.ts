@@ -5,6 +5,7 @@ import type {
   AppInfo,
   Breakdown,
   ChildrenPage,
+  CleanupCheck,
   DupesDone,
   DupesProgress,
   DupesResult,
@@ -77,11 +78,13 @@ export const tauriBackend: DiskBackend = {
 
   reveal: (path) => invoke("disk_reveal", { path }),
   open: (path) => invoke("disk_open", { path }),
-  trash: (ids) => invoke<TrashOutcome>("disk_trash", { ids }),
+  trash: (ids, options) => invoke<TrashOutcome>("disk_trash", { ids, elevated: options?.elevated ?? false }),
+  cleanupCheck: (ids) => invoke<CleanupCheck>("disk_cleanup_check", { ids }),
 
   dupesStart: (rootId, minBytes) => invoke("disk_dupes_start", { rootId, minBytes }),
   dupesCancel: () => invoke("disk_dupes_cancel"),
   dupesResult: () => invoke<DupesResult | null>("disk_dupes_result"),
+  dupesTrash: (ids, options) => invoke<TrashOutcome>("disk_dupes_trash", { ids, elevated: options?.elevated ?? false }),
 
   apps: (refresh) => invoke<AppInfo[]>("disk_apps", { refresh }),
   appUninstall: (id) => invoke("disk_app_uninstall", { id }),

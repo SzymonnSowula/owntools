@@ -29,6 +29,8 @@ pub const F_SYSTEM: u8 = 16;
 pub const F_REMOVED: u8 = 32;
 /// Compressed, sparse or a cloud placeholder: on-disk size came from the OS.
 pub const F_PACKED: u8 = 64;
+/// Online-only (a cloud placeholder): reading the content downloads it first.
+pub const F_CLOUD: u8 = 128;
 
 #[derive(Debug, Clone)]
 pub struct Node {
