@@ -1,0 +1,23 @@
+<!-- app-icon.svg drawn for 24 px (the Windows 11 taskbar at 100 %): integer edges, no blur. Goes into icon.ico via scripts/app-icon.mjs. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+  <defs>
+    <clipPath id="t"><rect width="24" height="24" rx="5.4"/></clipPath>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="16" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2c7bcb"/><stop offset=".65" stop-color="#5aa4e4"/><stop offset="1" stop-color="#bfdff0"/>
+    </linearGradient>
+    <linearGradient id="sea" x1="0" y1="16" x2="0" y2="24" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#4894dc"/><stop offset="1" stop-color="#1b56a0"/>
+    </linearGradient>
+    <radialGradient id="sun" cx="18.72" cy="4.32" r="8.16" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fff" stop-opacity=".9"/><stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <g clip-path="url(#t)">
+    <rect width="24" height="24" fill="url(#sky)"/>
+    <rect width="24" height="16" fill="url(#sun)"/>
+    <rect y="16" width="24" height="8" fill="url(#sea)"/>
+    <path d="M12 5L16 12H8Z" fill="#fff"/>
+    <path d="M8.5 13H15.5L14.5 15.4H9.5Z" fill="#fff"/>
+    <rect x=".5" y=".5" width="23" height="23" rx="4.9" fill="none" stroke="#0b2a55" stroke-opacity=".18"/>
+  </g>
+</svg>

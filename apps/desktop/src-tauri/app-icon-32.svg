@@ -1,4 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+<!-- app-icon.svg drawn for 32 px: the first icon.ico frame, so also the window and tray icon (default_window_icon). Integer edges, no blur. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
   <defs>
     <clipPath id="t"><rect width="32" height="32" rx="7.2"/></clipPath>
     <linearGradient id="sky" x1="0" y1="0" x2="0" y2="22" gradientUnits="userSpaceOnUse">

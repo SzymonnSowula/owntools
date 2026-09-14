@@ -1,0 +1,23 @@
+<!-- app-icon.svg drawn for 16 px (tray at 100 %, list views): integer edges, no blur. Goes into icon.ico via scripts/app-icon.mjs. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
+  <defs>
+    <clipPath id="t"><rect width="16" height="16" rx="3.6"/></clipPath>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="11" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2c7bcb"/><stop offset=".65" stop-color="#5aa4e4"/><stop offset="1" stop-color="#bfdff0"/>
+    </linearGradient>
+    <linearGradient id="sea" x1="0" y1="11" x2="0" y2="16" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#4894dc"/><stop offset="1" stop-color="#1b56a0"/>
+    </linearGradient>
+    <radialGradient id="sun" cx="12.48" cy="2.88" r="5.44" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fff" stop-opacity=".9"/><stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <g clip-path="url(#t)">
+    <rect width="16" height="16" fill="url(#sky)"/>
+    <rect width="16" height="11" fill="url(#sun)"/>
+    <rect y="11" width="16" height="5" fill="url(#sea)"/>
+    <path d="M8 3.5L11 8H5Z" fill="#fff"/>
+    <path d="M5.5 9H10.5L9.5 10.8H6.5Z" fill="#fff"/>
+    <rect x=".5" y=".5" width="15" height="15" rx="3.1" fill="none" stroke="#0b2a55" stroke-opacity=".18"/>
+  </g>
+</svg>
