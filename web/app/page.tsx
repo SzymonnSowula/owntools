@@ -127,17 +127,51 @@ function ScreeniCard() {
   );
 }
 
-function LaunchCard() {
+/* the youtube row's stand-in: the quick tool mid-job - a link, the video it
+   found, and its captions as text with the time each line was said */
+const YOUTUBE_CUES = [
+  { at: "0:00", line: "Today: why we remember what we sleep on." },
+  { at: "0:06", line: "Three studies, and one result nobody expected." },
+  { at: "0:13", line: "Let's start with the first one." },
+];
+
+function YouTubeCard() {
   return (
-    <div className="wincard wincard--light floaty w-[230px]" style={{ ["--tilt" as string]: "-2.5deg", animationDelay: "-4s" }}>
+    <div className="wincard wincard--light floaty w-[280px]" style={{ ["--tilt" as string]: "-2deg", animationDelay: "-4s" }}>
       <div className="wincard-bar">
-        <WinDots icon={ToolIcons.launch} />
-        <span className="wincard-title">yourapp-launch.mp4</span>
+        <WinDots icon={ToolIcons.youtube} />
+        <span className="wincard-title">youtube.tool</span>
       </div>
-      <div className="p-5 text-center" style={{ background: "radial-gradient(rgba(29,29,31,0.1) 1px, transparent 1px) 0 0 / 18px 18px, #fff" }}>
-        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#6e6e73]">introducing</p>
-        <p className="display mt-1 text-2xl font-extrabold">yourapp</p>
-        <span className="mt-3 inline-block h-1.5 w-10 rounded-full bg-accent" />
+      <div className="p-3">
+        <p className="truncate rounded-[7px] border border-[#1d1d1f]/12 bg-[#f5f5f7] px-2 py-1 font-mono text-[9px] text-[#6e6e73]">
+          youtube.com/watch?v=…
+        </p>
+        <div className="mt-2 flex items-center gap-2">
+          <span className="flex h-9 w-16 shrink-0 items-center justify-center rounded-[5px] bg-gradient-to-br from-[#5e5ce6] to-[#32ade6]">
+            <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden>
+              <path d="M4 2.6v6.8L9.4 6z" fill="#fff" />
+            </svg>
+          </span>
+          <span className="min-w-0">
+            <span className="block truncate text-[10.5px] font-semibold text-[#1d1d1f]">how sleep shapes memory</span>
+            <span className="block truncate text-[9px] text-[#6e6e73]">18:42 · 4 caption tracks</span>
+          </span>
+        </div>
+        <div className="mt-2 space-y-1 rounded-[8px] bg-[#f5f5f7] px-2 py-1.5 text-[9.5px] leading-[14px] text-[#1d1d1f]">
+          {YOUTUBE_CUES.map((c) => (
+            <p key={c.at} className="flex gap-1.5">
+              <span className="shrink-0 font-mono text-accent">{c.at}</span>
+              <span className="min-w-0">{c.line}</span>
+            </p>
+          ))}
+        </div>
+        <p className="mt-2 flex items-center gap-1.5 text-[9px] font-semibold">
+          <span className="rounded-full border border-[#1d1d1f]/12 px-2 py-0.5 text-[#1d1d1f]">.txt</span>
+          <span className="rounded-full border border-[#1d1d1f]/12 px-2 py-0.5 text-[#1d1d1f]">.srt</span>
+          <span className="ml-auto text-[#6e6e73]">
+            no captions? <span className="text-accent">whisper</span>
+          </span>
+        </p>
       </div>
     </div>
   );
@@ -434,17 +468,17 @@ const TOOL_ROWS: ShowcaseTool[] = [
     mock: <DiskCard />,
   },
   {
-    name: "launch",
-    icon: "launch",
-    file: "yourapp-launch.mp4",
+    name: "youtube → transcript",
+    icon: "youtube",
+    file: "youtube.tool",
     tint: "#5e5ce6",
-    trigger: "paste a url",
-    headline: "a launch video from a link",
-    desc: "Paste a URL and get a keynote-style video made from the page, rendered on your device.",
-    chips: ["6 style packs", "16:9 · 9:16 · 1:1", "brand colors detected"],
-    media: shot("launch"),
+    trigger: "paste a link",
+    headline: "youtube videos, as text",
+    desc: "Paste a link and get the transcript as text or subtitles - with no captions, whisper writes one on your device.",
+    chips: ["no captions needed", "translate to English", "timestamps", ".txt · .srt"],
+    media: shot("youtube"),
     ground: "dusk",
-    mock: <LaunchCard />,
+    mock: <YouTubeCard />,
   },
 ];
 

@@ -22,9 +22,17 @@ const BRAND_GLYPH = (
 );
 
 export const ToolIcons: Record<
-  "focus" | "video" | "capture" | "launch" | "dictate" | "meet" | "board" | "social" | "disk",
+  "focus" | "video" | "capture" | "launch" | "dictate" | "meet" | "board" | "social" | "disk" | "youtube",
   ReactElement
 > = {
+  /* a player with its play mark: the YouTube → transcript card's window dots
+     in packages/feature-tools/src/catalogue.tsx */
+  youtube: (
+    <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" xmlns="http://www.w3.org/2000/svg">
+      <rect x="1.2" y="2.6" width="9.6" height="6.8" rx="2" />
+      <path d="M5 4.6v2.8L7.6 6z" fill="currentColor" stroke="none" />
+    </svg>
+  ),
   /* aperture: ring closing on a point — the app mark at 11 px */
   focus: (
     <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" xmlns="http://www.w3.org/2000/svg">
