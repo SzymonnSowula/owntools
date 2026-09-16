@@ -1,0 +1,917 @@
+/*
+ * The bar, live on the landing (BarDemo.tsx).
+ *
+ * Two halves. The stand-in desktop (the scene, the window, the pointer, the
+ * screenshot shade) is the landing's own. Everything from "the bar" down is
+ * apps/desktop/src/bar/bar.css, the pill's inline styles from
+ * packages/feature-dictation/src/DictationPill.tsx and the recorder's live bar
+ * from packages/feature-recorder/src/RecorderOverlay.tsx, scoped under
+ * .bar-demo: when the bar's look changes there, copy it here in the same
+ * commit. Deliberate differences, all of them presentation: a soft shadow
+ * under every dark surface (the real window is cut to its content, so it has
+ * none), pointer cursors and focus rings (it is a web page), and a short fade
+ * when a widget opens.
+ *
+ * Un-layered, like globals.css. `.scene` sets its own radius in globals.css
+ * and the two files can load in either order, so the scene rules below carry
+ * two classes.
+ */
+
+/* ------------------------------ the desktop ------------------------------ */
+
+.scene.bar-demo {
+  --bd-scale: 1;
+  /* the window in front, shared with the screenshot's selection */
+  --bd-win-w: min(640px, calc(100% - 40px));
+  --bd-win-top: 48px;
+
+  height: 460px;
+  border-radius: 0;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (min-width: 640px) {
+  .scene.bar-demo {
+    height: 540px;
+    border-radius: 20px;
+  }
+}
+
+/* the bar is ~470 px wide; on a phone it is drawn smaller rather than cut */
+@media (max-width: 519px) {
+  .scene.bar-demo {
+    --bd-scale: 0.8;
+    --bd-win-w: calc(100% - 28px);
+    --bd-win-top: 46px;
+  }
+}
+
+@media (max-width: 399px) {
+  .scene.bar-demo {
+    --bd-scale: 0.72;
+  }
+}
+
+.bar-demo .bd-hint {
+  position: absolute;
+  z-index: 1;
+  left: 14px;
+  top: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #fff;
+  background: rgba(8, 20, 40, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+}
+
+/* someone else's app: a plain document, and the words that land in it */
+.bar-demo .bd-window {
+  position: absolute;
+  z-index: 1;
+  left: 50%;
+  top: var(--bd-win-top);
+  width: var(--bd-win-w);
+  transform: translateX(-50%);
+  overflow: hidden;
+  text-align: left;
+}
+
+.bar-demo .bd-window-bar {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 34px;
+  padding: 0 14px;
+  border-bottom: 1px solid color-mix(in srgb, currentColor 10%, transparent);
+}
+
+.bar-demo .bd-window-bar i {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: color-mix(in srgb, currentColor 16%, transparent);
+}
+
+.bar-demo .bd-window-title {
+  margin-left: 8px;
+  font-size: 11.5px;
+  font-weight: 500;
+  opacity: 0.55;
+}
+
+.bar-demo .bd-doc {
+  min-height: 200px;
+  padding: 22px 26px 24px;
+}
+
+.bar-demo .bd-line {
+  display: block;
+  height: 8px;
+  border-radius: 99px;
+  background: color-mix(in srgb, currentColor 9%, transparent);
+}
+
+.bar-demo .bd-line + .bd-line {
+  margin-top: 11px;
+}
+
+.bar-demo .bd-line.head {
+  width: 34%;
+  height: 12px;
+  margin-bottom: 20px;
+  background: color-mix(in srgb, currentColor 15%, transparent);
+}
+
+.bar-demo .bd-typed {
+  margin: 20px 0 0;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.6;
+  letter-spacing: -0.01em;
+}
+
+.bar-demo .bd-caret {
+  display: inline-block;
+  width: 2px;
+  height: 1.15em;
+  margin-left: 1px;
+  vertical-align: -0.2em;
+  background: var(--color-accent);
+  animation: caret-blink 1.1s steps(1, end) infinite;
+}
+
+@media (max-width: 519px) {
+  .bar-demo .bd-doc {
+    min-height: 0;
+    padding: 18px 18px 20px;
+  }
+
+  .bar-demo .bd-typed {
+    font-size: 14px;
+  }
+}
+
+/* where the bar sits: bottom centre, or wherever it was dragged */
+.bar-demo .bd-dock {
+  position: absolute;
+  z-index: 2;
+  left: 50%;
+  bottom: 16px;
+  width: max-content;
+  transform: translateX(-50%) scale(var(--bd-scale));
+  transform-origin: 50% 100%;
+  transition: opacity 0.3s ease;
+  font-family: var(--font-sans);
+  letter-spacing: normal;
+  color: #f5f5f7;
+  -webkit-font-smoothing: antialiased;
+}
+
+.bar-demo .bd-dock.down {
+  transform-origin: 50% 0;
+}
+
+.bar-demo .bd-dock.dim {
+  opacity: 0;
+}
+
+.bar-demo .bd-dock.grabbing,
+.bar-demo .bd-dock.grabbing * {
+  cursor: grabbing !important;
+}
+
+/* the drawn pointer the tour moves */
+.bar-demo .bd-cursor {
+  position: absolute;
+  z-index: 4;
+  left: 0;
+  top: 0;
+  width: 24px;
+  height: 24px;
+  pointer-events: none;
+  opacity: 0;
+  transition:
+    transform 0.62s cubic-bezier(0.45, 0.05, 0.25, 1),
+    opacity 0.25s ease;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.3));
+}
+
+.bar-demo .bd-cursor.on {
+  opacity: 1;
+}
+
+.bar-demo .bd-cursor.jump {
+  transition: none;
+}
+
+.bar-demo .bd-cursor svg {
+  display: block;
+  transform-origin: 20% 10%;
+  transition: transform 0.1s ease;
+}
+
+.bar-demo .bd-cursor.press svg {
+  transform: scale(0.8);
+}
+
+/* a screenshot: the region being dragged out, then the shutter */
+.bar-demo .bd-select {
+  position: absolute;
+  z-index: 3;
+  left: calc(50% - var(--bd-win-w) / 2 + 12px);
+  top: calc(var(--bd-win-top) + 44px);
+  width: calc(var(--bd-win-w) - 24px);
+  height: 140px;
+  border: 1.5px solid #fff;
+  box-shadow: 0 0 0 100vmax rgba(8, 12, 20, 0.36);
+  animation: bd-select 0.72s cubic-bezier(0.3, 0.7, 0.2, 1) both;
+  pointer-events: none;
+}
+
+.bar-demo .bd-flash {
+  position: absolute;
+  z-index: 3;
+  inset: 0;
+  background: #fff;
+  opacity: 0;
+  /* `forwards`, not `both`: during the delay the flash must stay invisible */
+  animation: bd-flash 0.45s ease-out 0.78s forwards;
+  pointer-events: none;
+}
+
+@keyframes bd-select {
+  from {
+    width: 0;
+    height: 0;
+  }
+}
+
+@keyframes bd-flash {
+  from {
+    opacity: 0.85;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes bd-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+/* ------------------------------- the bar -------------------------------- */
+/* apps/desktop/src/bar/bar.css from here on */
+
+.bar-demo .bar-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.bar-demo .bd-dock.down .bar-stack {
+  flex-direction: column-reverse;
+}
+
+.bar-demo .bar-row-slot {
+  display: flex;
+  justify-content: center;
+}
+
+.bar-demo .bar-surface {
+  background: rgba(22, 22, 24, 0.96);
+  color: #f5f5f7;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  box-shadow:
+    0 12px 30px rgba(8, 16, 32, 0.3),
+    0 2px 6px rgba(8, 16, 32, 0.18);
+}
+
+.bar-demo .bar-clock {
+  font-variant-numeric: tabular-nums;
+}
+
+.bar-demo .bar-muted {
+  color: rgba(245, 245, 247, 0.55);
+  font-weight: 500;
+}
+
+.bar-demo .bar-push {
+  margin-left: auto;
+}
+
+.bar-demo button {
+  cursor: pointer;
+}
+
+.bar-demo button:focus-visible {
+  outline: 2px solid #0a84ff;
+  outline-offset: 2px;
+}
+
+.bar-demo button:disabled {
+  cursor: default;
+}
+
+/* ---- capsule ---- */
+
+.bar-demo .bar-capsule {
+  all: unset;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 26px;
+  padding: 0 11px 0 10px;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 999px;
+  background: rgba(22, 22, 24, 0.96);
+  color: #f5f5f7;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow:
+    0 10px 24px rgba(8, 16, 32, 0.3),
+    0 2px 6px rgba(8, 16, 32, 0.18);
+}
+
+.bar-demo .bar-capsule:hover {
+  background: rgba(38, 38, 42, 0.98);
+}
+
+.bar-demo .bar-dots {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.bar-demo .bar-dots i {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: rgba(245, 245, 247, 0.5);
+}
+
+.bar-demo .bar-dot {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 50%;
+  background: #ff453a;
+}
+
+.bar-demo .bar-dot.off {
+  background: rgba(245, 245, 247, 0.45);
+}
+
+/* ---- the bar ---- */
+
+.bar-demo .bar-row {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 42px;
+  padding: 4px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.bar-demo .bar-btn {
+  all: unset;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 32px;
+  padding: 0 11px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  color: #f5f5f7;
+  cursor: pointer;
+}
+
+.bar-demo .bar-btn:hover {
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.bar-demo .bar-btn[data-on="true"] {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.bar-demo .bar-btn svg {
+  flex: none;
+}
+
+.bar-demo .bar-mark {
+  padding: 0 4px;
+}
+
+.bar-demo .bar-icon {
+  padding: 0 8px;
+}
+
+.bar-demo .bar-sep {
+  width: 1px;
+  height: 20px;
+  margin: 0 3px;
+  background: rgba(255, 255, 255, 0.14);
+}
+
+/* ---- widgets ---- */
+
+.bar-demo .bar-panel {
+  box-sizing: border-box;
+  width: 300px;
+  padding: 14px;
+  border-radius: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  text-align: left;
+  animation: bd-fade 0.12s ease-out both;
+}
+
+.bar-demo .bar-panel-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.bar-demo .bar-text {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  font-weight: 500;
+  color: rgba(245, 245, 247, 0.62);
+  white-space: normal;
+}
+
+.bar-demo .bar-ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bar-demo .bar-label {
+  margin-bottom: -4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(245, 245, 247, 0.5);
+}
+
+.bar-demo .bar-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.bar-demo .bar-chip {
+  all: unset;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  height: 28px;
+  padding: 0 11px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #f5f5f7;
+  background: rgba(255, 255, 255, 0.07);
+  cursor: pointer;
+}
+
+.bar-demo .bar-chip:hover {
+  background: rgba(255, 255, 255, 0.13);
+}
+
+.bar-demo .bar-chips.lengths {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.bar-demo .bar-chips.lengths .bar-chip {
+  justify-content: center;
+  padding: 0;
+}
+
+.bar-demo .bar-chip[aria-checked="true"] {
+  background: #0a84ff;
+  color: #fff;
+}
+
+.bar-demo .bar-chip-task {
+  display: block;
+  max-width: 100%;
+  line-height: 28px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bar-demo .bar-primary {
+  all: unset;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 34px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  background: #0a84ff;
+  cursor: pointer;
+}
+
+.bar-demo .bar-primary:hover {
+  background: #0071e3;
+}
+
+.bar-demo .bar-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.bar-demo .bar-action {
+  all: unset;
+  box-sizing: border-box;
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #f5f5f7;
+  background: rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+}
+
+.bar-demo .bar-action:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.bar-demo .bar-action.danger {
+  background: rgba(255, 69, 58, 0.9);
+  color: #fff;
+}
+
+.bar-demo .bar-action.danger:hover {
+  background: #ff453a;
+}
+
+.bar-demo .bar-action:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.bar-demo .bar-big-clock {
+  font-size: 34px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.bar-demo .bar-progress {
+  height: 4px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.bar-demo .bar-progress > span {
+  display: block;
+  height: 100%;
+  background: #0a84ff;
+}
+
+.bar-demo .bar-menu {
+  width: 244px;
+  padding: 6px;
+  gap: 1px;
+  border-radius: 16px;
+}
+
+.bar-demo .bar-menu-item {
+  all: unset;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 34px;
+  padding: 0 10px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #f5f5f7;
+  cursor: pointer;
+}
+
+.bar-demo .bar-menu-item:hover {
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.bar-demo .bar-menu-icon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  color: rgba(245, 245, 247, 0.78);
+}
+
+.bar-demo .bar-menu-item kbd {
+  margin-left: auto;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(245, 245, 247, 0.5);
+}
+
+.bar-demo .bar-menu-sep {
+  height: 1px;
+  margin: 4px 8px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.bar-demo .bar-notice {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  height: 34px;
+  padding: 0 16px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.bar-demo .bar-pill-done {
+  all: unset;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  height: 30px;
+  margin-left: 2px;
+  padding: 0 13px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.14);
+  cursor: pointer;
+}
+
+.bar-demo .bar-pill-done:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+/* ---- the dictation pill, drawn inside the bar (DictationPill.tsx) ---- */
+
+.bar-demo .bd-pill {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 460px;
+  padding: 10px 18px;
+  overflow: hidden;
+  border-radius: 999px;
+  color: #fffdfb;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.3;
+  white-space: normal;
+  text-align: center;
+}
+
+.bar-demo .bd-pill.listening {
+  padding: 5px 5px 5px 16px;
+  white-space: nowrap;
+  text-align: left;
+}
+
+.bar-demo .bd-pill.wide {
+  width: 430px;
+  max-width: 430px;
+  padding: 10px 18px 11px;
+  border-radius: 18px;
+}
+
+.bar-demo .bd-pill-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.bar-demo .bd-pill-dot {
+  width: 9px;
+  height: 9px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: #666;
+}
+
+.bar-demo .bd-pill-dot.rec {
+  background: #ff453a;
+  animation: bd-pill-pulse 1.1s ease-in-out infinite;
+}
+
+.bar-demo .bd-pill-dot.busy {
+  background: #febc2e;
+}
+
+.bar-demo .bd-meter {
+  width: 54px;
+  height: 4px;
+  flex: none;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.bar-demo .bd-meter > span {
+  display: block;
+  height: 100%;
+  transition: width 90ms linear;
+}
+
+.bar-demo .bd-pill-hint {
+  opacity: 0.55;
+  font-weight: 500;
+}
+
+.bar-demo .bd-partial {
+  display: -webkit-box;
+  max-height: 34px;
+  overflow: hidden;
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.35;
+  color: rgba(255, 253, 251, 0.88);
+  white-space: normal;
+  text-align: left;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+@keyframes bd-pill-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/* ---- the recorder's live bar (RecorderOverlay.tsx, phase "live") ---- */
+
+.bar-demo .bd-rec {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 460px;
+  height: 64px;
+  padding: 0 12px;
+  border-radius: 10px;
+  background: #1d1d1f;
+  color: #fff;
+  white-space: nowrap;
+  box-shadow:
+    0 14px 34px rgba(8, 16, 32, 0.35),
+    0 2px 6px rgba(8, 16, 32, 0.2);
+  animation: bd-fade 0.12s ease-out both;
+}
+
+.bar-demo .bd-rec-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-right: 8px;
+}
+
+.bar-demo .bd-rec-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #ff453a;
+  animation: bd-rec-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.bar-demo .bd-rec-dot.off {
+  background: rgba(255, 255, 255, 0.35);
+  animation: none;
+}
+
+.bar-demo .bd-rec-time {
+  width: 54px;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+  font-variant-numeric: tabular-nums;
+  color: #ff453a;
+}
+
+.bar-demo .bd-rec-time.off {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.bar-demo .bd-rec-flag {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.025em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.bar-demo .bd-rec-right {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+}
+
+.bar-demo .bd-rec-btn {
+  all: unset;
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  color: rgba(255, 255, 255, 0.85);
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.bar-demo .bd-rec-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.bar-demo .bd-rec-btn[data-on="true"] {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+
+.bar-demo .bd-rec-stop {
+  all: unset;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  margin-left: 4px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: #ff453a;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+  cursor: pointer;
+}
+
+.bar-demo .bd-rec-stop:hover {
+  filter: brightness(1.1);
+}
+
+@keyframes bd-rec-pulse {
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bar-demo *,
+  .bar-demo *::before,
+  .bar-demo *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

@@ -26,6 +26,7 @@ import {
   MAC_DOWNLOAD_SOON,
   MacDownloadCta,
 } from "./components/Cta";
+import { BarSection } from "./components/bar/BarSection";
 import { imageSize } from "@/lib/imageSize";
 import { polarConfig } from "@/lib/polar";
 import { PRICE, checkoutUrl, contactEmail, downloadUrl, downloadUrlMac, repoUrl, xUrl } from "@/lib/site";
@@ -1187,6 +1188,9 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {/* the bar - where dictate, record, focus and meetings live, working */}
+      <BarSection />
 
       {/* the toolkit — browse capabilities by tool */}
       <section className="cv dotted overflow-hidden border-y border-line py-16 md:py-24" style={cv(1100, 900)}>
