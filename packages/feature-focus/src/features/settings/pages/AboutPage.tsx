@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { SUITE_NAME, SUPPORT_URL } from "@core/branding";
+import { checkForUpdateDetailed, type UpdateCheck } from "@core/updater";
 import { getDictationSettings } from "@feature-dictation/engine";
 import { isTauri } from "../../../lib/env";
 import { openExternal } from "../../../lib/links";
@@ -71,6 +72,73 @@ function diagnosticsReport(d: Diagnostics, log: string): string {
   ].join("\n");
 }
 
+/**
+ * "Check for updates" - the same check the banner runs at start-up, on demand,
+ * with the outcome spelled out: nothing is more annoying than a button that
+ * seems to do nothing. Install = download, verify the signature, passive NSIS
+ * install, relaunch; the key and everything in AppData stay where they are.
+ */
+function UpdatesRow({ native }: { native: boolean }) {
+  const [check, setCheck] = useState<UpdateCheck | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState<number | null>(null);
+  const [failure, setFailure] = useState<string | null>(null);
+
+  const run = async () => {
+    setBusy(true);
+    setFailure(null);
+    try {
+      setCheck(await checkForUpdateDetailed());
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const install = async () => {
+    if (check?.state !== "available") return;
+    setFailure(null);
+    setProgress(0);
+    try {
+      await check.update.install(setProgress);
+    } catch (err) {
+      setFailure(err instanceof Error ? err.message : String(err));
+      setProgress(null);
+    }
+  };
+
+  let hint: ReactNode;
+  if (!native) hint = "Updates come with the installed app; the browser preview has none.";
+  else if (progress !== null) hint = progress < 1 ? `Downloading… ${Math.round(progress * 100)}%` : "Installing… owntools will restart by itself.";
+  else if (failure) hint = `The update failed: ${failure}. Try again, or get the installer from the website.`;
+  else if (busy) hint = "Checking…";
+  else if (!check) hint = "owntools checks for a new version when it starts, unless Offline mode is on. Check now for a newer one.";
+  else if (check.state === "available") hint = `owntools ${check.update.version} is ready to install. Your key and your files stay where they are.`;
+  else if (check.state === "current") hint = `You're on the latest version${check.version ? ` (${check.version})` : ""}.`;
+  else if (check.state === "offline") hint = "Offline mode is on, so nothing was asked. Turn it off under Privacy to check.";
+  else if (check.state === "unavailable")
+    hint =
+      check.reason === "dev"
+        ? "Not in a development build - the endpoint only answers for published releases."
+        : "Updates come with the installed app; the browser preview has none.";
+  else hint = `Couldn't check: ${check.message}`;
+
+  const available = check?.state === "available" && progress === null;
+
+  return (
+    <Row id="updates" label="Updates" hint={hint}>
+      {!native || progress !== null ? null : available ? (
+        <Button kind="primary" onClick={() => void install()}>
+          Install &amp; restart
+        </Button>
+      ) : (
+        <Button disabled={busy} onClick={() => void run()}>
+          {busy ? "Checking…" : "Check for updates"}
+        </Button>
+      )}
+    </Row>
+  );
+}
+
 export function AboutPage() {
   const native = isTauri();
   const [info, setInfo] = useState<Diagnostics | null>(null);
@@ -134,15 +202,13 @@ export function AboutPage() {
           <span className="st-value">{native ? (info ? info.version : "reading…") : "browser preview"}</span>
         </Row>
         {info ? (
-          <>
-            <Row label="System">
-              <span className="st-value">
-                {info.os}/{info.arch} · WebView2 {info.webview}
-              </span>
-            </Row>
-            <Row label="Updates" hint="owntools checks for a new version when it starts, unless Offline mode is on." />
-          </>
+          <Row label="System">
+            <span className="st-value">
+              {info.os}/{info.arch} · WebView2 {info.webview}
+            </span>
+          </Row>
         ) : null}
+        <UpdatesRow native={native} />
       </Card>
 
       <Card

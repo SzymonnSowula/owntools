@@ -18,6 +18,7 @@ export type SettingsCategoryId =
   | "intelligence"
   | "automations"
   | "data"
+  | "storage"
   | "privacy"
   | "about";
 
@@ -48,6 +49,12 @@ export const SETTINGS_CATEGORIES: readonly SettingsCategory[] = [
     id: "data",
     label: "Sync & backup",
     blurb: "Keep your devices in step through a folder you already sync, or save a backup.",
+    group: "data",
+  },
+  {
+    id: "storage",
+    label: "Storage",
+    blurb: "How much space owntools uses on this device, and a quick way to free some.",
     group: "data",
   },
   { id: "privacy", label: "Privacy", blurb: "What is read on this device, and everything that leaves it.", group: "data" },
@@ -84,6 +91,12 @@ export interface SettingsItem {
 }
 
 export const SETTINGS_ITEMS: readonly SettingsItem[] = [
+  {
+    id: "bar",
+    label: "The bar",
+    where: "general",
+    keywords: ["bar", "toolbar", "dock", "floating", "overlay", "widget", "capsule", "pasek", "hide bar", "show bar", "position"],
+  },
   { id: "autostart", label: "Start with the system", where: "general", keywords: ["autostart", "login", "boot", "startup", "launch"] },
   { id: "close-window", label: "When I close the window", where: "general", keywords: ["tray", "close", "background", "minimize", "quit"] },
   { id: "quit", label: "Quit owntools", where: "general", keywords: ["exit", "close app", "stop"] },
@@ -103,9 +116,24 @@ export const SETTINGS_ITEMS: readonly SettingsItem[] = [
   { id: "automations", label: "Automation rules", where: "automations", keywords: ["rules", "triggers", "workflow", "when", "watch folder"] },
   { id: "sync", label: "Sync between devices", where: "data", keywords: ["dropbox", "onedrive", "icloud", "syncthing", "folder", "devices"] },
   { id: "backup", label: "Export and backup", where: "data", keywords: ["markdown", "json", "restore", "export", "backup"] },
+  {
+    id: "cache",
+    label: "Clear cache",
+    where: "storage",
+    keywords: ["cache", "temporary", "temp files", "clean up", "free space", "disk space", "junk", "leftovers"],
+  },
+  { id: "downloads", label: "Unfinished downloads", where: "storage", keywords: ["partial", "paused download", "part files", "installer"] },
+  {
+    id: "files",
+    label: "Delete screenshots, recordings and meeting audio",
+    where: "storage",
+    keywords: ["screenshots", "captures", "recordings", "videos", "meetings", "audio", "old files", "free space", "disk space"],
+  },
+  { id: "models", label: "Space used by models", where: "storage", keywords: ["whisper", "parakeet", "qwen", "model size", "gigabytes"] },
   { id: "activity", label: "Time tracking in apps and websites", where: "privacy", keywords: ["usage", "activity", "tracking", "window titles"] },
   { id: "privacy", label: "Network log and offline mode", where: "privacy", keywords: ["requests", "offline", "network", "receipt", "internet"] },
   { id: "diagnostics", label: "Diagnostics and logs", where: "about", keywords: ["support", "report", "bug", "version", "log"] },
+  { id: "updates", label: "Check for updates", where: "about", keywords: ["update", "version", "new", "upgrade", "install", "release", "latest"] },
   { id: "tool-dictate", label: "Dictation", where: "dictate", keywords: ["language", "whisper", "parakeet", "fillers", "voice commands", "vocabulary"] },
   { id: "tool-meet", label: "Meeting recording", where: "meet", keywords: ["meet", "microphone", "system audio", "calls", "summary"] },
   { id: "tool-capture", label: "Screenshots", where: "capture", keywords: ["capture", "screenshot", "ocr", "save folder", "pictures"] },
