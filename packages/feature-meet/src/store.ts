@@ -1,6 +1,7 @@
 import { create } from "zustand";
+import { MEET_PHASE_EVENT, type MeetPhaseDetail } from "@core/bar";
 import { logError, logInfo } from "@core/errors";
-import { emitToolEvent, MEET_FINISHED_EVENT } from "@core/events";
+import { emitToolEvent, MEET_FINISHED_EVENT, onToolEvent, STORAGE_CLEARED_EVENT } from "@core/events";
 import { OPEN_TOOL_EVENT } from "@core/handoff";
 import { useAppStore } from "@feature-focus/store/useAppStore";
 import { createDraft } from "@feature-social/api";
@@ -526,3 +527,26 @@ export const useMeetStore = create<MeetState>()((set, get) => ({
     if (kind === "ok") noticeTimer = setTimeout(() => set({ notice: null }), 4000);
   },
 }));
+
+// The bar (apps/desktop/src/bar) shows a meeting being recorded over whatever
+// app is in front, and can start and stop one; the shell's bridge forwards
+// this to it. Only the phase, the clock at that moment and an error.
+useMeetStore.subscribe((st, prev) => {
+  if (st.phase === prev.phase && st.error === prev.error) return;
+  const detail: MeetPhaseDetail = { phase: st.phase, elapsedMs: st.elapsedMs, at: Date.now(), error: st.error };
+  window.dispatchEvent(new CustomEvent(MEET_PHASE_EVENT, { detail }));
+});
+
+// Settings → Storage deletes meeting audio while this store may hold the list:
+// the rows lose their audio mark and an open player its source. The
+// transcripts and notes are untouched, so nothing else changes.
+onToolEvent(STORAGE_CLEARED_EVENT, ({ kind, ids }) => {
+  if (kind !== "meeting-audio" || !ids.length) return;
+  const gone = new Set(ids);
+  const silence = (m: Meeting): Meeting => (gone.has(m.id) ? { ...m, audio: false } : m);
+  useMeetStore.setState((st) => ({
+    meetings: st.meetings.map(silence),
+    finished: st.finished ? silence(st.finished) : null,
+    audioUrl: st.selectedId && gone.has(st.selectedId) ? null : st.audioUrl,
+  }));
+});

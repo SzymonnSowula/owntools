@@ -161,7 +161,8 @@ export function Editor() {
     const unsub = useAppStore.subscribe((s) => player.sync(s.timelineTime, s.playing));
     return () => {
       unsub();
-      player.stopAll();
+      // Closes the audio context too; the next play builds a new one.
+      player.dispose();
     };
   }, []);
 

@@ -330,7 +330,7 @@ pub async fn whisper_transcribe(
 /// Types text into the currently focused application: `SendInput` with
 /// `KEYEVENTF_UNICODE` on Windows, a `CGEvent` carrying a unicode string on
 /// macOS (which needs the Accessibility permission — see `mac.rs`).
-#[tauri::command]
+#[tauri::command(async)]
 pub fn type_text(text: String) -> Result<(), String> {
     #[cfg(windows)]
     {

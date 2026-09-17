@@ -187,7 +187,47 @@ function pickData(state: AppData): AppData {
 
 let saveTimer: number | null = null;
 let loopTimer: number | null = null;
+let usageSaveTimer: number | null = null;
 let switchingWorkspace = false;
+
+/**
+ * Usage ticks arrive every two seconds while time tracking is on, and each one
+ * used to schedule a full save — the whole dataset stringified into
+ * localStorage and focus.json rewritten — thirty times a minute for someone at
+ * their desk. A tick still lands in the state at once (the stats stay live);
+ * it reaches the disk at most this often, when the window is hidden, or with
+ * the next ordinary save, whichever comes first.
+ */
+const USAGE_SAVE_MS = 30_000;
+
+function scheduleUsageSave(get: () => AppState) {
+  if (usageSaveTimer != null) return;
+  usageSaveTimer = window.setTimeout(() => {
+    usageSaveTimer = null;
+    scheduleSave(get);
+  }, USAGE_SAVE_MS);
+}
+
+function flushUsageSave(get: () => AppState) {
+  if (usageSaveTimer == null) return;
+  window.clearTimeout(usageSaveTimer);
+  usageSaveTimer = null;
+  scheduleSave(get);
+}
+
+/**
+ * The timer's 250 ms tick runs while a timer runs. It used to run from start-up
+ * to quit, waking the page four times a second to find nothing to do.
+ */
+function syncTimerLoop(get: () => AppState) {
+  const running = get().timer.running;
+  if (running && loopTimer == null) {
+    loopTimer = window.setInterval(() => get().tickTimer(), 250);
+  } else if (!running && loopTimer != null) {
+    window.clearInterval(loopTimer);
+    loopTimer = null;
+  }
+}
 
 function scheduleSave(get: () => AppState) {
   if (saveTimer != null) window.clearTimeout(saveTimer);
@@ -322,9 +362,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     // current version (and taken the old demo content out), and that should be
     // what is on disk from now on, not only in memory.
     scheduleSave(get);
-    if (loopTimer == null) {
-      loopTimer = window.setInterval(() => get().tickTimer(), 250);
-    }
+    syncTimerLoop(get);
     applyTheme(get().settings.theme);
     nativeScrollGuard(get);
     syncNativeWindowPrefs(get().settings);
@@ -675,11 +713,14 @@ export const useAppStore = create<AppState>((set, get) => ({
       },
     };
     set({ heatmap, usage, usageNow });
-    scheduleSave(get);
+    scheduleUsageSave(get);
   },
   setUsageTracking: (on) => {
     const settings = { ...get().settings, usageTracking: on };
-    set({ settings, usageNow: get().usageNow ? { ...get().usageNow!, tracking: on } : get().usageNow });
+    // Off (and with the scroll guard off) the sampler sends no more ticks —
+    // usage.rs parks it — so the last one would stay as the "now" line for good.
+    const usageNow = on && get().usageNow ? { ...get().usageNow!, tracking: on } : null;
+    set({ settings, usageNow });
     scheduleSave(get);
     syncNativeUsage(on);
   },
@@ -1092,6 +1133,19 @@ export const useAppStore = create<AppState>((set, get) => ({
     get().updateTask(taskId, { pageId: id });
   },
 }));
+
+// Every path that starts or stops a timer (the store's actions, the tray, the
+// overlay) goes through the state, so the loop follows the state.
+useAppStore.subscribe((state, prev) => {
+  if (state.timer.running !== prev.timer.running) syncTimerLoop(useAppStore.getState);
+});
+
+// Hidden to the tray, or about to be: put the pending usage on disk now.
+if (typeof document !== "undefined") {
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") flushUsageSave(useAppStore.getState);
+  });
+}
 
 function nativeScrollGuard(get: () => AppState) {
   const s = get();

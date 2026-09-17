@@ -32,8 +32,9 @@ const TMP_DIR: &str = "tmp";
 /// A file has to keep its size this long before it counts as added.
 const STABLE_FOR: Duration = Duration::from_millis(1500);
 const POLL_EVERY: Duration = Duration::from_millis(500);
-/// Imported copies older than this are pruned on the next import.
-const TMP_MAX_AGE: Duration = Duration::from_secs(24 * 60 * 60);
+/// Imported copies older than this are pruned on the next import (and by
+/// Settings → Storage's "Clear cache", at the same age).
+pub(crate) const TMP_MAX_AGE: Duration = Duration::from_secs(24 * 60 * 60);
 const LIST_LIMIT: usize = 300;
 
 #[derive(Debug, Clone, Deserialize)]

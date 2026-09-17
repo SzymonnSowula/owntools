@@ -99,6 +99,9 @@ windows = { version = "0.61", features = [
   "Storage_Streams",
   "Foundation",
   "Foundation_Collections",
+  # child_job.rs: the model servers die with owntools, however it exits
+  "Win32_System_JobObjects",
+  "Win32_Security",
 ] }
 # disk: `#[implement]` for the Recycle Bin move's progress sink expands to
 # `::windows_core` paths, so the crate has to be named here — same version as `windows`.

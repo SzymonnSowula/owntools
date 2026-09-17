@@ -1,4 +1,5 @@
 import { isTauri } from "./env";
+import { ensureWindow, releaseWindow } from "./overlay";
 
 /**
  * Pressing Record tucks the main window away so owntools is not in your shot.
@@ -49,9 +50,10 @@ async function mainWindow() {
 
 /**
  * Fired whenever the recorder window is shown or hidden; payload = visible.
- * The window is built at start-up and only ever hidden, and neither Windows nor
- * Tauri tells a webview that its window went away, so every path that shows or
- * hides the overlay announces it here - the tray item does it from Rust.
+ * The window is built hidden (on demand, `overlays.rs`) and shown once its page
+ * is up, Alt+F4 only hides it, and neither Windows nor Tauri tells a webview
+ * that its window came or went — so every path that shows or hides the overlay
+ * announces it here; the tray item does it from Rust.
  */
 export const RECORDER_VISIBILITY_EVENT = "recorder-visibility";
 
@@ -61,12 +63,14 @@ async function emitVisible(visible: boolean): Promise<void> {
 }
 
 /**
- * The recorder page runs from the moment owntools opens, inside a window
- * nobody can see - so a getUserMedia on mount lights the webcam LED for the
- * whole session (it did; that was the bug). Nothing on that page may hold a
+ * The recorder page loads inside a window nobody can see yet — and once lived
+ * in one for the whole session, where a getUserMedia on mount lit the webcam
+ * LED until owntools quit (that was the bug). Nothing on that page may hold a
  * device unless the window is really on screen, and this is how it finds out:
- * the current state at once, then every show and hide. Outside Tauri (the
- * browser preview) the page is the window.
+ * every show and hide, and the current state once those listeners are in
+ * place. Listening first means a show that lands in between is never missed —
+ * the window is shown the moment its page is ready. Outside Tauri (the browser
+ * preview) the page is the window.
  */
 export async function watchRecorderVisible(
   onChange: (visible: boolean) => void,
@@ -80,7 +84,6 @@ export async function watchRecorderVisible(
     import("@tauri-apps/api/event"),
   ]);
   const win = getCurrentWindow();
-  onChange(await win.isVisible().catch(() => false));
   const stops = await Promise.all([
     listen<boolean>(RECORDER_VISIBILITY_EVENT, (e) => onChange(e.payload === true)),
     // A hidden window cannot take the focus, so gaining it means we are up.
@@ -89,12 +92,15 @@ export async function watchRecorderVisible(
       if (payload) onChange(true);
     }),
   ]);
+  onChange(await win.isVisible().catch(() => false));
   return () => stops.forEach((stop) => stop());
 }
 
 /** Shows the always-on-top recorder overlay and tucks the main window away. */
 export async function openRecorderOverlay(): Promise<void> {
   if (!isTauri()) return;
+  // The window only exists while it is needed: build it, wait for its page.
+  await ensureWindow("recorder");
   const { WebviewWindow } = await import("@tauri-apps/api/webviewWindow");
   const overlay = await WebviewWindow.getByLabel("recorder");
   if (!overlay) return;
@@ -124,9 +130,9 @@ export async function hideMainWindow(): Promise<void> {
   await main.hide();
 }
 
+/** Puts the recorder away: hidden now, its window closed a moment later. */
 export async function hideRecorderOverlay(): Promise<void> {
   if (!isTauri()) return;
-  const { getCurrentWindow } = await import("@tauri-apps/api/window");
-  await getCurrentWindow().hide();
   await emitVisible(false);
+  await releaseWindow("recorder");
 }

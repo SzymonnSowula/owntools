@@ -1,5 +1,6 @@
 import type { NextRequest } from "next/server";
 import {
+  MAX_POSTER_BYTES,
   abortMultipart,
   buildMeta,
   cleanName,
@@ -11,10 +12,10 @@ import {
   json,
   loadPending,
   loadShare,
+  mediaUrl,
   notConfigured,
   objectKey,
   preflight,
-  publicUrl,
   putJson,
   sha256Hex,
   shareConfig,
@@ -30,7 +31,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
   const { id } = await params;
   const share = await loadShare(id);
   if (!share) return json({ error: "not_found", message: "This link doesn't exist or has expired." }, 404);
-  const { cfg, meta } = share;
+  const { meta } = share;
   return json({
     id: meta.id,
     name: meta.name,
@@ -42,8 +43,8 @@ export async function GET(_req: NextRequest, { params }: Params) {
     createdAt: meta.createdAt,
     expiresAt: meta.expiresAt,
     viewUrl: viewUrl(meta.id),
-    videoUrl: await publicUrl(cfg, objectKey(meta.id, `video.${meta.ext}`)),
-    posterUrl: meta.poster ? await publicUrl(cfg, objectKey(meta.id, "poster.jpg")) : null,
+    videoUrl: mediaUrl(meta.id, `video.${meta.ext}`),
+    posterUrl: meta.poster ? mediaUrl(meta.id, "poster.jpg") : null,
   });
 }
 
@@ -83,7 +84,20 @@ export async function POST(req: NextRequest, { params }: Params) {
 
   const head = await headObject(cfg, pending.key);
   const bytes = head.exists ? head.size : pending.bytes;
-  const poster = Boolean(body?.poster) && (await headObject(cfg, objectKey(id, "poster.jpg"))).exists;
+  // A presigned part URL does not bound the size of what is PUT to it, so the
+  // cap is checked on what actually landed, not on what step 1 was told.
+  if (bytes > cfg.maxBytes) {
+    await Promise.all([
+      deleteObject(cfg, pending.key),
+      deleteObject(cfg, objectKey(id, "poster.jpg")),
+      deleteObject(cfg, objectKey(id, "pending.json")),
+    ]);
+    const mb = Math.round(cfg.maxBytes / 1024 / 1024);
+    return json({ error: "too_large", message: `Shares are limited to ${mb} MB.`, maxBytes: cfg.maxBytes }, 413);
+  }
+  const posterHead = body?.poster ? await headObject(cfg, objectKey(id, "poster.jpg")) : { exists: false, size: 0 };
+  const poster = posterHead.exists && posterHead.size <= MAX_POSTER_BYTES;
+  if (posterHead.exists && !poster) await deleteObject(cfg, objectKey(id, "poster.jpg"));
   const meta = buildMeta(pending, {
     name: cleanName(body?.name),
     width: finiteNumber(body?.width),
@@ -98,7 +112,7 @@ export async function POST(req: NextRequest, { params }: Params) {
   return json({
     id,
     viewUrl: viewUrl(id),
-    videoUrl: await publicUrl(cfg, pending.key),
+    videoUrl: mediaUrl(id, `video.${pending.ext}`),
     expiresAt: meta.expiresAt,
     bytes,
   });

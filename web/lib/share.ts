@@ -17,8 +17,16 @@ import { siteUrl } from "./site";
 
 export const PART_SIZE = 8 * 1024 * 1024;
 export const MAX_PARTS = 1000;
+/** A poster is one JPEG frame; anything bigger than this is not one and is dropped. */
+export const MAX_POSTER_BYTES = 5 * 1024 * 1024;
 /** Presigned URLs stay valid this long — enough for a slow upload of a long take. */
 const PRESIGN_SECONDS = 6 * 3600;
+/**
+ * How long the signed URL behind /v/<id>/video.mp4 lives. Every request to the
+ * stable address signs a new one, so this only has to outlast one sitting: a
+ * browser keeps reading a video from wherever the redirect sent it.
+ */
+const MEDIA_SECONDS = 12 * 3600;
 const META_VERSION = 1;
 
 export interface ShareConfig {
@@ -67,14 +75,22 @@ const env = (value: string | undefined): string | undefined => {
   return v ? v : undefined;
 };
 
+const DEFAULT_MAX_MB = 500;
+const DEFAULT_TTL_DAYS = 30;
+
+/** Link lifetime in days (0 = until removed) - also what the privacy page and the terms say. */
+export function shareTtlDays(): number {
+  const ttl = Number(env(process.env.SHARE_TTL_DAYS) ?? String(DEFAULT_TTL_DAYS));
+  return Number.isFinite(ttl) && ttl >= 0 ? ttl : DEFAULT_TTL_DAYS;
+}
+
 export function shareConfig(): ShareConfig | null {
   const endpoint = env(process.env.SHARE_S3_ENDPOINT);
   const bucket = env(process.env.SHARE_S3_BUCKET);
   const accessKeyId = env(process.env.SHARE_S3_ACCESS_KEY_ID);
   const secretAccessKey = env(process.env.SHARE_S3_SECRET_ACCESS_KEY);
   if (!endpoint || !bucket || !accessKeyId || !secretAccessKey) return null;
-  const maxMb = Number(env(process.env.SHARE_MAX_MB) ?? "500");
-  const ttl = Number(env(process.env.SHARE_TTL_DAYS) ?? "30");
+  const maxMb = Number(env(process.env.SHARE_MAX_MB) ?? String(DEFAULT_MAX_MB));
   return {
     endpoint: endpoint.replace(/\/+$/, ""),
     bucket,
@@ -82,8 +98,8 @@ export function shareConfig(): ShareConfig | null {
     accessKeyId,
     secretAccessKey,
     publicBase: env(process.env.SHARE_PUBLIC_BASE)?.replace(/\/+$/, ""),
-    maxBytes: (Number.isFinite(maxMb) && maxMb > 0 ? maxMb : 500) * 1024 * 1024,
-    ttlDays: Number.isFinite(ttl) && ttl >= 0 ? ttl : 30,
+    maxBytes: (Number.isFinite(maxMb) && maxMb > 0 ? maxMb : DEFAULT_MAX_MB) * 1024 * 1024,
+    ttlDays: shareTtlDays(),
   };
 }
 
@@ -116,16 +132,26 @@ async function s3(
   return client(cfg).fetch(objectUrl(cfg, key, query), rest);
 }
 
-/** A URL the uploader can PUT (or a viewer can GET) without credentials, for a limited time. */
+/**
+ * A URL the uploader can PUT (or a viewer can GET) without credentials, for a
+ * limited time. `headers` become part of the signature, so the storage refuses
+ * a request that sends anything else (R2 answers 403 SignatureDoesNotMatch).
+ */
 export async function presign(
   cfg: ShareConfig,
   key: string,
   method: "PUT" | "GET",
   query?: Record<string, string>,
   expiresSeconds = PRESIGN_SECONDS,
+  headers?: Record<string, string>,
 ): Promise<string> {
   const url = objectUrl(cfg, key, { ...(query ?? {}), "X-Amz-Expires": String(expiresSeconds) });
-  const signed = await client(cfg).sign(url, { method, aws: { signQuery: true } });
+  const signed = await client(cfg).sign(url, {
+    method,
+    headers,
+    // aws4fetch leaves content-type out of a signature unless told to sign every header given
+    aws: { signQuery: true, allHeaders: Boolean(headers) },
+  });
   return signed.url;
 }
 
@@ -134,8 +160,15 @@ function xmlValue(xml: string, tag: string): string | null {
   return m ? m[1] : null;
 }
 
-export async function createMultipart(cfg: ShareConfig, key: string, contentType: string): Promise<string> {
-  const res = await s3(cfg, key, { method: "POST", query: { uploads: "" }, headers: { "content-type": contentType } });
+export async function createMultipart(
+  cfg: ShareConfig,
+  key: string,
+  contentType: string,
+  contentDisposition?: string,
+): Promise<string> {
+  const headers: Record<string, string> = { "content-type": contentType };
+  if (contentDisposition) headers["content-disposition"] = contentDisposition;
+  const res = await s3(cfg, key, { method: "POST", query: { uploads: "" }, headers });
   const text = await res.text();
   const uploadId = res.ok ? xmlValue(text, "UploadId") : null;
   if (!uploadId) throw new Error(`Storage refused the upload (${res.status}).`);
@@ -229,13 +262,54 @@ export function viewUrl(id: string): string {
   return `${siteUrl}/v/${id}`;
 }
 
+/**
+ * The address of a share's video or poster on the site itself
+ * (`/v/<id>/video.mp4`, `/v/<id>/poster.jpg`). It never changes: every request
+ * is answered with a redirect to a freshly signed storage URL, so a link
+ * preview fetched a day later, or a download button pressed after lunch, still
+ * works - a signed URL written into the page would have died after an hour.
+ */
+export function mediaUrl(id: string, file: string): string {
+  return `${viewUrl(id)}/${file}`;
+}
+
+/** The storage key behind a `/v/<id>/<file>` address, or null for anything the share does not have. */
+export function mediaKey(meta: Pick<ShareMeta, "id" | "ext" | "poster">, file: string): string | null {
+  if (file === `video.${meta.ext}`) return objectKey(meta.id, file);
+  if (file === "poster.jpg" && meta.poster) return objectKey(meta.id, file);
+  return null;
+}
+
+/**
+ * Stored on the video itself: opened directly (the download button), it saves
+ * under the share's name instead of playing in a bare tab. A `<video>` element
+ * ignores the header, and the `download` attribute alone does nothing for a
+ * file on another origin. The quoted name is the ASCII fallback, `filename*`
+ * the real one (RFC 6266).
+ */
+export function attachmentDisposition(name: string, ext: string): string {
+  const base = name.replace(/[\\/:*?"<>|]+/g, " ").replace(/\s+/g, " ").trim() || "recording";
+  const ascii = base
+    .normalize("NFKD")
+    .replace(/\p{M}/gu, "")
+    .replace(/ł/g, "l")
+    .replace(/Ł/g, "L")
+    .replace(/[^ -~]/g, "_");
+  const encoded = encodeURIComponent(`${base}.${ext}`).replace(
+    /['()*]/g,
+    (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`,
+  );
+  return `attachment; filename="${ascii}.${ext}"; filename*=UTF-8''${encoded}`;
+}
+
 export function isExpired(meta: Pick<ShareMeta, "expiresAt">): boolean {
   return meta.expiresAt !== null && Date.now() > meta.expiresAt;
 }
 
+/** Where `/v/<id>/<file>` redirects: the public bucket when there is one, a signed URL otherwise. */
 export async function publicUrl(cfg: ShareConfig, key: string): Promise<string> {
   if (cfg.publicBase) return `${cfg.publicBase}/${key}`;
-  return presign(cfg, key, "GET", undefined, 3600);
+  return presign(cfg, key, "GET", undefined, MEDIA_SECONDS);
 }
 
 export async function loadShare(id: string): Promise<{ cfg: ShareConfig; meta: ShareMeta } | null> {

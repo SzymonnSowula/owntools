@@ -417,8 +417,12 @@ fn spawn_server(
         use std::os::windows::process::CommandExt;
         cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
     }
-    cmd.spawn()
-        .map_err(|e| format!("the resident recognizer would not start: {e}"))
+    let child = cmd
+        .spawn()
+        .map_err(|e| format!("the resident recognizer would not start: {e}"))?;
+    // ~700 MB that must go with owntools, however owntools goes (child_job.rs).
+    crate::child_job::adopt(&child);
+    Ok(child)
 }
 
 /// Blocks until the child is accepting connections, or the child dies.
@@ -591,7 +595,7 @@ pub async fn parakeet_warmup(
 }
 
 /// Frees the model. The user can also just close the app.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn parakeet_shutdown() {
     shutdown();
 }
@@ -855,7 +859,7 @@ pub async fn parakeet_install_runtime(app: AppHandle, archive: String) -> Result
 }
 
 /// Deletes one model folder (the model manager's "Remove").
-#[tauri::command]
+#[tauri::command(async)]
 pub fn parakeet_remove_model(app: AppHandle, id: String) -> Result<(), String> {
     let safe = safe_id(&id).ok_or("Not a Parakeet model id.")?;
     // The recognizer may have the model mapped.

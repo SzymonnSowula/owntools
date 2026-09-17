@@ -1,3 +1,5 @@
+import { useSyncExternalStore } from "react";
+import { getBarSettings, setBarSettings, subscribeBarSettings } from "@core/bar";
 import { CAPTURE_HOTKEY_LABEL, DICTATION_HOTKEY_LABEL } from "@core/hotkeys";
 import { isMac } from "@core/env";
 import { isTauri } from "../../../lib/env";
@@ -10,6 +12,7 @@ export function GeneralPage() {
   const autostart = useAppStore((s) => s.settings.autostart);
   const closeToTray = useAppStore((s) => s.settings.closeToTray !== false);
   const update = useAppStore((s) => s.updateSettings);
+  const bar = useSyncExternalStore(subscribeBarSettings, getBarSettings, getBarSettings);
 
   const toggleAutostart = async (on: boolean) => {
     update({ autostart: on });
@@ -31,6 +34,33 @@ export function GeneralPage() {
 
   return (
     <>
+      <Card
+        id="bar"
+        title="The bar"
+        desc="A small bar at the bottom of the screen: dictate, record, a focus session and meeting notes from any app."
+      >
+        <Row
+          id="bar-show"
+          label="Show the bar"
+          hint={
+            bar.enabled
+              ? "It rests as a small capsule and opens when the pointer stays on it. It steps aside in full screen and when this window covers it."
+              : `Off. Dictation still works with ${DICTATION_HOTKEY_LABEL}, in a pill of its own.`
+          }
+        >
+          <Switch label="Show the bar" checked={bar.enabled} onCheckedChange={(on) => setBarSettings({ enabled: on })} />
+        </Row>
+        <Row
+          id="bar-position"
+          label="Position"
+          hint={bar.anchor ? "Where you dragged it." : "Bottom centre of the main screen. Drag the bar to move it."}
+        >
+          <Button onClick={() => setBarSettings({ anchor: null })} disabled={!bar.anchor}>
+            Reset
+          </Button>
+        </Row>
+      </Card>
+
       <Card title="Startup and closing">
         <Row
           id="autostart"

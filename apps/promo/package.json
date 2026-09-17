@@ -1,0 +1,29 @@
+{
+  "name": "promo",
+  "private": true,
+  "version": "0.2.0",
+  "type": "module",
+  "description": "The 30-second launch cut, rendered with Remotion. Not part of the app.",
+  "scripts": {
+    "studio": "remotion studio src/index.ts",
+    "render": "remotion render src/index.ts Launch30 out/owntools-launch-30s.mp4 --codec h264 --crf 17",
+    "render:vertical": "remotion render src/index.ts Launch30Vertical out/owntools-launch-30s-9x16.mp4 --codec h264 --crf 17",
+    "still": "remotion still src/index.ts Launch30",
+    "audio": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/make-audio.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.519",
+    "@remotion/fonts": "4.0.519",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "remotion": "4.0.519"
+  },
+  "devDependencies": {
+    "@remotion/bundler": "4.0.519",
+    "@remotion/renderer": "4.0.519",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "typescript": "~5.8.3"
+  }
+}

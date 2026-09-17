@@ -4,6 +4,7 @@ import {
   ArrowUpRight,
   Brain,
   FolderSync,
+  HardDrive,
   KeyRound,
   LifeBuoy,
   LoaderCircle,
@@ -37,6 +38,7 @@ import { FocusPage } from "./pages/FocusPage";
 import { GeneralPage } from "./pages/GeneralPage";
 import { LicensePage } from "./pages/LicensePage";
 import { PrivacyPage } from "./pages/PrivacyPage";
+import { StoragePage } from "./pages/StoragePage";
 import { PageHead } from "./ui";
 
 // Lazy: the model catalogue and the rules engine load when their page opens.
@@ -51,6 +53,7 @@ const ICONS: Record<SettingsCategoryId, ReactElement> = {
   intelligence: <Brain />,
   automations: <Workflow />,
   data: <FolderSync />,
+  storage: <HardDrive />,
   privacy: <ShieldCheck />,
   about: <LifeBuoy />,
 };
@@ -291,6 +294,8 @@ function Page({ id }: { id: SettingsCategoryId }) {
       );
     case "data":
       return <DataPage />;
+    case "storage":
+      return <StoragePage />;
     case "privacy":
       return <PrivacyPage />;
     case "about":

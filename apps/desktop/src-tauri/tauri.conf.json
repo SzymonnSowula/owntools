@@ -14,6 +14,7 @@
     "windows": [
       {
         "label": "main",
+        "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection,IntensiveWakeUpThrottling",
         "title": "owntools",
         "width": 1280,
         "height": 800,
@@ -31,6 +32,8 @@
       },
       {
         "label": "recorder",
+        "create": false,
+        "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection,IntensiveWakeUpThrottling",
         "title": "owntools recorder",
         "url": "overlay.html",
         "width": 460,
@@ -46,6 +49,7 @@
       },
       {
         "label": "dictation",
+        "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection,IntensiveWakeUpThrottling",
         "title": "owntools dictation",
         "url": "dictation.html",
         "width": 320,
@@ -64,6 +68,8 @@
       },
       {
         "label": "captions",
+        "create": false,
+        "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection,IntensiveWakeUpThrottling",
         "title": "owntools captions",
         "url": "captions.html",
         "width": 920,
@@ -82,6 +88,8 @@
       },
       {
         "label": "capture",
+        "create": false,
+        "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection,IntensiveWakeUpThrottling",
         "title": "owntools capture",
         "url": "capture.html",
         "width": 800,

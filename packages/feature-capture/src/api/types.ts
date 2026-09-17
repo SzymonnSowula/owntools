@@ -98,4 +98,11 @@ export interface CaptureSavedPayload {
   width: number;
   height: number;
   ocrText?: string;
+  /**
+   * Rust sends the same event when captures are deleted (from the library or
+   * Settings → Storage) so the library refreshes; `ids` lists them. A removal
+   * has no path and is never republished as `CAPTURE_SAVED_EVENT`.
+   */
+  removed?: boolean;
+  ids?: string[];
 }

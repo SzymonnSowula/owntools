@@ -1,5 +1,5 @@
 import type { NoiseId } from "../../types";
-import { getAudioContext, unlockAudio } from "./context";
+import { getAudioContext, registerAudioActivity, unlockAudio } from "./context";
 import { createNoiseLayer, stopNoiseLayer, type Layer } from "./noise";
 import { createDrone, createPad, playVoice, type Drone, type Pad, type VoiceId } from "./voices";
 import { createVinylChain, type VinylChain, type VinylCharacter } from "./vinyl";
@@ -536,6 +536,7 @@ interface Session {
 }
 
 let session: Session | null = null;
+registerAudioActivity(() => session !== null);
 
 const TICK_MS = 100;
 /**

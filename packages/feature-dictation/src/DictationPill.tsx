@@ -125,6 +125,42 @@ async function resizeSelf(expanded: boolean): Promise<void> {
 }
 
 /**
+ * Who owns the window the pill is drawn in. On its own (the bar switched off)
+ * the pill moves, sizes and hides its window itself; inside the bar
+ * (apps/desktop/src/bar) the bar does, and the pill only says when it has
+ * something to show.
+ */
+export interface PillHost {
+  /** Mount: get ready for the first take. */
+  prepare(): void;
+  /** A take, or a message about one, is about to show. */
+  present(): Promise<void>;
+  /** The live text needs the second row, or no longer does. */
+  resize(expanded: boolean): Promise<void>;
+  /** What the pill shows has changed and may have changed size (a message, the live text). */
+  changed(): void;
+  /** Nothing left to show. */
+  dismiss(): Promise<void>;
+  /**
+   * Before text is typed after a click on the pill: give the foreground back
+   * to the app the words are for, in case the click took it.
+   */
+  focusTarget(): Promise<void>;
+}
+
+/** The pill in a window of its own, placed at the bottom of the monitor under the pointer. */
+export const standalonePillHost: PillHost = {
+  prepare: () => void positionSelf(),
+  // The window may still be the size of something else (the bar was switched
+  // off a moment ago), so present sets the size as well as the place.
+  present: () => resizeSelf(false),
+  resize: (expanded) => resizeSelf(expanded),
+  changed: () => {},
+  dismiss: () => hideSelf(),
+  focusTarget: async () => {},
+};
+
+/**
  * Escape is claimed as a *global* shortcut only while a take runs (this window
  * never has focus, so a DOM keydown could never reach it). Calls are queued so
  * an enable and the disable that follows it can never apply out of order.
@@ -203,8 +239,18 @@ async function announceTake(payload: DictationTake): Promise<void> {
  * shows the words as they land and the stop leaves only the tail to wait for.
  * Otherwise (whisper, an old engine, the setting off) the take is recorded
  * whole and decoded after the stop, as before.
+ *
+ * `embedded`: drawn inside the bar, which sizes the window around it — no
+ * full-window centring, no shadow that needs a margin, and a Done button,
+ * because a pill sitting in a bar invites a click.
  */
-export function DictationPill() {
+export function DictationPill({
+  host = standalonePillHost,
+  embedded = false,
+}: {
+  host?: PillHost;
+  embedded?: boolean;
+} = {}) {
   const [state, setState] = useState<PillState>("idle");
   const [message, setMessage] = useState("");
   const [level, setLevel] = useState(0);
@@ -223,9 +269,15 @@ export function DictationPill() {
   const target = useRef<ForegroundTarget>(NO_TARGET);
   const stateRef = useRef<PillState>("idle");
   stateRef.current = state;
+  // Read at call time: the bar can be switched on or off between two takes.
+  const hostRef = useRef(host);
+  hostRef.current = host;
+  // Every "hide" below goes through the host, which hides the window or hands
+  // it back to the bar.
+  const hideSelf = () => hostRef.current.dismiss();
 
   useEffect(() => {
-    void positionSelf();
+    hostRef.current.prepare();
     return () => {
       clearLater();
       void setEscapeHotkey(false);
@@ -235,8 +287,12 @@ export function DictationPill() {
   // The live text needs the second row; give it back when the take is over.
   const expanded = partial !== "" && (state === "listening" || state === "transcribing");
   useEffect(() => {
-    void resizeSelf(expanded);
+    void hostRef.current.resize(expanded);
   }, [expanded]);
+
+  useEffect(() => {
+    hostRef.current.changed();
+  }, [state, message, partial, pending]);
 
   useTauriEvent("dictation-toggle", () => {
     logInfo("dictation", `hotkey while ${stateRef.current}`);
@@ -373,7 +429,7 @@ export function DictationPill() {
     setPending(0);
     cancelled.current = false;
     try {
-      await positionSelf();
+      await hostRef.current.present();
       let status: EngineStatus | null = null;
       try {
         status = await dictationStatus();
@@ -634,28 +690,35 @@ export function DictationPill() {
 
   return (
     <div
-      style={{
-        height: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: "transparent",
-      }}
+      style={
+        embedded
+          ? { display: "flex", justifyContent: "center", background: "transparent" }
+          : {
+              height: "100vh",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: "transparent",
+            }
+      }
     >
       <div
         style={{
           display: "flex",
           flexDirection: "column",
           gap: 6,
-          padding: showPartial ? "10px 18px 11px" : "10px 18px",
+          padding: showPartial ? "10px 18px 11px" : embedded && state === "listening" ? "5px 5px 5px 16px" : "10px 18px",
           borderRadius: showPartial ? 18 : 999,
-          background: "rgba(17,17,17,0.92)",
+          background: embedded ? "rgba(22,22,24,0.96)" : "rgba(17,17,17,0.92)",
           color: "#fffdfb",
           fontSize: 13,
           fontWeight: 600,
           lineHeight: 1.3,
-          boxShadow: "0 12px 32px rgba(0,0,0,0.35)",
-          maxWidth: showPartial ? PILL_WIDE - 10 : PILL_WIDTH - 10,
+          // Inside the bar the window is cut to the pill, so a shadow would be
+          // clipped; a hairline keeps it apart from a dark background instead.
+          boxShadow: embedded ? "none" : "0 12px 32px rgba(0,0,0,0.35)",
+          border: embedded ? "1px solid rgba(255,255,255,0.13)" : undefined,
+          maxWidth: showPartial ? PILL_WIDE - 10 : embedded ? 460 : PILL_WIDTH - 10,
           width: showPartial ? PILL_WIDE - 10 : undefined,
           overflow: "hidden",
           whiteSpace: wrap ? "normal" : "nowrap",
@@ -704,6 +767,21 @@ export function DictationPill() {
                 {langBadge}
                 {live.current ? " · live" : ""} · esc cancels
               </span>
+              {embedded ? (
+                <button
+                  type="button"
+                  className="bar-pill-done"
+                  onClick={() => {
+                    // The click may have brought this window to the front:
+                    // the words have to land in the app they are for.
+                    void hostRef.current.focusTarget().then(() => {
+                      if (stateRef.current === "listening") stopListening();
+                    });
+                  }}
+                >
+                  Done
+                </button>
+              ) : null}
             </>
           ) : state === "transcribing" ? (
             <span style={{ flex: 1, textAlign: showPartial ? "left" : "center" }}>

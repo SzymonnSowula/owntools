@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { LegalPage, Operator } from "../components/LegalPage";
+import { shareTtlDays } from "@/lib/share";
 import { POLICIES_UPDATED } from "@/lib/site";
 
 export const metadata: Metadata = {
@@ -29,7 +30,7 @@ export default function PrivacyPage() {
         <li>
           <strong>Your files stay yours.</strong> Recordings, notes, tasks, habits, statistics,
           transcripts and your license key are files on your own disk. Delete the folder and they
-          are gone.
+          are gone. A video leaves your machine only when you create a share link for it.
         </li>
         <li>
           <strong>Speech recognition runs on your CPU.</strong> Audio is never sent anywhere.
@@ -57,6 +58,16 @@ export default function PrivacyPage() {
           you paste sees a request from you; we see nothing.
         </li>
         <li>
+          <strong>Share links, when you create one.</strong> screeni uploads that one exported
+          video, with a still for the preview, to storage we rent from Cloudflare (R2), and the
+          link plays it on owntools.app. Anyone who has the link can watch and download it; it is
+          unlisted and kept out of search engines.{" "}
+          {shareTtlDays() > 0
+            ? `It stops working after ${shareTtlDays()} days and the files are deleted from storage within a couple of days after that - sooner if you remove the link in the export dialog.`
+            : "It stays up until you remove it in the export dialog."}{" "}
+          We do not watch shared videos unless one is reported to us.
+        </li>
+        <li>
           <strong>Update checks.</strong> The app may ask our release server whether a newer
           version exists. That request carries the app version and your platform - nothing about
           you or your files.
@@ -82,6 +93,11 @@ export default function PrivacyPage() {
           <strong>Hosting.</strong> Like every website, the server that hosts this one keeps
           ordinary access logs (IP address, time, page requested) for a short time to run the
           service.
+        </li>
+        <li>
+          <strong>Watching a shared video.</strong> The page comes from this site and the video from
+          Cloudflare&rsquo;s storage; both see your IP address the way any server does. The page sets
+          no cookies and counts nothing.
         </li>
       </ul>
 

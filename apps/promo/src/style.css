@@ -1,0 +1,33 @@
+/* The composition's only stylesheet: resets and the few class rules the
+   app's own components (WinDots) expect. Everything else is inline. */
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* WinDots: three tinted 11 px glyphs, 6 px apart — same rhythm as the app. */
+.windots {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  line-height: 0;
+}
+
+.windots svg {
+  width: 11px;
+  height: 11px;
+  display: block;
+}
+
+/* Tabular figures for every clock. */
+.tnum {
+  font-variant-numeric: tabular-nums;
+}

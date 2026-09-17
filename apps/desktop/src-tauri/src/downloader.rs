@@ -39,6 +39,40 @@ fn clear_cancelled(id: &str) {
     }
 }
 
+/// The `.part` files a download is writing right now. Settings → Storage
+/// clears unfinished downloads and must never pull one out from under a
+/// running stream: Rust opens files with `FILE_SHARE_DELETE`, so the delete
+/// would succeed and the download would fail at the final rename.
+fn active_set() -> &'static Mutex<HashSet<PathBuf>> {
+    static SET: OnceLock<Mutex<HashSet<PathBuf>>> = OnceLock::new();
+    SET.get_or_init(|| Mutex::new(HashSet::new()))
+}
+
+/// Registered for as long as it lives; dropped on every way out of `run_download`.
+struct ActivePart(PathBuf);
+
+impl ActivePart {
+    fn new(part: &Path) -> Self {
+        if let Ok(mut s) = active_set().lock() {
+            s.insert(part.to_path_buf());
+        }
+        Self(part.to_path_buf())
+    }
+}
+
+impl Drop for ActivePart {
+    fn drop(&mut self) {
+        if let Ok(mut s) = active_set().lock() {
+            s.remove(&self.0);
+        }
+    }
+}
+
+/// Partial files of the downloads running now.
+pub fn active_parts() -> Vec<PathBuf> {
+    active_set().lock().map(|s| s.iter().cloned().collect()).unwrap_or_default()
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DownloadRequest {
@@ -151,6 +185,7 @@ async fn run_download(app: &AppHandle, request: &DownloadRequest, tally: &mut Ta
     let root = app.path().app_data_dir().map_err(|e| e.to_string())?;
     let dest = root.join(&rel);
     let part = part_path(&dest);
+    let _active = ActivePart::new(&part);
     if let Some(parent) = dest.parent() {
         tokio::fs::create_dir_all(parent)
             .await

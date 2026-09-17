@@ -1,6 +1,7 @@
-import { getAudioContext, unlockAudio } from "./context";
+import { getAudioContext, registerAudioActivity, unlockAudio } from "./context";
 
 const active = new Map<number, { osc: OscillatorNode[]; gain: GainNode }>();
+registerAudioActivity(() => active.size > 0);
 
 export function noteToMidi(note: string): number {
   const names = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];

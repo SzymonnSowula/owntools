@@ -272,10 +272,27 @@ export async function saveProjectAsset(
   return { name, rel };
 }
 
+/**
+ * A file in AppData as a `blob:` URL — same-origin, so the compositor's canvas
+ * never taints, and a seek reads memory instead of a protocol round trip.
+ * Fetched through the asset protocol straight into blob storage: `readFile`
+ * carried the whole recording over IPC into a JS buffer and then copied it
+ * again, two extra copies of a 500 MB take in the page's heap at the peak.
+ */
 async function appDataToObjectUrl(rel: string): Promise<string> {
+  // The protocol sniffs the type from the first bytes; the name decides, as before.
+  const type = mimeFor(rel);
+  try {
+    const response = await fetch(convertFileSrc(await appDataPath(rel)));
+    if (response.ok) {
+      const blob = await response.blob();
+      return URL.createObjectURL(blob.type === type ? blob : new Blob([blob], { type }));
+    }
+  } catch {
+    /* read it over IPC instead */
+  }
   const bytes = await readFile(rel, APP_DATA);
-  const copy = new Uint8Array(bytes);
-  return URL.createObjectURL(new Blob([copy], { type: mimeFor(rel) }));
+  return URL.createObjectURL(new Blob([new Uint8Array(bytes)], { type }));
 }
 
 export async function loadProjectFromDisk(id: string): Promise<{ project: Project; media: MediaUrls } | null> {

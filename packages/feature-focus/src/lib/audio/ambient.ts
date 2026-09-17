@@ -1,4 +1,4 @@
-import { getAudioContext, unlockAudio } from "./context";
+import { getAudioContext, registerAudioActivity, unlockAudio } from "./context";
 import { createPad, playVoice, type Pad } from "./voices";
 
 /**
@@ -32,6 +32,7 @@ interface Session {
 }
 
 let session: Session | null = null;
+registerAudioActivity(() => session !== null);
 
 function pickNote(chord: number[], lastMidi: number): number {
   const pool = Math.random() < 0.65 ? chord : SCALE;

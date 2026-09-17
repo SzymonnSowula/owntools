@@ -95,6 +95,9 @@ export default function App() {
     void import("@feature-automations/engine").then((m) => m.startAutomations()).catch((err) => logError("main", "automations", err));
     void import("@feature-sync/engine").then((m) => m.startSync()).catch((err) => logError("main", "sync", err));
     void import("@feature-capture/bridge").then((m) => m.startCaptureBridge()).catch((err) => logError("main", "capture bridge", err));
+    // The bar asks this window to start a focus session, a meeting or the
+    // recorder, and shows how they are going (shell/barBridge.ts).
+    void import("./shell/barBridge").then((m) => m.startBarBridge()).catch((err) => logError("main", "bar bridge", err));
   }, []);
 
   useEffect(() => {

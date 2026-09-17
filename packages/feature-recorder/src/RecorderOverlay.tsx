@@ -180,7 +180,7 @@ async function probeTake(take: Take): Promise<{ duration: number; width: number;
 export function RecorderOverlay() {
   const [phase, setPhase] = useState<Phase>("setup");
   const [webcamOn, setWebcamOn] = useState(true);
-  /** Is this window actually on screen? It exists, hidden, from app start-up. */
+  /** Is this window actually on screen? It is built hidden and shown once this page is up. */
   const [shown, setShown] = useState(!isTauri());
   const [micOn, setMicOn] = useState(true);
   const [micNote, setMicNote] = useState<string | null>(null);
@@ -249,8 +249,9 @@ export function RecorderOverlay() {
 
   /**
    * The camera preview. It runs only while the window is on screen: this page
-   * is alive from start-up in a hidden window, so a preview that ignored that
-   * held the webcam - LED and all - for as long as owntools was open.
+   * loads in a hidden window (and once lived in one from start-up), and a
+   * preview that ignored that held the webcam - LED and all - for as long as
+   * owntools was open.
    */
   useEffect(() => {
     if (phase !== "setup" || !webcamOn || !shown) {
@@ -284,9 +285,9 @@ export function RecorderOverlay() {
   }, [phase, webcamOn, shown]);
 
   /**
-   * Puts the overlay away. Hiding is all that happens to this window, so the
-   * page has to know at once - otherwise the return to "setup" re-opens the
-   * camera preview onto a window nobody can see.
+   * Puts the overlay away: hidden at once, the window closed a moment later.
+   * The page has to know first - otherwise the return to "setup" re-opens the
+   * camera preview onto a window nobody can see in the moment before it goes.
    */
   async function closeOverlay(): Promise<void> {
     setShown(false);

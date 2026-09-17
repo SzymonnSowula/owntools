@@ -11,6 +11,7 @@
 
 import { isTauri } from "@core/env";
 import { logInfo } from "@core/errors";
+import { ensureWindow, releaseWindow } from "@core/overlay";
 import {
   CAPTIONS_SESSION,
   CAPTIONS_WIDTH,
@@ -98,7 +99,11 @@ export async function startCaptionsDragging(): Promise<void> {
 /**
  * Starts the capture and shows the overlay. Rejects with the Rust error when
  * the capture cannot start (no audio capture on this platform yet, a device
- * missing) — the page shows the message; the overlay stays hidden.
+ * missing) — the page shows the message; the overlay is closed again.
+ *
+ * The overlay's window only exists while captions run (`overlays.rs`), and it
+ * is built before the capture starts, so its page is listening by the time the
+ * first segment comes in.
  */
 export async function showCaptions(settings: CaptionsSettings = loadCaptionsSettings()): Promise<void> {
   if (!isTauri()) {
@@ -106,8 +111,14 @@ export async function showCaptions(settings: CaptionsSettings = loadCaptionsSett
     openDemoOverlay();
     return;
   }
+  await ensureWindow("captions");
   const { invoke } = await import("@tauri-apps/api/core");
-  await invoke("audio_capture_start", { request: captureStartArgs(settings), ...captureStartArgs(settings) });
+  try {
+    await invoke("audio_capture_start", { request: captureStartArgs(settings), ...captureStartArgs(settings) });
+  } catch (err) {
+    await releaseWindow("captions").catch(() => undefined);
+    throw err;
+  }
   setCaptionsRunning(true);
   logInfo("captions", `capture started (${settings.sources.join("+")})`);
   const win = await captionsWindow();
@@ -123,9 +134,9 @@ export async function hideCaptions(): Promise<void> {
   await invoke("audio_capture_stop", { session: CAPTIONS_SESSION }).catch((err: unknown) =>
     logInfo("captions", `capture stop: ${err instanceof Error ? err.message : String(err)}`),
   );
-  const win = await captionsWindow();
-  await win?.hide().catch(() => undefined);
+  // Logged first: called from the overlay's own button, this page closes right after.
   logInfo("captions", "hidden");
+  await releaseWindow("captions").catch(() => undefined);
 }
 
 /** A source change needs a new capture; the overlay stays where it is. */

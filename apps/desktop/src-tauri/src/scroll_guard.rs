@@ -22,6 +22,8 @@ pub fn scroll_guard_sync(armed: bool, sites: Vec<String>) {
         // go in on arm and come out on disarm, never at startup for a feature
         // that is off.
         start();
+        // The sampler parks while nothing needs it; this does.
+        crate::usage::wake();
     } else {
         LOCKED.store(false, Ordering::Relaxed);
         stop();

@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { systemSpeechLang } from "@core/env";
+import { onToolEvent, STORAGE_CLEARED_EVENT } from "@core/events";
 import type {
   Caption,
   Chapter,
@@ -704,3 +705,55 @@ export function timelineLen(project: Project | null): number {
   if (!project) return 0;
   return timelineDuration(project.segments);
 }
+
+function blobUrlsOf(media: AppState["media"]): Set<string> {
+  const urls = new Set<string>();
+  if (!media) return urls;
+  for (const url of [media.screenUrl, media.webcamUrl, media.backgroundUrl, ...Object.values(media.overlayUrls ?? {})]) {
+    if (url?.startsWith("blob:")) urls.add(url);
+  }
+  return urls;
+}
+
+// A project's media are `blob:` copies of its files, and a blob stays in memory
+// until its URL is revoked — so every recording opened in a session (hundreds
+// of MB each) used to stay there until owntools quit, the store outliving the
+// editor. Whatever a new `media` no longer carries is let go here, whichever
+// path replaced it: another project, a converted video, a new background, a
+// deleted recording.
+useAppStore.subscribe((state, prev) => {
+  if (state.media === prev.media) return;
+  const kept = blobUrlsOf(state.media);
+  for (const url of blobUrlsOf(prev.media)) {
+    if (!kept.has(url)) URL.revokeObjectURL(url);
+  }
+});
+
+// Settings → Storage deletes recordings while this store may still hold one
+// open (it outlives the editor's view). A deleted project is closed rather than
+// left on screen: its media is gone, and the next save would write a
+// project.json back into an empty folder.
+onToolEvent(STORAGE_CLEARED_EVENT, ({ kind, ids }) => {
+  if (kind !== "recordings" || !ids.length) return;
+  const gone = new Set(ids);
+  const { project, recent } = useAppStore.getState();
+  const closing = !!project && gone.has(project.id);
+  useAppStore.setState({
+    recent: recent.filter((r) => !gone.has(r.id)),
+    ...(closing
+      ? {
+          project: null,
+          media: null,
+          view: "home" as const,
+          playing: false,
+          selection: null,
+          history: [],
+          historyIndex: -1,
+          exportOpen: false,
+          exportRequest: null,
+          exportProgress: null,
+          transcribeOpen: false,
+        }
+      : {}),
+  });
+});

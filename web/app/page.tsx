@@ -26,6 +26,7 @@ import {
   MAC_DOWNLOAD_SOON,
   MacDownloadCta,
 } from "./components/Cta";
+import { CtaBand } from "./components/CtaBand";
 import { BarSection } from "./components/bar/BarSection";
 import { imageSize } from "@/lib/imageSize";
 import { polarConfig } from "@/lib/polar";
@@ -999,14 +1000,23 @@ export default function Home() {
                 </MacDownloadCta>
               </>
             ) : (
-              /* Before launch exactly one thing here works, so it is the only
-                 thing that looks clickable. Two identical dead buttons side by
-                 side taught the reader the whole hero was inert. */
+              /* Before launch only these two work, so only they look like
+                 buttons: two identical dead ones side by side taught the reader
+                 the whole hero was inert. "get owntools" leads to the plans,
+                 like the nav's. */
               <>
-                <a href="#tools" className="btn btn-light">
+                <a href="#pricing" className="btn btn-light">
+                  get owntools
+                </a>
+                <a href="#tools" className="btn btn-ghost">
                   see the tools <ArrowDown size={15} />
                 </a>
-                <span className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-4 py-2 text-[13px] font-medium text-white/85 backdrop-blur-md">
+                {/* plain words, not a pill: next to the ghost button a glass pill
+                    read as one more button */}
+                <span
+                  className="inline-flex items-center gap-2 px-1 text-[13px] font-medium text-white/85"
+                  style={{ textShadow: "0 1px 14px rgba(10,30,60,0.45)" }}
+                >
                   <WindowsGlyph />
                   <AppleGlyph />
                   windows &amp; mac - launching soon
@@ -1226,6 +1236,9 @@ export default function Home() {
       {/* the bar - where dictate, record, focus and meetings live, working */}
       <BarSection />
 
+      {/* a way to get it every few screens, not only at the end */}
+      <CtaBand title="one app, paid once" checkoutHref={checkoutHref} />
+
       {/* the toolkit — browse capabilities by tool */}
       <section className="cv dotted overflow-hidden border-y border-line py-16 md:py-24" style={cv(1100, 900)}>
         <div className="mx-auto max-w-6xl px-5">
@@ -1246,6 +1259,8 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      <CtaBand title="all eight tools, on your own machine" checkoutHref={checkoutHref} />
 
       <Intelligence />
 
@@ -1296,11 +1311,15 @@ export default function Home() {
         </div>
       </section>
 
+      <CtaBand title="everything you make stays yours" checkoutHref={checkoutHref} />
+
       <DictateAnywhere />
 
       <WhatsInside />
 
       <SpeedCompare />
+
+      <CtaBand title="no account, no cloud, no renewal" checkoutHref={checkoutHref} />
 
       {/* personas */}
       {/* personas - a full-width section around the column, so content-visibility's

@@ -7,6 +7,7 @@ import "@fontsource/inter/latin-500.css";
 import "@fontsource/inter/latin-600.css";
 import { CaptionsOverlay } from "@feature-dictation/captions/CaptionsOverlay";
 import { ErrorBoundary } from "@ui/ErrorBoundary";
+import { OverlayReady } from "@ui/OverlayReady";
 import { installGlobalErrorHandlers, logError } from "@core/errors";
 
 installGlobalErrorHandlers("captions");
@@ -21,5 +22,6 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
     <ErrorBoundary scope="captions" onError={(err) => logError("captions", "render crash", err)}>
       <CaptionsOverlay />
     </ErrorBoundary>
+    <OverlayReady />
   </React.StrictMode>,
 );

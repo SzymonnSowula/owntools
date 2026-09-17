@@ -7,6 +7,7 @@ import "@fontsource/inter/latin-500.css";
 import "@fontsource/inter/latin-600.css";
 import { CaptureOverlay } from "@feature-capture/CaptureOverlay";
 import { ErrorBoundary } from "@ui/ErrorBoundary";
+import { OverlayReady } from "@ui/OverlayReady";
 import { installGlobalErrorHandlers, logError } from "@core/errors";
 
 installGlobalErrorHandlers("capture");
@@ -21,5 +22,6 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
     <ErrorBoundary scope="capture" onError={(err) => logError("capture", "render crash", err)}>
       <CaptureOverlay />
     </ErrorBoundary>
+    <OverlayReady />
   </React.StrictMode>,
 );

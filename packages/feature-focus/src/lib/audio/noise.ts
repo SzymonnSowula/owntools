@@ -1,5 +1,5 @@
 import type { NoiseId, SoundMix } from "../../types";
-import { getAudioContext, unlockAudio } from "./context";
+import { getAudioContext, registerAudioActivity, unlockAudio } from "./context";
 
 export type Layer = {
   source: AudioBufferSourceNode;
@@ -11,6 +11,7 @@ export type Layer = {
 let master: GainNode | null = null;
 let layers = new Map<NoiseId, Layer>();
 let running = false;
+registerAudioActivity(() => running);
 
 function makeBuffer(
   ctx: BaseAudioContext,

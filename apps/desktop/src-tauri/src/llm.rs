@@ -348,8 +348,12 @@ fn spawn_server(exe: &Path, model: &Path, port: u16, threads: u32, log: &Path) -
         use std::os::windows::process::CommandExt;
         cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
     }
-    cmd.spawn()
-        .map_err(|e| format!("the language model server would not start: {e}"))
+    let child = cmd
+        .spawn()
+        .map_err(|e| format!("the language model server would not start: {e}"))?;
+    // Gigabytes that must go with owntools, however owntools goes (child_job.rs).
+    crate::child_job::adopt(&child);
+    Ok(child)
 }
 
 /// One plain HTTP/1.1 GET over loopback — for `/health` while the child is
@@ -574,7 +578,7 @@ pub async fn llm_ensure_server(
 }
 
 /// Frees the model. The idle watchdog does this on its own after ten minutes.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn llm_shutdown() {
     shutdown();
 }

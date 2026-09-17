@@ -1,16 +1,20 @@
 import { describe, expect, it } from "vitest";
 import {
   PART_SIZE,
+  attachmentDisposition,
   buildMeta,
   cleanName,
   finiteNumber,
   isExpired,
   isValidId,
+  mediaKey,
+  mediaUrl,
   newId,
   newToken,
   objectKey,
   sha256Hex,
   shareConfig,
+  shareTtlDays,
 } from "./share";
 
 describe("share ids and tokens", () => {
@@ -36,6 +40,39 @@ describe("share ids and tokens", () => {
   it("keys every file under the share's folder", () => {
     expect(objectKey("abc123", "video.mp4")).toBe("shares/abc123/video.mp4");
     expect(PART_SIZE).toBe(8 * 1024 * 1024);
+  });
+});
+
+describe("media addresses", () => {
+  const meta = { id: "abcdefghij", ext: "mp4" as const, poster: false };
+
+  it("lives at a stable address under the link", () => {
+    expect(mediaUrl("abcdefghij", "video.mp4")).toMatch(/\/v\/abcdefghij\/video\.mp4$/);
+  });
+
+  it("only ever reaches the share's own video and poster", () => {
+    expect(mediaKey(meta, "video.mp4")).toBe("shares/abcdefghij/video.mp4");
+    expect(mediaKey(meta, "video.webm")).toBeNull();
+    expect(mediaKey(meta, "poster.jpg")).toBeNull();
+    expect(mediaKey({ ...meta, poster: true }, "poster.jpg")).toBe("shares/abcdefghij/poster.jpg");
+    for (const file of ["meta.json", "pending.json", "../meta.json", "", "video.mp4/"]) {
+      expect(mediaKey({ ...meta, poster: true }, file)).toBeNull();
+    }
+  });
+
+  it("downloads under the share's name, with an ASCII fallback", () => {
+    expect(attachmentDisposition("Demo & wyniki - ćwiczenie 2", "mp4")).toBe(
+      `attachment; filename="Demo & wyniki - cwiczenie 2.mp4"; filename*=UTF-8''Demo%20%26%20wyniki%20-%20%C4%87wiczenie%202.mp4`,
+    );
+    expect(attachmentDisposition('Łódź: "plan" / Q3', "webm")).toBe(
+      `attachment; filename="Lodz plan Q3.webm"; filename*=UTF-8''%C5%81%C3%B3d%C5%BA%20plan%20Q3.webm`,
+    );
+    expect(attachmentDisposition("it's (final)*", "mp4")).toBe(
+      `attachment; filename="it's (final).mp4"; filename*=UTF-8''it%27s%20%28final%29.mp4`,
+    );
+    expect(attachmentDisposition("  ", "mp4")).toBe(`attachment; filename="recording.mp4"; filename*=UTF-8''recording.mp4`);
+    // a header value has to stay printable ASCII whatever the name was
+    expect(attachmentDisposition("日本語 🎬", "mp4")).toMatch(/^[ -~]+$/);
   });
 });
 
@@ -90,5 +127,16 @@ describe("input cleaning", () => {
     expect(cfg?.maxBytes).toBe(100 * 1024 * 1024);
     expect(cfg?.ttlDays).toBe(0);
     process.env = saved;
+  });
+
+  it("reads the link lifetime the legal pages quote, with the same fallback", () => {
+    const saved = process.env.SHARE_TTL_DAYS;
+    for (const [value, days] of [["7", 7], ["0", 0], ["", 30], ["-1", 30], ["soon", 30]] as const) {
+      process.env.SHARE_TTL_DAYS = value;
+      expect(shareTtlDays()).toBe(days);
+    }
+    delete process.env.SHARE_TTL_DAYS;
+    expect(shareTtlDays()).toBe(30);
+    if (saved !== undefined) process.env.SHARE_TTL_DAYS = saved;
   });
 });

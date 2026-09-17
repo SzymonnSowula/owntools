@@ -1,7 +1,9 @@
 import type { NextRequest } from "next/server";
+import { allowRequest, clientAddress } from "@/lib/rateLimit";
 import {
   MAX_PARTS,
   PART_SIZE,
+  attachmentDisposition,
   cleanName,
   createMultipart,
   finiteNumber,
@@ -21,6 +23,13 @@ import {
 export const runtime = "nodejs";
 
 /**
+ * Links one network may start per hour. Per server instance (lib/rateLimit.ts),
+ * so a ceiling on a script hammering the endpoint rather than a quota - a
+ * person sharing their afternoon's takes never gets near it.
+ */
+const SHARES_PER_HOUR = 30;
+
+/**
  * Step 1 of a share: the desktop app says what it is about to upload and gets
  * back one presigned PUT URL per 8 MB part (plus one for the poster). Nothing
  * is public until step 2 (POST /api/share/[id]) completes the upload.
@@ -28,6 +37,12 @@ export const runtime = "nodejs";
 export async function POST(req: NextRequest) {
   const cfg = shareConfig();
   if (!cfg) return notConfigured();
+  if (!allowRequest(`share:${clientAddress(req.headers)}`, SHARES_PER_HOUR, 3_600_000)) {
+    return json(
+      { error: "rate_limited", message: "Too many links from this network in the last hour. Try again later." },
+      429,
+    );
+  }
 
   const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
   if (!body) return json({ error: "bad_request", message: "Send a JSON body." }, 400);
@@ -56,10 +71,11 @@ export async function POST(req: NextRequest) {
   const key = objectKey(id, `video.${ext}`);
   const createdAt = Date.now();
   const expiresAt = cfg.ttlDays > 0 ? createdAt + cfg.ttlDays * 86_400_000 : null;
+  const name = cleanName(body.name);
 
   let uploadId: string;
   try {
-    uploadId = await createMultipart(cfg, key, contentType);
+    uploadId = await createMultipart(cfg, key, contentType, attachmentDisposition(name, ext));
   } catch (err) {
     return json({ error: "storage", message: err instanceof Error ? err.message : "Storage error." }, 502);
   }
@@ -69,7 +85,11 @@ export async function POST(req: NextRequest) {
       presign(cfg, key, "PUT", { partNumber: String(i + 1), uploadId }),
     ),
   );
-  const posterUrl = body.poster ? await presign(cfg, objectKey(id, "poster.jpg"), "PUT") : null;
+  // The content type is signed: the poster URL cannot be used to store an HTML page
+  // (or anything but a JPEG) on the storage domain.
+  const posterUrl = body.poster
+    ? await presign(cfg, objectKey(id, "poster.jpg"), "PUT", undefined, undefined, { "content-type": "image/jpeg" })
+    : null;
 
   await savePending(cfg, {
     id,
@@ -93,7 +113,7 @@ export async function POST(req: NextRequest) {
     viewUrl: viewUrl(id),
     expiresAt,
     maxBytes: cfg.maxBytes,
-    name: cleanName(body.name),
+    name,
   });
 }
 

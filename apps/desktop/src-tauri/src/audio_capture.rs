@@ -1379,6 +1379,17 @@ mod live {
         }
     }
 
+    /// The folders sessions are writing into right now (`<dir>`, the parent of `segments/`).
+    pub fn recording_dirs() -> Vec<PathBuf> {
+        match sessions().lock() {
+            Ok(map) => map
+                .values()
+                .filter_map(|s| s.shared.segments_dir.parent().map(Path::to_path_buf))
+                .collect(),
+            Err(_) => Vec::new(),
+        }
+    }
+
     /// Every session, closed. Called on `RunEvent::Exit`.
     pub fn shutdown() {
         let drained: Vec<Session> = match sessions().lock() {
@@ -1447,6 +1458,19 @@ pub async fn audio_capture_stop(session: String) -> Result<StopResult, String> {
 pub fn shutdown() {
     #[cfg(windows)]
     live::shutdown();
+}
+
+/// Folders a meeting or captions session is recording into right now — what
+/// Settings → Storage leaves alone.
+pub fn recording_dirs() -> Vec<std::path::PathBuf> {
+    #[cfg(windows)]
+    {
+        live::recording_dirs()
+    }
+    #[cfg(not(windows))]
+    {
+        Vec::new()
+    }
 }
 
 #[cfg(not(windows))]

@@ -1,8 +1,11 @@
 import { useEffect, useState } from "react";
 import { SUITE_NAME } from "@core/branding";
-import { isTauri } from "@core/env";
-import { DICTATION_HOTKEY_HINT, DICTATION_HOTKEY_LABEL } from "@core/hotkeys";
+import { isMac, isTauri } from "@core/env";
+import { logError } from "@core/errors";
+import { CAPTURE_HOTKEY_LABEL, DICTATION_HOTKEY_LABEL } from "@core/hotkeys";
 import { BrandMark } from "@ui/BrandMark";
+import { ToolGlyph } from "@ui/ToolMark";
+import { greetFromBar } from "./barBridge";
 import { THEMES } from "@feature-focus/lib/themes";
 import { useAppStore } from "@feature-focus/store/useAppStore";
 import {
@@ -22,7 +25,7 @@ import {
 
 const FLAG = "owntools-onboarded";
 
-/** brand → five tools → theme → your data, your call → shortcuts */
+/** brand → nine tools → theme → your data, your call → the bar */
 const STEPS = [0, 1, 2, 3, 4] as const;
 const LAST = STEPS[STEPS.length - 1];
 
@@ -53,25 +56,38 @@ const ENGINE_DOWNLOAD_BYTES =
   (runtimeFor(DEFAULT_SPEECH_MODEL.engine)?.bytes ?? ENGINE.bytes) +
   DEFAULT_SPEECH_MODEL.bytes;
 
+/** All nine, one sentence each; dictate spans the row because it carries the engine download. */
 const TOOL_ROWS = [
   {
     name: "dictate",
-    desc: `Press ${DICTATION_HOTKEY_LABEL}, speak, press again — an on-device model types anywhere. Needs a one-time ${formatBytes(ENGINE_DOWNLOAD_BYTES)} download (engine + model).`,
+    desc: `Press ${DICTATION_HOTKEY_LABEL}, speak, press again: an on-device model types in any app. A one-time ${formatBytes(ENGINE_DOWNLOAD_BYTES)} download.`,
   },
-  { name: "screeni", desc: "Screen recordings that auto-zoom on your cursor. Edit & export MP4." },
-  { name: "focus", desc: "A quiet desk: timer, tasks, notebook, habits, heatmap." },
-  { name: "launch", desc: "Paste a URL, get a 30-second video out of it." },
-  { name: "board", desc: "An endless whiteboard: paste screenshots, sketch, think in boxes and arrows." },
-  { name: "social", desc: "Schedule posts to 30+ networks from a calendar; agents can drive it over a local API." },
-  { name: "disk", desc: "See where the space went: a treemap of every file, duplicates, quick wins, snapshots." },
+  { name: "screeni", desc: "Screen recordings that zoom in on your clicks." },
+  { name: "capture", desc: `${CAPTURE_HOTKEY_LABEL}: grab part of the screen, copy its text.` },
+  { name: "meet", desc: "A call transcribed on this machine, notes after." },
+  { name: "focus", desc: "Timer, tasks, notes and habits." },
+  { name: "launch", desc: "A URL becomes a short video." },
+  { name: "board", desc: "An endless whiteboard." },
+  { name: "social", desc: "Posts scheduled to 30+ networks." },
+  { name: "disk", desc: "Where the space went." },
 ];
 
 const SHORTCUTS = [
-  { keys: "Ctrl+K", desc: "Quick capture — task or note from anywhere in focus" },
-  { keys: "Space", desc: "Start / pause the focus timer" },
-  { keys: DICTATION_HOTKEY_LABEL, desc: `Dictation, system-wide — ${DICTATION_HOTKEY_HINT}` },
-  { keys: "Ctrl+1…9", desc: "Jump between focus views" },
+  { keys: DICTATION_HOTKEY_LABEL, desc: "Dictate in any app, bar or no bar" },
+  { keys: CAPTURE_HOTKEY_LABEL, desc: "Screenshot part of the screen" },
+  { keys: "Ctrl+K", desc: "Quick note or task, in focus" },
 ];
+
+async function enableAutostart(): Promise<void> {
+  useAppStore.getState().updateSettings({ autostart: true });
+  if (!isTauri()) return;
+  try {
+    const plugin = await import("@tauri-apps/plugin-autostart");
+    await plugin.enable();
+  } catch (err) {
+    logError("onboarding", "autostart", err);
+  }
+}
 
 /** "Engine · 3 MB / 8 MB" and a per-step percentage for the bar. */
 function describeInstall(session: InstallSession): { text: string; percent: number | null } {
@@ -182,17 +198,26 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
     () => useAppStore.getState().settings.usageTracking !== false,
   );
   const install = useInstallSession();
+  // Asked on the last step, next to what it keeps running; ticked there, but
+  // only applied by "start" on that step — skipping past it enables nothing.
+  const [autostart, setAutostart] = useState<boolean>(() => {
+    const current = useAppStore.getState().settings.autostart;
+    return current !== false || !isOnboarded();
+  });
 
   // Both "start" and "skip" land here: the native side gets one explicit
   // tracking decision exactly when onboarding ends (App.tsx holds the initial
   // push back until then), so nothing is sampled before the user has seen this.
-  const finish = () => {
+  const finish = (fromLastStep = false) => {
     useAppStore.getState().setUsageTracking(tracking);
+    if (fromLastStep && autostart && !useAppStore.getState().settings.autostart) void enableAutostart();
     markOnboarded();
     onDone();
+    // The bar opens by itself once, over this window, and says what it is.
+    void greetFromBar();
   };
 
-  const next = () => (step === LAST ? finish() : setStep(step + 1));
+  const next = () => (step === LAST ? finish(true) : setStep(step + 1));
 
   // The engine download started on the tools step stays visible on the
   // later steps as a slim strip, so nobody wonders whether it is still going.
@@ -235,9 +260,9 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
           {step === 1 ? (
             <>
               <h2 className="onb-title">one desk, nine tools</h2>
-              <div className="onb-tools">
+              <div className="onb-tools compact">
                 {TOOL_ROWS.map((t) => (
-                  <div key={t.name} className="onb-tool">
+                  <div key={t.name} className={`onb-tool${t.name === "dictate" ? " wide" : ""}`}>
                     <span className="onb-tool-name">{t.name}</span>
                     <span className="onb-tool-desc">{t.desc}</span>
                     {t.name === "dictate" ? <EngineSetup /> : null}
@@ -310,7 +335,35 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
 
           {step === 4 ? (
             <>
-              <h2 className="onb-title">a few superpowers</h2>
+              <h2 className="onb-title">your bar</h2>
+              <p className="onb-lead">
+                A small bar waits at the bottom of the screen: dictate, record, start a focus session or take
+                meeting notes, whatever app is in front.
+              </p>
+              <div className="onb-bar-demo" aria-hidden>
+                <BrandMark size={20} filled />
+                <span className="onb-bar-demo-sep" />
+                <span>
+                  <ToolGlyph tool="dictate" size={16} />
+                  Dictate
+                </span>
+                <span>
+                  <ToolGlyph tool="screeni" size={16} />
+                  Record
+                </span>
+                <span>
+                  <ToolGlyph tool="focus" size={16} />
+                  Focus
+                </span>
+                <span>
+                  <ToolGlyph tool="meet" size={16} />
+                  Meeting
+                </span>
+              </div>
+              <p className="onb-bar-demo-note">
+                It rests as a small capsule and steps aside in full screen. Drag it anywhere; hide it from its menu
+                and the tray icon brings it back.
+              </p>
               <div className="onb-keys">
                 {SHORTCUTS.map((s) => (
                   <div key={s.keys} className="onb-key-row">
@@ -319,6 +372,15 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
                   </div>
                 ))}
               </div>
+              {isTauri() ? (
+                <label className="onb-check">
+                  <input type="checkbox" checked={autostart} onChange={(e) => setAutostart(e.target.checked)} />
+                  <span>
+                    Start owntools {isMac() ? "when you log in" : "with Windows"}, so the bar and the shortcuts are
+                    there after a restart
+                  </span>
+                </label>
+              ) : null}
             </>
           ) : null}
         </div>
@@ -334,7 +396,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
         ) : null}
 
         <div className="onb-foot">
-          <button className="onb-skip" onClick={finish}>
+          <button className="onb-skip" onClick={() => finish()}>
             skip
           </button>
           <div className="onb-dots" aria-hidden>

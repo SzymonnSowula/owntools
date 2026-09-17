@@ -233,7 +233,7 @@ fn run_step(step: &LaunchStep) -> Result<(), String> {
 
 /// Launch every step in order and report per-step outcomes; one failure never
 /// stops the rest of the session from starting.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn launch_session(steps: Vec<LaunchStep>) -> Vec<LaunchOutcome> {
     steps
         .iter()
@@ -254,7 +254,7 @@ pub fn launch_session(steps: Vec<LaunchStep>) -> Vec<LaunchOutcome> {
 
 /// The ritual editor points at paths outside the fs plugin's scope (Program
 /// Files, project folders), so it asks the backend instead.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn path_exists(path: String) -> bool {
     !path.trim().is_empty() && std::path::Path::new(&path).exists()
 }

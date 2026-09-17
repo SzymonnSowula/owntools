@@ -260,7 +260,7 @@ fn owner_window(app: &AppHandle) -> isize {
 
 // ---- volumes & roots ---------------------------------------------------------
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn disk_volumes() -> Vec<volumes::VolumeInfo> {
     volumes::list_volumes()
 }
@@ -380,7 +380,7 @@ pub fn disk_scan_cancel(state: State<'_, DiskState>) {
     state.scanning.store(false, Ordering::SeqCst);
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn disk_summary(state: State<'_, DiskState>) -> Option<ScanSummary> {
     let gen = state.generation.load(Ordering::SeqCst);
     with_arena(&state, |a| summary_of(a, gen)).ok()
@@ -393,7 +393,7 @@ pub fn disk_node(state: State<'_, DiskState>, id: u32) -> Result<Option<NodeInfo
     with_arena(&state, |a| a.info(id))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn disk_children(state: State<'_, DiskState>, id: u32, limit: Option<usize>) -> Result<ChildrenPage, String> {
     with_arena(&state, |a| {
         let (items, total) = a.children_info(id, limit.unwrap_or(2000).clamp(1, 20000));
@@ -401,7 +401,7 @@ pub fn disk_children(state: State<'_, DiskState>, id: u32, limit: Option<usize>)
     })
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn disk_subtree(
     state: State<'_, DiskState>,
     id: u32,
@@ -421,7 +421,7 @@ pub fn disk_subtree(
     })
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn disk_find(state: State<'_, DiskState>, path: String) -> Result<Option<u32>, String> {
     with_arena(&state, |a| a.find_path(&path))
 }
@@ -431,7 +431,7 @@ pub fn disk_search(state: State<'_, DiskState>, query: String, limit: Option<usi
     with_arena(&state, |a| a.search(&query, limit.unwrap_or(200).clamp(1, 2000)))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn disk_top_files(
     state: State<'_, DiskState>,
     id: u32,
@@ -715,7 +715,7 @@ pub fn disk_dupes_cancel(state: State<'_, DiskState>) {
     }
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn disk_dupes_result(state: State<'_, DiskState>) -> Option<dupes::DupesResult> {
     state.dupes.lock().ok().and_then(|d| d.clone())
 }
@@ -790,7 +790,7 @@ pub fn disk_open_apps_settings() -> Result<(), String> {
 
 // ---- monitor -----------------------------------------------------------------------
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn disk_monitor_start() {
     volumes::monitor_start();
 }

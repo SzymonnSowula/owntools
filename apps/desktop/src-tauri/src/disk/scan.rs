@@ -421,6 +421,11 @@ pub fn scan(
         return Err(ScanError::Cancelled);
     }
     arena.aggregate();
+    // The vectors grew by doubling and nothing is added after a scan: a tree of
+    // 1.2 M entries would otherwise keep room for 2 M (~70 MB of spare nodes)
+    // for as long as the tree stays open.
+    arena.nodes.shrink_to_fit();
+    arena.extra.shrink_to_fit();
     arena.scanned_at = system_time_secs(Ok(SystemTime::now()));
     arena.elapsed_ms = started.elapsed().as_millis() as u64;
     prog.current.clear();

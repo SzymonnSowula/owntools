@@ -348,6 +348,9 @@ pub fn arena_from(snap: &SnapshotFile) -> Arena {
         arena.nodes[id as usize].child_count = count;
     }
     arena.aggregate();
+    // Same as a scan: nothing is added from here on (scan.rs).
+    arena.nodes.shrink_to_fit();
+    arena.extra.shrink_to_fit();
     arena
 }
 

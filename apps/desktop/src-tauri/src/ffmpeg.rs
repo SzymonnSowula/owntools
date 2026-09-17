@@ -51,12 +51,12 @@ fn resolve_ffmpeg(app: &AppHandle) -> Option<PathBuf> {
     None
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn ffmpeg_available(app: AppHandle) -> bool {
     resolve_ffmpeg(&app).is_some()
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn convert_to_mp4(app: AppHandle, input: String, output: String) -> Result<(), String> {
     let bin = resolve_ffmpeg(&app).ok_or_else(|| "ffmpeg not found".to_string())?;
     let mut cmd = std::process::Command::new(bin);

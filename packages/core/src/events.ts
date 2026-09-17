@@ -67,11 +67,24 @@ export interface ExportFinished {
   durationMs: number;
 }
 
+/**
+ * Settings → Storage deleted files a tool may be holding in memory. The editor
+ * closes a project whose folder is gone; meet forgets the audio of a meeting.
+ * Not a trigger for automations: nothing was made.
+ */
+export const STORAGE_CLEARED_EVENT = "owntools:storage-cleared";
+export interface StorageCleared {
+  kind: "captures" | "recordings" | "meeting-audio" | "cache" | "downloads";
+  /** Ids of what was deleted (capture, project or meeting ids); empty for cache and downloads. */
+  ids: string[];
+}
+
 export type ToolEventMap = {
   [MEET_FINISHED_EVENT]: MeetFinished;
   [CAPTURE_SAVED_EVENT]: CaptureSaved;
   [DICTATION_TAKE_EVENT]: DictationTake;
   [EXPORT_FINISHED_EVENT]: ExportFinished;
+  [STORAGE_CLEARED_EVENT]: StorageCleared;
 };
 
 export function emitToolEvent<K extends keyof ToolEventMap>(name: K, detail: ToolEventMap[K]): void {

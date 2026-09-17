@@ -1,0 +1,457 @@
+/*
+ * The bar window (dictation.html). Nothing else is loaded in this window, so
+ * these rules are plain and un-layered. One dark surface, whatever the theme:
+ * the bar sits over other people's apps, light and dark alike, like the
+ * recorder bar and the pill.
+ */
+
+html,
+body {
+  margin: 0;
+  background: transparent;
+}
+
+body {
+  font-family: Inter, system-ui, sans-serif;
+  /* Everything here sits on a dark surface. WebView2's default ink is black,
+     and a rule with `all: unset` inherits it: the capsule's clock rendered
+     black on black in the first build (the browser preview, dark by default,
+     drew it light and hid the bug). Each such rule sets its colour too. */
+  color: #f5f5f7;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  overflow: hidden;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+/* The standalone pill fills its window, exactly as before the bar. */
+.pill-root,
+.pill-fill {
+  height: 100%;
+}
+
+#root {
+  height: 100vh;
+}
+
+/* The window is cut to the stack; the stack is anchored at the bar row. */
+.bar-root {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+}
+
+.bar-root.down {
+  align-items: flex-start;
+}
+
+.bar-stack {
+  flex: none;
+  width: max-content;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.bar-root.down .bar-stack {
+  flex-direction: column-reverse;
+}
+
+.bar-row-slot {
+  display: flex;
+  justify-content: center;
+}
+
+.bar-surface {
+  background: rgba(22, 22, 24, 0.96);
+  color: #f5f5f7;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+}
+
+.bar-clock {
+  font-variant-numeric: tabular-nums;
+}
+
+.bar-muted {
+  color: rgba(245, 245, 247, 0.55);
+  font-weight: 500;
+}
+
+.bar-push {
+  margin-left: auto;
+}
+
+/* ---- capsule ---- */
+
+.bar-capsule {
+  all: unset;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 26px;
+  padding: 0 11px 0 10px;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 999px;
+  background: rgba(22, 22, 24, 0.96);
+  color: #f5f5f7;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.bar-capsule:hover {
+  background: rgba(38, 38, 42, 0.98);
+}
+
+.bar-dots {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.bar-dots i {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: rgba(245, 245, 247, 0.5);
+}
+
+.bar-dot {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 50%;
+  background: #ff453a;
+}
+
+.bar-dot.off {
+  background: rgba(245, 245, 247, 0.45);
+}
+
+/* ---- the bar ---- */
+
+.bar-row {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 42px;
+  padding: 4px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.bar-btn {
+  all: unset;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 32px;
+  padding: 0 11px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  color: #f5f5f7;
+}
+
+.bar-btn:hover {
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.bar-btn[data-on="true"] {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.bar-btn svg {
+  flex: none;
+}
+
+.bar-mark {
+  padding: 0 4px;
+}
+
+.bar-icon {
+  padding: 0 8px;
+}
+
+.bar-sep {
+  width: 1px;
+  height: 20px;
+  margin: 0 3px;
+  background: rgba(255, 255, 255, 0.14);
+}
+
+/* ---- widgets ---- */
+
+.bar-panel {
+  box-sizing: border-box;
+  width: 300px;
+  padding: 14px;
+  border-radius: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.bar-panel-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.bar-text {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  font-weight: 500;
+  color: rgba(245, 245, 247, 0.62);
+}
+
+.bar-ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bar-err {
+  color: #ff7b72;
+}
+
+.bar-label {
+  margin-bottom: -4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(245, 245, 247, 0.5);
+}
+
+.bar-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.bar-chip {
+  all: unset;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  height: 28px;
+  padding: 0 11px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #f5f5f7;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.bar-chip:hover {
+  background: rgba(255, 255, 255, 0.13);
+}
+
+/* The four lengths always sit on one line. */
+.bar-chips.lengths {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.bar-chips.lengths .bar-chip {
+  justify-content: center;
+  padding: 0;
+}
+
+.bar-chip[aria-checked="true"] {
+  background: #0a84ff;
+  color: #fff;
+}
+
+.bar-chip-task {
+  display: block;
+  max-width: 100%;
+  line-height: 28px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bar-primary {
+  all: unset;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 34px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  background: #0a84ff;
+}
+
+.bar-primary:hover {
+  background: #0071e3;
+}
+
+.bar-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.bar-action {
+  all: unset;
+  box-sizing: border-box;
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #f5f5f7;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.bar-action:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.bar-action.danger {
+  background: rgba(255, 69, 58, 0.9);
+  color: #fff;
+}
+
+.bar-action.danger:hover {
+  background: #ff453a;
+}
+
+.bar-action:disabled {
+  opacity: 0.45;
+}
+
+.bar-big-clock {
+  font-size: 34px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.bar-progress {
+  height: 4px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.bar-progress > span {
+  display: block;
+  height: 100%;
+  background: #0a84ff;
+}
+
+.bar-menu {
+  width: 244px;
+  padding: 6px;
+  gap: 1px;
+  border-radius: 16px;
+}
+
+.bar-menu-item {
+  all: unset;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 34px;
+  padding: 0 10px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #f5f5f7;
+}
+
+.bar-menu-item:hover {
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.bar-menu-icon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  color: rgba(245, 245, 247, 0.78);
+}
+
+.bar-menu-item kbd {
+  margin-left: auto;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(245, 245, 247, 0.5);
+}
+
+.bar-menu-sep {
+  height: 1px;
+  margin: 4px 8px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.bar-tip {
+  width: 300px;
+}
+
+.bar-tip-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.bar-tip .bar-action {
+  flex: none;
+  align-self: flex-start;
+}
+
+.bar-notice {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  height: 34px;
+  padding: 0 16px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* The dictation pill's own Done button, when it is drawn inside the bar. */
+.bar-pill-done {
+  all: unset;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  height: 30px;
+  margin-left: 2px;
+  padding: 0 13px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.bar-pill-done:hover {
+  background: rgba(255, 255, 255, 0.22);
+}

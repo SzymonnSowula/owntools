@@ -37,7 +37,7 @@ fn copy_dir_recursive(from: &Path, to: &Path) -> std::io::Result<()> {
 
 /// Copies focus.json and the screeni projects tree into the owntools AppData folder.
 /// Idempotent: existing destination files are never overwritten.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn import_legacy_data(app: AppHandle) -> Result<ImportReport, String> {
     let dest_root = app
         .path()

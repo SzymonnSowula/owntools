@@ -1,14 +1,18 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { cache } from "react";
 import { ThemeToggle } from "../../components/ThemeToggle";
 import { ToolIcons, WinDots } from "../../components/WinDots";
-import { loadShare, objectKey, publicUrl, viewUrl } from "@/lib/share";
-import { siteUrl } from "@/lib/site";
+import { loadShare, mediaUrl, viewUrl } from "@/lib/share";
+import { contactEmail, siteUrl } from "@/lib/site";
 
 export const dynamic = "force-dynamic";
 
 type Props = { params: Promise<{ id: string }> };
+
+/** The metadata and the page read the same share: one storage read per view, not two. */
+const getShare = cache(loadShare);
 
 function formatDuration(seconds: number): string {
   const s = Math.max(0, Math.round(seconds));
@@ -24,11 +28,13 @@ function formatBytes(bytes: number): string {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
-  const share = await loadShare(id);
+  const share = await getShare(id);
   if (!share) return { title: "Link not found", robots: { index: false } };
-  const { cfg, meta } = share;
-  const poster = meta.poster ? await publicUrl(cfg, objectKey(meta.id, "poster.jpg")) : undefined;
-  const video = await publicUrl(cfg, objectKey(meta.id, `video.${meta.ext}`));
+  const { meta } = share;
+  // Stable addresses on this site, not signed storage URLs: previews are
+  // fetched (and re-fetched by chat apps' image proxies) long after an hour.
+  const poster = meta.poster ? mediaUrl(meta.id, "poster.jpg") : undefined;
+  const video = mediaUrl(meta.id, `video.${meta.ext}`);
   const description = `${formatDuration(meta.duration)} screen recording, shared from owntools.`;
   return {
     title: meta.name,
@@ -45,7 +51,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       videos: [{ url: video, type: meta.contentType, width: meta.width || 1920, height: meta.height || 1080 }],
     },
     twitter: {
-      card: poster ? "player" : "summary",
+      // "player" needs a twitter:player iframe page, which a share does not have;
+      // without one X drops the card altogether
+      card: poster ? "summary_large_image" : "summary",
       title: meta.name,
       description,
       images: poster ? [poster] : undefined,
@@ -60,11 +68,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
  */
 export default async function SharePage({ params }: Props) {
   const { id } = await params;
-  const share = await loadShare(id);
+  const share = await getShare(id);
   if (!share) notFound();
-  const { cfg, meta } = share;
-  const videoUrl = await publicUrl(cfg, objectKey(meta.id, `video.${meta.ext}`));
-  const posterUrl = meta.poster ? await publicUrl(cfg, objectKey(meta.id, "poster.jpg")) : undefined;
+  const { meta } = share;
+  const videoUrl = mediaUrl(meta.id, `video.${meta.ext}`);
+  const posterUrl = meta.poster ? mediaUrl(meta.id, "poster.jpg") : undefined;
+  const report = `mailto:${contactEmail}?subject=${encodeURIComponent(`Report a shared video: ${viewUrl(meta.id)}`)}`;
   const created = new Date(meta.createdAt).toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" });
   const expires = meta.expiresAt ? new Date(meta.expiresAt).toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" }) : null;
   const portrait = meta.height > meta.width;
@@ -125,7 +134,11 @@ export default async function SharePage({ params }: Props) {
 
           <p className="mt-10 text-xs text-muted">
             This link is unlisted: only people who have it can watch. The person who shared it can take it down at any time.
-            Site: <Link href={siteUrl} className="underline">{siteUrl.replace(/^https?:\/\//, "")}</Link>
+            Something here that shouldn&rsquo;t be?{" "}
+            <a href={report} className="underline">
+              Report it
+            </a>
+            . Site: <Link href={siteUrl} className="underline">{siteUrl.replace(/^https?:\/\//, "")}</Link>
           </p>
         </div>
       </main>

@@ -12,6 +12,8 @@ const DEFAULT_IDLE_MS: u64 = 60_000;
 /// onboarding consent step). Nothing is read from other windows before that.
 static ENABLED: AtomicBool = AtomicBool::new(false);
 static STARTED: OnceLock<()> = OnceLock::new();
+/// The sampler thread, to wake it when tracking or the scroll guard comes on.
+static SAMPLER: OnceLock<thread::Thread> = OnceLock::new();
 
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -30,6 +32,17 @@ pub struct UsageTick {
 #[tauri::command]
 pub fn usage_set_enabled(enabled: bool) {
     ENABLED.store(enabled, Ordering::Relaxed);
+    if enabled {
+        wake();
+    }
+}
+
+/// Time tracking or the scroll guard was switched on: the parked sampler goes
+/// back to work at once instead of at its next backstop.
+pub fn wake() {
+    if let Some(sampler) = SAMPLER.get() {
+        sampler.unpark();
+    }
 }
 
 #[tauri::command]
@@ -41,11 +54,14 @@ pub fn start(app: AppHandle) {
     if STARTED.set(()).is_err() {
         return;
     }
-    if let Err(e) = thread::Builder::new()
+    match thread::Builder::new()
         .name("focus-usage".into())
         .spawn(move || run_loop(app))
     {
-        log::error!("could not start the usage sampler thread: {e}");
+        Ok(handle) => {
+            let _ = SAMPLER.set(handle.thread().clone());
+        }
+        Err(e) => log::error!("could not start the usage sampler thread: {e}"),
     }
 }
 
@@ -55,10 +71,18 @@ fn run_loop(app: AppHandle) {
     let mut last_site: Option<String> = None;
     loop {
         thread::sleep(Duration::from_millis(SAMPLE_MS));
-        let idle_ms = idle_milliseconds();
-        let idle = idle_ms >= DEFAULT_IDLE_MS;
         let tracking = ENABLED.load(Ordering::Relaxed);
         let guarding = crate::scroll_guard::is_armed();
+        if !tracking && !guarding {
+            // Nothing to count and nothing to guard, so no tick: one every two
+            // seconds still woke the main window's page — an event through
+            // WebView2 and a store update — for features that were off. Parked
+            // until either comes on (`wake`); the timeout is only a backstop.
+            thread::park_timeout(Duration::from_secs(60));
+            continue;
+        }
+        let idle_ms = idle_milliseconds();
+        let idle = idle_ms >= DEFAULT_IDLE_MS;
         // Only look at the foreground window when something needs it: time
         // tracking, or the scroll guard deciding whether this is a blocked site.
         // With both off this loop touches nothing but the idle timer.

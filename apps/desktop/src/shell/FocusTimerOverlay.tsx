@@ -5,6 +5,14 @@ import { useAppStore } from "@feature-focus/store/useAppStore";
 
 type TauriWindow = { isFullscreen(): Promise<boolean>; setFullscreen(on: boolean): Promise<void> };
 
+/** Until when a start is not a takeover: set by the bar, which starts sessions over other apps. */
+let quietUntil = 0;
+
+/** The next start of the timer (within two seconds) leaves the window alone. */
+export function quietNextTakeover(): void {
+  quietUntil = Date.now() + 2_000;
+}
+
 async function currentWindow(): Promise<TauriWindow | null> {
   if (!isTauri()) return null;
   try {
@@ -30,9 +38,12 @@ export function FocusTimerOverlay() {
   const [dismissed, setDismissed] = useState(true);
   const wasRunning = useRef(false);
 
-  // A fresh start un-dismisses the takeover.
+  // A fresh start un-dismisses the takeover — unless the bar started it.
   useEffect(() => {
-    if (timer.running && !wasRunning.current) setDismissed(false);
+    if (timer.running && !wasRunning.current) {
+      if (Date.now() < quietUntil) quietUntil = 0;
+      else setDismissed(false);
+    }
     wasRunning.current = timer.running;
   }, [timer.running]);
 

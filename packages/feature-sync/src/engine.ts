@@ -142,6 +142,7 @@ let backend: SyncBackend | null = null;
 let me = "";
 let started = false;
 let unsubs: Array<() => void> = [];
+let collectionUnsubs: Array<() => void> = [];
 const pushTimers = new Map<CollectionId, number>();
 let pullTimer: number | null = null;
 const queued = { pull: false, push: new Set<CollectionId>() };
@@ -343,6 +344,29 @@ function schedulePush(id: CollectionId): void {
   );
 }
 
+/**
+ * A collection's changes only matter while there is a folder to push them to,
+ * and some collections can only notice a change by polling — automation rules
+ * every 30 s, the board and meet folders every 60 s, each a read through Rust.
+ * With no folder chosen those polls ran from start-up to quit for nothing, so
+ * the collections are watched only while a folder is set.
+ */
+function watchCollections(on: boolean): void {
+  if (!on) {
+    for (const u of collectionUnsubs) u();
+    collectionUnsubs = [];
+    return;
+  }
+  if (collectionUnsubs.length) return;
+  for (const a of ADAPTERS) {
+    try {
+      collectionUnsubs.push(a.subscribe(() => schedulePush(a.id)));
+    } catch (err) {
+      logError("sync", `subscribe ${a.id}`, err);
+    }
+  }
+}
+
 function schedulePull(): void {
   if (!status.folder || typeof window === "undefined") return;
   if (pullTimer !== null) window.clearTimeout(pullTimer);
@@ -389,13 +413,7 @@ export async function startSync(): Promise<void> {
     deviceName: name,
     collections: describeCollections(),
   });
-  for (const a of ADAPTERS) {
-    try {
-      unsubs.push(a.subscribe(() => schedulePush(a.id)));
-    } catch (err) {
-      logError("sync", `subscribe ${a.id}`, err);
-    }
-  }
+  watchCollections(!!st.folder);
   unsubs.push(backend.onChanged(() => schedulePull()));
   if (st.folder) {
     queued.pull = true;
@@ -415,6 +433,7 @@ export async function startSync(): Promise<void> {
 export function stopSync(): void {
   for (const u of unsubs) u();
   unsubs = [];
+  watchCollections(false);
   for (const t of pushTimers.values()) if (typeof window !== "undefined") window.clearTimeout(t);
   pushTimers.clear();
   if (pullTimer !== null && typeof window !== "undefined") window.clearTimeout(pullTimer);
@@ -454,6 +473,7 @@ export async function setSyncFolder(folder: string): Promise<void> {
   clearAllShadows();
   stickyWarnings = [];
   setStatus({ folder, error: null, warnings: [], devices: [] });
+  watchCollections(true);
   queued.pull = true;
   await drain();
   try {
@@ -473,6 +493,7 @@ export async function clearSyncFolder(): Promise<void> {
     /* */
   }
   await backend.clearFolder();
+  watchCollections(false);
   clearAllShadows();
   stickyWarnings = [];
   counts.clear();

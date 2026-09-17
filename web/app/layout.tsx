@@ -77,9 +77,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html lang="en" className={`${inter.variable} ${outfit.variable} ${inter.className} antialiased`} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInit }} />
-        {/* cookieless, privacy-friendly analytics — only when a domain is configured */}
+        {/* cookieless, privacy-friendly analytics — only when a domain is configured. Never
+            on share pages: /v/<id> is the key to someone's video and must not reach a log. */}
         {plausibleDomain ? (
-          <script defer data-domain={plausibleDomain} src="https://plausible.io/js/script.js" />
+          <script defer data-domain={plausibleDomain} data-exclude="/v/**" src="https://plausible.io/js/script.exclusions.js" />
         ) : null}
       </head>
       <body>{children}</body>

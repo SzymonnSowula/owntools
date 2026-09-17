@@ -178,21 +178,21 @@ pub fn social_agent_regenerate_token() -> Result<AgentInfo, String> {
 
 /// Which agents are installed on this machine and whether our server is
 /// already in their config.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn social_agent_targets() -> Vec<setup::TargetInfo> {
     setup::targets()
 }
 
 /// Writes the MCP entry into that agent's own config file. The UI confirms
 /// first — this touches another program's settings.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn social_agent_install(target: String) -> Result<setup::InstallOutcome, String> {
     let s = state().ok_or_else(|| "agent server not started".to_string())?;
     let info = s.info();
     setup::install(&target, &format!("{}/mcp", info.url), &info.token)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn social_agent_configure(port: Option<u16>, enabled: Option<bool>) -> Result<AgentInfo, String> {
     let s = state().ok_or_else(|| "agent server not started".to_string())?;
     let mut agent = store::agent_settings(&s.root);

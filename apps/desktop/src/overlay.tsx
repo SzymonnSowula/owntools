@@ -9,6 +9,7 @@ import "@fontsource/inter/latin-600.css";
 import "./suite.css";
 import { RecorderOverlay } from "@feature-recorder/RecorderOverlay";
 import { ErrorBoundary } from "@ui/ErrorBoundary";
+import { OverlayReady } from "@ui/OverlayReady";
 import { installGlobalErrorHandlers, logError } from "@core/errors";
 import { hideRecorderOverlay, showMainWindow } from "@core/recorderWindow";
 
@@ -49,5 +50,6 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
         <RecorderOverlay />
       </div>
     </ErrorBoundary>
+    <OverlayReady />
   </React.StrictMode>,
 );

@@ -56,6 +56,10 @@ export function startCaptureBridge(): () => void {
     const add = (un: () => void) => (disposed ? un() : unsubs.push(un));
     add(
       await listen<CaptureSavedPayload>("capture-saved", (e) => {
+        // A deletion rides the same Tauri event (so the library refreshes), but
+        // it is not a capture being saved: republishing it would run every
+        // "when a capture is saved" automation on a file that no longer exists.
+        if (e.payload.removed) return;
         emitToolEvent(CAPTURE_SAVED_EVENT, e.payload);
       }),
     );

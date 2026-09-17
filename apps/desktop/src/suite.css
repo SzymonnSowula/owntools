@@ -185,7 +185,6 @@ button.wincard:hover {
   position: absolute;
   border-radius: 999px;
   filter: blur(72px);
-  will-change: transform;
 }
 
 .scene-sky-a {
@@ -195,7 +194,7 @@ button.wincard:hover {
   height: 58%;
   background: var(--scene-sky-a, #cfe4ff);
   opacity: 0.75;
-  animation: scene-drift 26s ease-in-out infinite alternate;
+  animation: scene-drift 26s ease-in-out 2 alternate both;
 }
 
 .scene-sky-b {
@@ -205,7 +204,7 @@ button.wincard:hover {
   height: 52%;
   background: var(--scene-sky-b, #eaf3ff);
   opacity: 0.65;
-  animation: scene-drift 32s ease-in-out infinite alternate-reverse;
+  animation: scene-drift 32s ease-in-out 2 alternate-reverse both;
 }
 
 .scene-hill-a {
@@ -215,7 +214,7 @@ button.wincard:hover {
   height: 58%;
   background: var(--scene-hill-a, #cfe8d9);
   opacity: 0.6;
-  animation: scene-drift 38s ease-in-out infinite alternate;
+  animation: scene-drift 38s ease-in-out 2 alternate both;
 }
 
 .scene-hill-b {
@@ -225,9 +224,14 @@ button.wincard:hover {
   height: 52%;
   background: var(--scene-hill-b, #b9d8c4);
   opacity: 0.55;
-  animation: scene-drift 30s ease-in-out infinite alternate-reverse;
+  animation: scene-drift 30s ease-in-out 2 alternate-reverse both;
 }
 
+/* The drift plays out and back once when the hub (or onboarding) appears —
+   about a minute — and then rests where it began. Looping forever meant a
+   compositor frame every vsync with four 72px blurs (and the chips' backdrop
+   blur over them) for as long as owntools sat open on the hub — behind other
+   windows too, where WebView2 still thinks the page is on screen. */
 @keyframes scene-drift {
   from { transform: translate3d(0, 0, 0) scale(1); }
   to { transform: translate3d(3.5%, 2.5%, 0) scale(1.06); }
@@ -2046,6 +2050,76 @@ button.wincard:hover {
 
 .onb-strip > span:last-child {
   flex-shrink: 0;
+}
+
+/* Nine tools in two columns: the card has to fit a 640 px window. */
+.onb-tools.compact {
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.onb-tools.compact .onb-tool {
+  padding: 8px 12px;
+}
+
+.onb-tools.compact .onb-tool.wide {
+  grid-column: 1 / -1;
+}
+
+/* The last step draws the bar as it looks on the desktop: the same dark
+   surface in every theme (apps/desktop/src/bar/bar.css). */
+.onb-bar-demo {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: max-content;
+  max-width: 100%;
+  margin: 16px 0 0;
+  padding: 4px 8px 4px 5px;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 999px;
+  background: #1d1d1f;
+  color: #f5f5f7;
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.onb-bar-demo > span:not(.onb-bar-demo-sep) {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+}
+
+.onb-bar-demo-sep {
+  width: 1px;
+  height: 18px;
+  margin: 0 3px;
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.onb-bar-demo-note {
+  margin: 10px 0 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-muted, #777);
+}
+
+.onb-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 16px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--text, #111);
+  cursor: pointer;
+}
+
+.onb-check input {
+  margin: 2px 0 0;
+  accent-color: var(--color-accent, #0a84ff);
 }
 
 /* Big screens ---------------------------------------------------------------

@@ -14,6 +14,13 @@ import { renderedSound } from "./mix";
 const LOOKAHEAD = 0.25;
 /** A playhead this far from where the audio clock expected it is a seek. */
 const SEEK_TOLERANCE = 0.3;
+/**
+ * Paused (and not auditioning) this long, the context is suspended: a running
+ * one keeps an output device open and its render thread waking ~100 times a
+ * second in silence. Play resumes it. The editor also disposes of it when it
+ * closes (Editor.tsx), where it used to run until owntools quit.
+ */
+const IDLE_SUSPEND_MS = 20_000;
 
 function lowerBound(events: SfxEvent[], t: number): number {
   let lo = 0;
@@ -38,6 +45,7 @@ export class SfxPreview {
   private lastNow = 0;
   private wasPlaying = false;
   private active = new Set<AudioBufferSourceNode>();
+  private idleTimer: ReturnType<typeof setTimeout> | null = null;
 
   /** Swaps the plan without re-firing what is already queued. */
   setPlan(events: SfxEvent[], pack: SfxPack): void {
@@ -52,7 +60,10 @@ export class SfxPreview {
   /** Called on every timeline tick with the playhead and whether the video is running. */
   sync(timelineTime: number, playing: boolean): void {
     if (!playing) {
-      if (this.wasPlaying) this.stopAll();
+      if (this.wasPlaying) {
+        this.stopAll();
+        this.suspendWhenIdle();
+      }
       this.wasPlaying = false;
       this.scheduledUntil = -1;
       this.lastT = -1;
@@ -89,6 +100,7 @@ export class SfxPreview {
     this.pack = pack;
     this.play({ id: "audition", t: 0, sound, kind: "click", gain, pan: 0, rate: 1 }, ctx.currentTime);
     this.pack = keep;
+    if (!this.wasPlaying) this.suspendWhenIdle();
   }
 
   stopAll(): void {
@@ -103,11 +115,22 @@ export class SfxPreview {
   }
 
   dispose(): void {
+    if (this.idleTimer !== null) clearTimeout(this.idleTimer);
+    this.idleTimer = null;
     this.stopAll();
     this.buffers.clear();
     void this.ctx?.close().catch(() => undefined);
     this.ctx = null;
     this.master = null;
+  }
+
+  private suspendWhenIdle(): void {
+    if (this.idleTimer !== null) clearTimeout(this.idleTimer);
+    this.idleTimer = setTimeout(() => {
+      this.idleTimer = null;
+      if (this.wasPlaying || this.active.size > 0) return;
+      if (this.ctx?.state === "running") void this.ctx.suspend().catch(() => undefined);
+    }, IDLE_SUSPEND_MS);
   }
 
   private context(): AudioContext | null {

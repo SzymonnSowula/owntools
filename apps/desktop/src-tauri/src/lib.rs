@@ -1,7 +1,9 @@
 mod audio_capture;
 mod automations;
+mod bar;
 mod capture;
 mod capture_tool;
+mod child_job;
 mod cursor;
 mod diagnostics;
 mod dictation;
@@ -17,6 +19,7 @@ mod llm;
 mod mac;
 mod migrate;
 mod netlog;
+mod overlays;
 mod parakeet;
 mod permissions;
 mod prefs;
@@ -24,12 +27,14 @@ mod prefs;
 mod scroll_guard;
 mod shield;
 mod social;
+mod storage;
 mod sync;
 #[cfg(windows)]
 mod usage;
+mod webview_idle;
 mod ws;
 
-use tauri::menu::{Menu, MenuItem};
+use tauri::menu::{CheckMenuItem, Menu, MenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{Emitter, Manager, WebviewWindow};
 use tauri_plugin_log::{Target, TargetKind};
@@ -239,6 +244,11 @@ pub fn run() {
             netlog::privacy_offline_set,
             diagnostics::read_log_tail,
             diagnostics::diagnostics_info,
+            storage::storage_usage,
+            storage::storage_open_folder,
+            storage::storage_clear_cache,
+            storage::storage_clear_downloads,
+            storage::storage_delete,
             prefs::set_close_to_tray,
             hotkeys::dictation_hotkey,
             hotkeys::dictation_hotkey_registered,
@@ -297,7 +307,16 @@ pub fn run() {
             sync::sync_watch,
             sync::sync_status,
             sync::sync_app_scan,
-            sync::sync_app_remove
+            sync::sync_app_remove,
+            overlays::overlay_ready,
+            overlays::overlay_ensure,
+            overlays::overlay_release,
+            bar::bar_set_bounds,
+            bar::bar_sync,
+            bar::bar_capture_exclusion,
+            bar::bar_note_foreground,
+            bar::bar_restore_foreground,
+            bar::bar_drag
         ])
         .setup(move |app| {
             log::info!("owntools {} starting", app.package_info().version);
@@ -322,16 +341,28 @@ pub fn run() {
             // The social agent server (127.0.0.1, bearer token) + OAuth loopback.
             social::start(app.handle());
             // The pill can never show WebView2's own microphone prompt (see
-            // permissions.rs), so our pages get the mic without one.
-            for label in ["main", "recorder", "dictation"] {
+            // permissions.rs), so our pages get the mic without one — the
+            // recorder too, when overlays.rs builds it.
+            for label in ["main", "dictation"] {
                 if let Some(window) = app.get_webview_window(label) {
                     permissions::grant_media(&window);
+                    // Hours in the tray, or hidden between takes: say so to the
+                    // web view, which otherwise keeps rendering (webview_idle.rs).
+                    webview_idle::attach(&window);
                 }
             }
-            // The recorder bar must never end up in the recording it controls.
-            shield::shield_overlay(app.handle());
+            // The recorder, captions and capture windows are built when they are
+            // needed and closed when put away; nothing to do unless
+            // OWNTOOLS_EAGER_WINDOWS asks for the old start-up (overlays.rs).
+            overlays::setup(app.handle());
+            // The bar shares the pill's window and shrinks below Windows'
+            // minimum window size (bar.rs); its page shows it.
+            bar::setup(app.handle());
 
             let show = MenuItem::with_id(app, "show", "Show", true, None::<&str>)?;
+            // Ticked by the bar's page (bar_sync) once it has read the setting.
+            let bar_item = CheckMenuItem::with_id(app, "bar", "Show the bar", true, true, None::<&str>)?;
+            app.manage(bar::BarTray(bar_item.clone()));
             let toggle = MenuItem::with_id(
                 app,
                 "toggle-focus",
@@ -349,7 +380,7 @@ pub fn run() {
             let record = MenuItem::with_id(app, "record", "Record screen", true, None::<&str>)?;
             let note = MenuItem::with_id(app, "quick-note", "Quick note", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&show, &session, &toggle, &record, &note, &quit])?;
+            let menu = Menu::with_items(app, &[&show, &bar_item, &session, &toggle, &record, &note, &quit])?;
 
             let Some(icon) = app.default_window_icon().cloned() else {
                 log::error!("no default window icon in the bundle; tray icon not created");
@@ -363,6 +394,10 @@ pub fn run() {
                 .tooltip("owntools")
                 .on_menu_event(|app, event| match event.id().as_ref() {
                     "show" => show_main(app),
+                    // The page owns the setting; it flips it and ticks this back.
+                    "bar" => {
+                        let _ = app.emit_to(bar::LABEL, "bar-toggle", ());
+                    }
                     "start-session" => {
                         show_main(app);
                         let _ = app.emit("tray-start-session", ());
@@ -371,14 +406,14 @@ pub fn run() {
                         let _ = app.emit("tray-toggle-focus", ());
                     }
                     "record" => {
-                        if let Some(overlay) = app.get_webview_window("recorder") {
+                        // Built on demand — never on this, the main, thread.
+                        overlays::open_with(app, "recorder", |app, overlay| {
                             let _ = overlay.show();
                             let _ = overlay.set_focus();
-                            // The page is live from start-up in a hidden window
-                            // and is told nothing when the window appears, so
-                            // say it: the camera preview waits on this.
+                            // The page is told nothing when its window appears,
+                            // so say it: the camera preview waits on this.
                             let _ = app.emit("recorder-visibility", true);
-                        }
+                        });
                     }
                     "quick-note" => {
                         show_main(app);

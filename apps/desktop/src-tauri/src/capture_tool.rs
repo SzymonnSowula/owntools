@@ -14,9 +14,10 @@
 //! the file work on a blocking thread, because a sync command runs on the
 //! main thread and would freeze every window (CLAUDE.md, disk_trash).
 
+use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
+use std::sync::{Mutex, MutexGuard, OnceLock};
 use std::time::Instant;
 
 use serde::{Deserialize, Serialize};
@@ -179,8 +180,99 @@ pub fn write_index(dir: &Path, index: &CaptureIndex) -> Result<(), String> {
     fs::rename(&tmp, index_path(dir)).map_err(|e| e.to_string())
 }
 
+/// Held around every read-modify-write of `index.json`. A capture finishing
+/// while Settings → Storage deletes a hundred others would otherwise write
+/// back one of the two lists and lose the other change.
+fn index_lock() -> MutexGuard<'static, ()> {
+    static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+    LOCK.get_or_init(|| Mutex::new(())).lock().unwrap_or_else(|e| e.into_inner())
+}
+
+/// What `remove_from_library` did.
+#[derive(Debug, Default)]
+pub struct LibraryRemoval {
+    pub removed: Vec<String>,
+    pub freed: u64,
+    /// Asked for, but the file would not go (in use, no permission).
+    pub failed: Vec<String>,
+}
+
+/// Deletes library captures by id: the PNG, its row in the index, and a PNG
+/// in the folder that the index lost track of (named `<id>.png`). Rows whose
+/// file is already gone are dropped on the way. Only ever deletes inside
+/// `dir` — a row pointing anywhere else loses the row, never the file.
+pub fn remove_from_library(dir: &Path, ids: &HashSet<String>) -> Result<LibraryRemoval, String> {
+    let _guard = index_lock();
+    let mut out = LibraryRemoval::default();
+    let mut seen: HashSet<String> = HashSet::new();
+    let mut index = read_index(dir);
+    let before = index.items.len();
+    let mut keep = Vec::with_capacity(index.items.len());
+    for item in index.items.drain(..) {
+        let path = PathBuf::from(&item.path);
+        if !ids.contains(&item.id) {
+            if path.exists() {
+                keep.push(item);
+            }
+            continue;
+        }
+        seen.insert(item.id.clone());
+        if !path.starts_with(dir) || !path.exists() {
+            out.removed.push(item.id);
+            continue;
+        }
+        let bytes = fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
+        match fs::remove_file(&path) {
+            Ok(()) => {
+                out.freed += bytes;
+                out.removed.push(item.id);
+            }
+            Err(e) => {
+                log::warn!("capture: could not delete {}: {e}", path.display());
+                out.failed.push(item.id.clone());
+                keep.push(item);
+            }
+        }
+    }
+    index.items = keep;
+    // The library's own PNGs that no row points at any more.
+    for id in ids {
+        if seen.contains(id) || !is_plain_name(id) {
+            continue;
+        }
+        let path = dir.join(format!("{id}.png"));
+        let Ok(meta) = fs::metadata(&path) else { continue };
+        match fs::remove_file(&path) {
+            Ok(()) => {
+                out.freed += meta.len();
+                out.removed.push(id.clone());
+            }
+            Err(e) => {
+                log::warn!("capture: could not delete {}: {e}", path.display());
+                out.failed.push(id.clone());
+            }
+        }
+    }
+    if index.items.len() != before {
+        write_index(dir, &index)?;
+    }
+    Ok(out)
+}
+
+/// The full-screen PNG of the capture the overlay is showing, if one is open.
+pub fn open_frame_path(app: &AppHandle) -> Option<PathBuf> {
+    let state = app.try_state::<CaptureState>()?;
+    let current = state.current.lock().ok()?;
+    current.as_ref().map(|f| PathBuf::from(&f.meta.path))
+}
+
 fn new_id() -> String {
     format!("{:x}{:04x}", chrono::Utc::now().timestamp_millis(), rand::random::<u16>())
+}
+
+/// An id that is one plain file name — what a request may turn into a path.
+pub(crate) fn is_plain_name(id: &str) -> bool {
+    !id.is_empty() && id != "." && id != ".." && !id.contains(['/', '\\', ':'])
 }
 
 /// `<Pictures>/owntools/2026-09-11 14-32-05.png`
@@ -236,9 +328,9 @@ fn pick_monitor(target: &str) -> Result<xcap::Monitor, String> {
 }
 
 fn show_overlay(app: &AppHandle, meta: &CaptureFrame) -> Result<(), String> {
-    let win = app
-        .get_webview_window("capture")
-        .ok_or_else(|| "the capture window does not exist".to_string())?;
+    // Built on the first screenshot and kept a while between them (overlays.rs);
+    // the page pulls the frame with `capture_current` if it missed the event.
+    let win = crate::overlays::ensure(app, "capture")?;
     let _ = win.set_position(PhysicalPosition::new(meta.x, meta.y));
     let _ = win.set_size(PhysicalSize::new(meta.width, meta.height));
     let _ = win.set_always_on_top(true);
@@ -248,9 +340,8 @@ fn show_overlay(app: &AppHandle, meta: &CaptureFrame) -> Result<(), String> {
 }
 
 fn hide_overlay(app: &AppHandle) {
-    if let Some(win) = app.get_webview_window("capture") {
-        let _ = win.hide();
-    }
+    // Hidden now, closed after a quiet spell with no new screenshot.
+    crate::overlays::release(app, "capture");
 }
 
 /// Takes the screenshot, remembers it, shows the overlay over that monitor
@@ -419,7 +510,7 @@ fn copy_text_to_clipboard(text: &str) -> Result<(), String> {
     board.set_text(text.to_string()).map_err(|e| e.to_string())
 }
 
-fn open_in_shell(path: &Path, select: bool) -> Result<(), String> {
+pub(crate) fn open_in_shell(path: &Path, select: bool) -> Result<(), String> {
     #[cfg(windows)]
     {
         let mut cmd = std::process::Command::new("explorer.exe");
@@ -564,6 +655,7 @@ fn finish_blocking(app: &AppHandle, meta: FinishMeta, png: Vec<u8>) -> Result<Fi
     };
 
     if meta.save.library {
+        let _guard = index_lock();
         let mut index = read_index(&dir);
         index.items.retain(|i| i.id != meta.id);
         index.items.insert(
@@ -622,6 +714,7 @@ pub async fn capture_ocr(app: AppHandle, path: String, id: Option<String>) -> Re
     tauri::async_runtime::spawn_blocking(move || {
         let result = ocr_file(Path::new(&path))?;
         if let Some(id) = id {
+            let _guard = index_lock();
             let mut index = read_index(&dir);
             if let Some(item) = index.items.iter_mut().find(|i| i.id == id) {
                 item.ocr_text = Some(result.text.clone()).filter(|t| !t.trim().is_empty());
@@ -660,11 +753,14 @@ pub fn capture_list(app: AppHandle) -> Result<CaptureIndex, String> {
 #[tauri::command(async)]
 pub fn capture_delete(app: AppHandle, id: String) -> Result<(), String> {
     let dir = capture_dir(&app)?;
-    let mut index = read_index(&dir);
-    if let Some(pos) = index.items.iter().position(|i| i.id == id) {
-        let item = index.items.remove(pos);
-        let _ = fs::remove_file(&item.path);
-        write_index(&dir, &index)?;
+    {
+        let _guard = index_lock();
+        let mut index = read_index(&dir);
+        if let Some(pos) = index.items.iter().position(|i| i.id == id) {
+            let item = index.items.remove(pos);
+            let _ = fs::remove_file(&item.path);
+            write_index(&dir, &index)?;
+        }
     }
     let _ = app.emit_to("main", "capture-saved", json!({ "id": id, "removed": true }));
     Ok(())
@@ -673,6 +769,7 @@ pub fn capture_delete(app: AppHandle, id: String) -> Result<(), String> {
 #[tauri::command(async)]
 pub fn capture_set_title(app: AppHandle, id: String, title: String) -> Result<(), String> {
     let dir = capture_dir(&app)?;
+    let _guard = index_lock();
     let mut index = read_index(&dir);
     if let Some(item) = index.items.iter_mut().find(|i| i.id == id) {
         item.title = Some(title).filter(|t| !t.trim().is_empty());
@@ -711,7 +808,13 @@ pub fn capture_cancel(app: AppHandle, state: State<'_, CaptureState>, id: Option
 }
 
 #[tauri::command]
-pub fn capture_hide(app: AppHandle) {
+pub fn capture_hide(app: AppHandle, state: State<'_, CaptureState>) {
+    // Nothing reads the frame once the overlay is away — a crop is composed from
+    // the page's own bitmap — so let go of its pixels (15 MB at 1440p, 33 MB at
+    // 4K) now rather than at the next screenshot. "Copy text" closes this way.
+    if let Ok(mut current) = state.current.lock() {
+        *current = None;
+    }
     hide_overlay(&app);
 }
 
@@ -780,5 +883,53 @@ mod tests {
         let b = new_id();
         assert_ne!(a, b);
         assert!(a.len() >= 12);
+    }
+
+    fn item(dir: &Path, id: &str) -> CaptureItem {
+        CaptureItem {
+            id: id.into(),
+            path: dir.join(format!("{id}.png")).to_string_lossy().into_owned(),
+            width: 4,
+            height: 4,
+            created_at: 1,
+            ocr_text: None,
+            title: None,
+        }
+    }
+
+    #[test]
+    fn removing_from_the_library_takes_files_rows_and_lost_pngs_but_nothing_else() {
+        let dir = temp_dir("remove");
+        for id in ["keep", "gone", "lost"] {
+            fs::write(dir.join(format!("{id}.png")), [0u8; 100]).unwrap();
+        }
+        // An exported copy elsewhere that a row points at must survive.
+        let outside = temp_dir("outside").join("elsewhere.png");
+        fs::write(&outside, [0u8; 10]).unwrap();
+        let mut far = item(&dir, "far");
+        far.path = outside.to_string_lossy().into_owned();
+        let index = CaptureIndex {
+            version: 1,
+            // "dead" has no file any more: pruned on the way.
+            items: vec![item(&dir, "keep"), item(&dir, "gone"), item(&dir, "dead"), far],
+        };
+        write_index(&dir, &index).unwrap();
+
+        let ids: HashSet<String> = ["gone", "lost", "far", "../escape"].iter().map(|s| s.to_string()).collect();
+        let out = remove_from_library(&dir, &ids).unwrap();
+
+        let mut removed = out.removed.clone();
+        removed.sort();
+        assert_eq!(removed, vec!["far", "gone", "lost"]);
+        assert_eq!(out.freed, 200, "only the two PNGs inside the library count");
+        assert!(out.failed.is_empty());
+        assert!(dir.join("keep.png").exists());
+        assert!(!dir.join("gone.png").exists());
+        assert!(!dir.join("lost.png").exists());
+        assert!(outside.exists(), "a file outside the library is never deleted");
+        let back: Vec<String> = read_index(&dir).items.into_iter().map(|i| i.id).collect();
+        assert_eq!(back, vec!["keep"]);
+        let _ = fs::remove_dir_all(&dir);
+        let _ = fs::remove_dir_all(outside.parent().unwrap());
     }
 }
