@@ -29,7 +29,7 @@ export type ShowcaseTool = {
   desc: string;
   chips: string[];
   link?: { href: string; label: string };
-  /** dropped into web/public/shots — see docs/launch-video.md */
+  /** dropped into web/public/shots */
   media?: { video?: string; poster?: string; width?: number; height?: number };
   /** weather behind the drawn stand-in or a screenshot; ignored once a real clip exists */
   ground?: Ground;

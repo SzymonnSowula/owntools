@@ -10,7 +10,7 @@ import IntelligenceCard from "./IntelligenceCard";
  * resolves to the same optimized dependency the page already runs:
  *
  *   const { mountIntelligenceCard } = await import(
- *     "/@fs/C:/Users/szymo/Projects/suite/packages/feature-llm/src/devMount.ts");
+ *     "/@fs/<path to the checkout>/packages/feature-llm/src/devMount.ts");
  *   mountIntelligenceCard(document.querySelector(".mod-focus .stack"));
  */
 export function mountIntelligenceCard(into: Element | null, before?: Element | null): () => void {

@@ -44,5 +44,10 @@ apps/desktop/vite.config.d.ts
 *.key
 web/.env.local
 
-# Session logs are private conversations, not documentation - never in a public tree
+# Our own conversations, plans and agent context are not part of the project
+CLAUDE.md
+.claude/
 docs/conversation-*.jsonl
+docs/payments.md
+docs/launch-video.md
+docs/contracts-*.md

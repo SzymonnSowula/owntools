@@ -1,6 +1,6 @@
 //! meet's ears: the microphone and the system mix, captured side by side.
 //!
-//! Contract: `docs/contracts-2026-09-11.md` §3. Two sources — `"mic"` (the
+//! Two sources — `"mic"` (the
 //! default or a chosen capture endpoint) and `"system"` (WASAPI loopback on
 //! the default render endpoint, i.e. whatever the other side of a call is
 //! saying through the speakers) — each on its own thread with its own COM
@@ -25,8 +25,8 @@
 //! ## What runs where
 //!
 //! Commands are async and only spawn or signal threads — the main thread is
-//! the whole app's event loop (see CLAUDE.md, "A sync `#[tauri::command]`
-//! runs on the main thread"). The pure parts (resampler, VAD, WAV, timeline)
+//! the whole app's event loop (a sync `#[tauri::command]` runs on the main
+//! thread). The pure parts (resampler, VAD, WAV, timeline)
 //! are platform-independent and unit-tested; the WASAPI code is `cfg(windows)`
 //! and every command on another platform answers `UNAVAILABLE`.
 

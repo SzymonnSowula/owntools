@@ -12,10 +12,9 @@ them + `latest.json` to a **draft** GitHub release → you test the installers �
 publish → installed apps pick the update up from
 `…/releases/latest/download/latest.json`.
 
-Two companion docs: **`docs/payments.md`** for everything about taking money
-(Polar, licence keys, the launch checklist) and **`docs/macos.md`** for the
-Mac specifics (Apple certificates, the permissions macOS asks for, what still
-needs verifying on real hardware).
+The companion doc is **`docs/macos.md`**: the Mac specifics (Apple
+certificates, the permissions macOS asks for, what still needs verifying on
+real hardware).
 
 ## One-time setup
 
@@ -34,7 +33,7 @@ CI (`.github/workflows/ci.yml`) runs on every push and PR: typecheck + vitest +
 
 | Secret | Value | Required |
 | --- | --- | --- |
-| `TAURI_SIGNING_PRIVATE_KEY` | Contents of `C:\Users\szymo\.tauri\owntools.key` (generated 2026-09-01 with `pnpm tauri signer generate`, **no password**). | yes |
+| `TAURI_SIGNING_PRIVATE_KEY` | Contents of `$HOME\.tauri\owntools.key` (generated 2026-09-01 with `pnpm tauri signer generate`, **no password**). | yes |
 | `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | Empty — the key has no password. The workflow passes an empty string when the secret is missing, so you can also skip it. | no |
 | `WINDOWS_CERTIFICATE` | Base64 of a code-signing PFX. Without it the installer is built unsigned. | no |
 | `WINDOWS_CERTIFICATE_PASSWORD` | Password of that PFX (leave out if the PFX has none). | no |
@@ -44,7 +43,7 @@ CI (`.github/workflows/ci.yml`) runs on every push and PR: typecheck + vitest +
 | `APPLE_ID` / `APPLE_PASSWORD` / `APPLE_TEAM_ID` | Notarization. `APPLE_PASSWORD` is an **app-specific** password from appleid.apple.com, never the account password. | for macOS |
 
 ```powershell
-gh secret set TAURI_SIGNING_PRIVATE_KEY < C:\Users\szymo\.tauri\owntools.key
+gh secret set TAURI_SIGNING_PRIVATE_KEY < $HOME\.tauri\owntools.key
 gh secret set TAURI_SIGNING_PRIVATE_KEY_PASSWORD --body ""
 # optional, only once you have a certificate:
 [Convert]::ToBase64String([IO.File]::ReadAllBytes("C:\path\to\cert.pfx")) | gh secret set WINDOWS_CERTIFICATE
@@ -128,7 +127,7 @@ needs the updater private key in the environment or it stops with "A public key
 has been found, but no private key":
 
 ```powershell
-$env:TAURI_SIGNING_PRIVATE_KEY_PATH = "C:\Users\szymo\.tauri\owntools.key"
+$env:TAURI_SIGNING_PRIVATE_KEY_PATH = "$HOME\.tauri\owntools.key"
 $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = ""
 pnpm --filter desktop tauri build
 ```
@@ -194,7 +193,7 @@ two versions against a local endpoint.
 2. Export the signing key for the CLI and build the *current* version, then
    install it:
    ```powershell
-   $env:TAURI_SIGNING_PRIVATE_KEY = Get-Content C:\Users\szymo\.tauri\owntools.key -Raw
+   $env:TAURI_SIGNING_PRIVATE_KEY = Get-Content $HOME\.tauri\owntools.key -Raw
    $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = ""
    pnpm --filter desktop tauri build
    # installer: apps/desktop/src-tauri/target/release/bundle/nsis/owntools_<version>_x64-setup.exe
@@ -232,7 +231,7 @@ two versions against a local endpoint.
   - `NEXT_PUBLIC_DOWNLOAD_URL_MACOS` — the universal `.dmg`; unset, the Mac button says "launching soon" instead of lying
   - `NEXT_PUBLIC_SITE_URL` — canonical origin (sitemap, robots, OG)
   - contact e-mail, Plausible domain and the X profile URL, if the landing reads them from env by then
-- [ ] Polar product live: price, licence-key delivery text, refund policy. Buyers' keys are signed on `/thanks` from the Polar order (`docs/payments.md`); `pnpm license:generate <n>` signs gift keys — nothing tracks them, so note where each one went. The full plan, including the two decisions that block launch, is `docs/payments.md`.
+- [ ] Polar product live: price, licence-key delivery text, refund policy. Buyers' keys are signed on `/thanks` from the Polar order (`web/lib/licenseKey.ts`); `pnpm license:generate <n>` signs gift keys — nothing tracks them, so note where each one went.
 - [ ] Test purchase end to end (Polar sandbox → key → activate in the app → watermark gone).
 - [ ] Changelog entry for the version live on the landing; sitemap includes the new pages.
 - [ ] Plausible receiving events from the production domain.

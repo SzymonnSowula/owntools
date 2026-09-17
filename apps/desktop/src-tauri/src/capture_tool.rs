@@ -12,7 +12,7 @@
 //! body with its metadata in an `x-capture-meta` header. `capture_put` is the
 //! only synchronous command and it only copies bytes — `capture_finish` does
 //! the file work on a blocking thread, because a sync command runs on the
-//! main thread and would freeze every window (CLAUDE.md, disk_trash).
+//! main thread and would freeze every window (as disk_trash once did).
 
 use std::collections::HashSet;
 use std::fs;

@@ -1,8 +1,8 @@
 # owntools on macOS
 
 What works, what needs an Apple certificate, what still needs a real Mac to
-verify, and how to build it. Payments and launch: `docs/payments.md`. The
-release mechanics both platforms share: `docs/release.md`.
+verify, and how to build it. The release mechanics both platforms share:
+`docs/release.md`.
 
 The macOS port was written against the APIs, not against a Mac — there was no
 Apple hardware in reach. Anything not marked **unverified** below is meant to

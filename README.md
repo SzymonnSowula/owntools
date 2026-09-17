@@ -92,12 +92,13 @@ packages/feature-*      one package per tool (focus, editor = screeni, dictation
                         sync, privacy)
 web/                    the website (Next.js): landing, legal pages, the shop on Polar,
                         the thank-you page that shows a buyer's key, share links
-docs/                   design, payments, release, macOS and share-link notes
+docs/                   design, release, macOS and share-link notes
 scripts/                the shop setup on Polar, key recovery, gift keys, the app icon
 ```
 
-Conventions, architecture notes and the reasons behind them are in
-[`CLAUDE.md`](CLAUDE.md), which is also what coding agents read first.
+Each tool package carries its own notes where they are needed (the social
+tool's README, the promo's README); the platform and release specifics are in
+`docs/`.
 
 ## Contributing
 

@@ -27,7 +27,7 @@ import { bytesToHex, concatBytes, randomBytes, utf8ToBytes } from "@noble/hashes
  * groups of eight behind the OWNT- prefix. Long, but nobody types it: it is
  * copied from /thanks or the receipt.
  *
- * Web cannot import from packages/ (see CLAUDE.md), so the alphabet and the
+ * Web cannot import from packages/ (a Next app stays inside its root), so the alphabet and the
  * base-32 codec live on both sides; packages/licensing/src/license.test.ts
  * runs keys made here through the app's own validator so the two cannot
  * drift.

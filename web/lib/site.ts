@@ -29,7 +29,7 @@ export const downloadUrlMac = env(process.env.NEXT_PUBLIC_DOWNLOAD_URL_MACOS);
 
 /**
  * A hand-made Polar checkout link - the fallback for before the API setup
- * (docs/payments.md). Once POLAR_ACCESS_TOKEN is set, "get the pro key" goes
+ * (scripts/polar-setup.ts). Once POLAR_ACCESS_TOKEN is set, "get the pro key" goes
  * through /checkout instead, which picks the launch-price step.
  */
 export const checkoutUrl = env(process.env.NEXT_PUBLIC_CHECKOUT_URL);

@@ -35,7 +35,7 @@ import { useId, type ReactElement } from "react";
  *   social   a calendar with the one post that is scheduled
  *
  * Verify a new glyph on a blown-up contact sheet of the live tiles, never by
- * eye in the source (see the "Tool marks" ground rule in CLAUDE.md).
+ * eye in the source - a stranger reading it at 32 px is the only test that counts.
  */
 
 export type ToolMarkName =

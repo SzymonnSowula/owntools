@@ -4,7 +4,7 @@
  * the heavy lifting; these `au-*` classes cover what it lacks: the rule rows,
  * the trigger picker, the action list and the run log. Un-layered on purpose
  * — the focus legacy CSS lives in `@layer focus-legacy` and these have to
- * win over it (see the CSS layering trap in CLAUDE.md). Colours come from the
+ * win over it (an un-layered rule beats a layered one). Colours come from the
  * focus theme variables so all five themes apply; the one hard-coded colour
  * is the semantic red for a failed run.
  */

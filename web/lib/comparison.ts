@@ -6,7 +6,7 @@
  * - the cheapest paid plan for one person, billed yearly;
  * - only apps that run on Windows (Screen Studio and CleanShot X are Mac-only,
  *   so FocuSee and Snagit stand in for them).
- * Source: the "Tablica suneai" artifact (2026-09-13). Comparative advertising
+ * Source: each vendor's own pricing page, on SUBSCRIPTIONS_CHECKED. Comparative advertising
  * in the EU has to be objective and checkable. The page used to footnote the
  * two figures that are not a plain yearly list price (≈ / *); the footnotes
  * came off the landing on 2026-09-14, so how those two were arrived at is

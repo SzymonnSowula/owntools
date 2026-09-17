@@ -67,10 +67,10 @@ describe("paths", () => {
     expect(extOf("Movie.MKV")).toBe("mkv");
     expect(extOf(".gitignore")).toBe("");
     expect(extOf("README")).toBe("");
-    expect(baseName("C:\\Users\\szymo\\Downloads\\")).toBe("Downloads");
+    expect(baseName("C:\\Users\\me\\Downloads\\")).toBe("Downloads");
     expect(baseName("C:\\")).toBe("C:");
     expect(baseName("/")).toBe("/");
-    expect(pathSegments("C:\\Users\\szymo")).toEqual(["C:", "Users", "szymo"]);
+    expect(pathSegments("C:\\Users\\me")).toEqual(["C:", "Users", "me"]);
     expect(pathSegments("/Users/x/Library")).toEqual(["Users", "x", "Library"]);
   });
 });

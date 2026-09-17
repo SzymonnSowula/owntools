@@ -61,7 +61,7 @@ const jsonLd = {
    as <tool>.<ext> — mp4/webm wins over png/jpg/webp, and a shot with the same
    name as a clip becomes its poster. Nothing there yet? The row falls back to
    the drawn mockup below. Resolved at build time, so a new file needs a
-   rebuild (`pnpm --dir web build`) — see docs/launch-video.md for the list. */
+   rebuild (`pnpm --dir web build`). */
 const SHOTS_DIR = join(process.cwd(), "public", "shots");
 
 function shot(name: string): { video?: string; poster?: string; width?: number; height?: number } {

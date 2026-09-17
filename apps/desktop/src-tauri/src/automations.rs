@@ -13,7 +13,7 @@
 //! so plugin-fs can read it for transcription; the frontend removes the copy.
 //!
 //! Every command is `#[tauri::command(async)]`: a sync command runs on the
-//! main thread and freezes all three windows (CLAUDE.md, the disk cleanup).
+//! main thread and freezes every window (the disk cleanup once did).
 
 use std::collections::HashMap;
 use std::fs;
