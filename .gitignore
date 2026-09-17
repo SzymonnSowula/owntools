@@ -43,3 +43,6 @@ apps/desktop/vite.config.d.ts
 # Local secrets (updater private key lives in ~/.tauri, never here)
 *.key
 web/.env.local
+
+# Session logs are private conversations, not documentation - never in a public tree
+docs/conversation-*.jsonl

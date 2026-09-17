@@ -19,16 +19,13 @@ needs verifying on real hardware).
 
 ## One-time setup
 
-### 1. Create the repo and push
+### 1. The repo
 
-There is no git remote yet.
-
-```powershell
-gh repo create SzymonnSowula/owntools --public --source . --remote origin --push
-# or by hand:
-git remote add origin https://github.com/SzymonnSowula/owntools.git
-git push -u origin master
-```
+`SzymonnSowula/owntools` is public since 2026-09-17 (AGPL-3.0; the README says
+what is in it) and `origin` points at it. Installers never go into the tree: a
+release's assets live on the GitHub release the workflow drafts (below), which
+is also where the updater looks. Public repo = free Actions minutes, macOS
+runners included.
 
 CI (`.github/workflows/ci.yml`) runs on every push and PR: typecheck + vitest +
 `next build` on Ubuntu, `cargo check` on Windows.
@@ -170,8 +167,8 @@ What happens next:
    Also install the previous public version and confirm it offers the update.
 4. **Publish** the release. Only a published, non-prerelease release resolves
    under `/releases/latest/...` — that is the moment the updater starts
-   offering it (the app checks on launch, `apps/desktop/src/shell/updater.ts`,
-   and installs passively).
+   offering it (the app checks on launch and on Settings → About → Check for
+   updates, `packages/core/src/updater.ts`, and installs passively).
 5. Landing: `NEXT_PUBLIC_DOWNLOAD_URL_WINDOWS` and
    `NEXT_PUBLIC_DOWNLOAD_URL_MACOS` must point at the installer and the `.dmg`,
    e.g. `https://github.com/SzymonnSowula/owntools/releases/latest/download/owntools_0.2.0_x64-setup.exe`.
@@ -235,7 +232,7 @@ two versions against a local endpoint.
   - `NEXT_PUBLIC_DOWNLOAD_URL_MACOS` — the universal `.dmg`; unset, the Mac button says "launching soon" instead of lying
   - `NEXT_PUBLIC_SITE_URL` — canonical origin (sitemap, robots, OG)
   - contact e-mail, Plausible domain and the X profile URL, if the landing reads them from env by then
-- [ ] Polar product live: price, licence-key delivery text, refund policy. Keys come from `node scripts/generate-license.mjs <n>` — they are offline, nothing tracks them, so paste each issued key into the order's notes. The full plan, including the two decisions that block launch, is `docs/payments.md`.
+- [ ] Polar product live: price, licence-key delivery text, refund policy. Buyers' keys are signed on `/thanks` from the Polar order (`docs/payments.md`); `pnpm license:generate <n>` signs gift keys — nothing tracks them, so note where each one went. The full plan, including the two decisions that block launch, is `docs/payments.md`.
 - [ ] Test purchase end to end (Polar sandbox → key → activate in the app → watermark gone).
 - [ ] Changelog entry for the version live on the landing; sitemap includes the new pages.
 - [ ] Plausible receiving events from the production domain.

@@ -1,106 +1,117 @@
 # owntools
 
-Local-first desktop studio: four tools in one Tauri 2 app, running entirely on
-your own machine (Windows now, macOS next).
+**your work. your device.** Dictate, record, transcribe, take notes, plan the
+week, clean the disk - nine tools in one desktop app that runs entirely on
+your own machine. No account, no cloud, nothing leaves the device.
 
-- **dictate** — press a hotkey (Ctrl+Shift+Space) in any app, speak, press
-  again; on-device whisper.cpp types clean text where your cursor is.
-  Transcribes and translates any audio or video file, exports `.srt`.
-- **screeni** — screen recording with cinematic auto-zoom on the cursor, an
-  editor (auto-cut silence, captions, camera bubble) and offline MP4 export
-  (WebCodecs / mediabunny — no ffmpeg).
-- **focus** — fullscreen timer and stopwatch, tasks, notes, habits,
-  screen-time heatmap, ambient records, scroll guard, workspaces that start
-  your setup.
-- **launch** — paste a URL, get a keynote-style launch video (six style packs,
-  16:9 / 9:16 / 1:1, 15–60 s) plus store-screenshot prompts.
+Windows today, macOS in progress. Website: [owntools.app](https://owntools.app)
+· downloads: [Releases](https://github.com/SzymonnSowula/owntools/releases)
+· [changelog](https://owntools.app/changelog)
 
-Free, with a "made with owntools" badge on video exports; a one-time Pro key
-(offline, no account) removes it. The app has three windows — main, recorder
-overlay and the dictation pill — and one hub. The landing page lives in `web/`.
+## The tools
 
-Project context for agents and contributors (conventions, architecture notes,
-current state): [`CLAUDE.md`](CLAUDE.md). Brand and design spec:
-[`docs/brand-design.md`](docs/brand-design.md).
+| | |
+| --- | --- |
+| **dictate** | a hotkey in any app, speak, press again: on-device speech recognition (whisper.cpp or NVIDIA Parakeet) types clean text where your cursor is; vocabulary, spoken commands, live captions, file transcription and translation |
+| **screeni** | screen recording with auto-zoom on the cursor, an editor (cuts, captions, camera bubble, generated sound effects, transcript-based editing) and offline MP4 export |
+| **focus** | timer, tasks, notes, habits, ambient records, scroll guard, workspaces that start your setup |
+| **meet** | records both sides of a call, transcribes it on the machine, summarises with a local model |
+| **board** | an endless whiteboard (Excalidraw), local boards, paste screenshots |
+| **social** | a local-first post scheduler for Bluesky, Mastodon, Telegram, Discord, Slack, X and more, with an MCP server for agents |
+| **disk** | a disk-space analyzer: treemap, quick wins, duplicates, installed programs - everything goes to the Recycle Bin, never further |
+| **capture** | screenshots with OCR, sent to the board or a post |
+| **launch** | a product launch video from a URL |
+
+Plus twelve quick file tools (YouTube → transcript, subtitles, PDF, images,
+audio and video converters, GIF), a bar that sits over any app, and an optional
+local language model (llama.cpp) for summaries and rewrites. Settings → Privacy
+lists every request the app ever made.
+
+## Free and Pro
+
+Everything above is free, and every tool is included. The one paid feature is
+a **Pro key**: a one-time purchase that removes the "made with owntools" badge
+from video exports. That is the whole difference.
+
+- A key is an Ed25519 signature checked on your computer against a public key
+  built into the app (`packages/licensing/src/license.ts`). It never phones
+  home, and there is no activation server.
+- Building from source gives you the free app, badge included - the private
+  key that signs Pro keys is not in this repository.
+- One key covers **one computer at a time**. Moving to a new computer is a
+  deactivate on the old one (Settings → License) and a paste on the new; if
+  the old computer is gone, write to hello@owntools.app and the key is moved.
+- 14-day refund, no questions asked. Terms: [owntools.app/terms](https://owntools.app/terms).
+
+## Build from source
+
+Requirements: Node 22+, [pnpm](https://pnpm.io) 10, a stable Rust toolchain,
+and on Windows the Visual Studio Build Tools (C++) and the WebView2 runtime
+(already on Windows 11). macOS builds need Xcode's command-line tools; see
+[`docs/macos.md`](docs/macos.md) for what is still unverified there.
+
+```bash
+pnpm install
+pnpm tauri dev                      # the native app, all windows
+pnpm dev                            # the frontend alone in a browser (:1430) - recording, hotkeys and the tray are inert
+cd web && pnpm dev                  # the website (:3006)
+pnpm check                          # typecheck + unit tests; `cargo check` in apps/desktop/src-tauri for Rust
+```
+
+A release build (`pnpm --filter desktop tauri build`) produces the NSIS
+installer and the updater artefacts, which are signed: either put your own
+signing key in `TAURI_SIGNING_PRIVATE_KEY` (`pnpm tauri signer generate`
+makes one) or set `bundle.createUpdaterArtifacts` to `false` in
+`apps/desktop/src-tauri/tauri.conf.json` for a local build. The speech and
+language models are not in the repo either: the app downloads pinned, checksummed
+files on first use (`packages/feature-dictation/src/models.ts`,
+`packages/feature-llm/src/models.ts`).
+
+## Releases and updates
+
+Installers are never committed. A tag `vX.Y.Z` runs
+[`release.yml`](.github/workflows/release.yml), which builds the Windows
+installer and a universal macOS `.dmg`, signs the updater artefacts and
+attaches them with `latest.json` to a draft GitHub release. Once the release
+is published, installed copies offer the update: at start-up, and on demand
+under Settings → About → Check for updates. The process, including the
+secrets the workflow needs, is [`docs/release.md`](docs/release.md).
 
 ## Layout
 
 ```
-apps/desktop            Tauri 2 shell: 3 windows (main / recorder / dictation),
-                        Hub launcher + quick-tool modals, FocusTimerOverlay,
-                        workspace sessions (ritual.ts / SessionSheet /
-                        WorkspaceSetup, Rust launcher.rs)
-packages/feature-focus  7 views (Today, Tasks, Notes, Habits, Stats, Sounds,
-                        Settings); merged hubs with tabs; voice notes;
-                        lib/audio = context/noise/voices/vinyl/records/piano
-packages/feature-editor screeni: compositor, zoom, exportVideo, silence
-                        (auto-cut), srt, transcribe, TranscribeModal,
-                        ExtractAudioModal
-packages/feature-launch launch engine (`@owntools/launch-engine`, the one
-                        workspace package under packages/): engine/ = style
-                        packs + seeded takes + beat sheet + Remotion
-                        composition; LaunchView studio; store shots; pageIntel
-packages/feature-dictation  engine.ts (models / settings / prompt /
-                        transcribe), cleanup.ts, DictationPill, DictateView
-packages/feature-board  board: Excalidraw whiteboard — local boards in AppData,
-                        screenshot paste/drop, PNG/SVG/.excalidraw export
-packages/feature-disk   disk: disk-space analyzer — treemap / sunburst / list,
-                        quick wins, duplicates, installed apps, free-space
-                        monitor, snapshots with diffs; the scanned tree lives
-                        in Rust (src-tauri/src/disk), a generated demo disk
-                        stands in under `pnpm dev`
-packages/{core,ui,licensing}  branding / audio / env · WinDots · license keys
-web/                    landing (Next 16, port 3006), legal pages, changelog,
-                        share links (app/api/share + the /v/[id] player)
-docs/                   brand & design spec, release process, build history
+apps/desktop            the Tauri 2 shell: windows, the bar, the hub, onboarding, the updater
+apps/desktop/src-tauri  Rust: audio capture, screen capture, disk scanner, dictation engines,
+                        the local model, the social MCP server, the tray, the hotkeys
+apps/promo              a 30 s launch cut, in Remotion
+packages/core           branding, events, the network log, the updater, shared helpers
+packages/ui             the marks, WinDots, dialogs, the error boundary
+packages/licensing      Pro keys: the validator and the store
+packages/feature-*      one package per tool (focus, editor = screeni, dictation, board,
+                        social, disk, meet, capture, launch, tools, llm, automations,
+                        sync, privacy)
+web/                    the website (Next.js): landing, legal pages, the shop on Polar,
+                        the thank-you page that shows a buyer's key, share links
+docs/                   design, payments, release, macOS and share-link notes
+scripts/                the shop setup on Polar, key recovery, gift keys, the app icon
 ```
 
-## Commands
+Conventions, architecture notes and the reasons behind them are in
+[`CLAUDE.md`](CLAUDE.md), which is also what coding agents read first.
 
-```bash
-pnpm install && pnpm tauri dev      # native app (all three windows)
-pnpm dev                            # frontend only on :1430 (recording/tray inert)
-pnpm --filter desktop tauri build   # NSIS installer
-cd web && pnpm dev                  # landing on :3006
-pnpm test                           # unit tests (vitest)
-pnpm typecheck                      # tsc across the workspace
-```
+## Contributing
 
-## Landing (`web/`)
+Issues and pull requests are welcome. Run `pnpm check` before opening one; the
+CI does the same plus `cargo check` on Windows and macOS. Keep UI copy in
+English, one clear sentence where one will do, and never add a network request
+without a `purpose` - Settings → Privacy shows every one of them to the person
+using the app.
 
-Links, price and contact points come from `NEXT_PUBLIC_*` variables — every
-one is documented in [`web/.env.example`](web/.env.example). Unset download or
-checkout URLs render as honest "launching soon" states instead of dead links,
-and the price is defined once, in `web/lib/site.ts`.
+## License
 
-## Releasing
-
-The release process (versioning, signing, updater manifest, installer upload)
-is described in [`docs/release.md`](docs/release.md). The essentials:
-
-- **License keys**: `node scripts/generate-license.mjs [count]` prints offline
-  `SCRN-…` Pro keys.
-- **Updater key**: the private signing key lives outside the repo, in
-  `~/.tauri/owntools.key`. Never commit it.
-- **Identifier**: `app.owntools.desktop` names every data folder (AppData:
-  whisper + Parakeet engines and models, recordings, boards, social; LocalAppData:
-  logs, WebView2 profile). It was `app.suite.desktop` until 0.3;
-  `src-tauri/src/migrate.rs` renames the old folders on the first start of a
-  new build. Changing it again means extending that migration, never just
-  editing tauri.conf.json.
-
-## Notes
-
-- **Styling**: Tailwind 4 **without preflight** in the desktop app; focus's
-  legacy CSS is scoped under `.mod-focus`, the editor gets a scoped
-  mini-preflight under `.mod-create`. Un-layered `suite.css` overrides always
-  win — never rely on bundle order.
-- **Recording flow**: capture happens in the `recorder` overlay window; the
-  finished project is written to AppData, then a `recording-finished` event
-  tells the main window to open the editor. Never pass MediaStreams between
-  windows.
-- **Whisper**: pinned whisper.cpp b4938; models live side by side in
-  `<AppData>/whisper`, default `ggml-large-v3-turbo-q5_0.bin` (~575 MB), with
-  an in-app model manager.
-- **Export**: offline WebCodecs via mediabunny; the free tier watermarks
-  "made with owntools", a `SCRN-…` key removes it.
+[GNU AGPL-3.0-or-later](LICENSE). The owntools name and the app icon are not
+covered by it - use the code, build on it, ship your fork under your own name.
+Third-party engines and models (whisper.cpp, sherpa-onnx, llama.cpp, the
+models from OpenAI, NVIDIA and Alibaba) are downloaded from their publishers
+under their own licences; Remotion, used by the launch tool and the promo
+cut, has [its own company licence](https://remotion.dev/license).
