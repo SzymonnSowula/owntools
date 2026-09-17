@@ -60,7 +60,7 @@ export const legalAddress = env(process.env.NEXT_PUBLIC_LEGAL_ADDRESS) ?? "Polan
 
 /**
  * The list price - what a key costs once the launch steps are gone. The whole
- * ladder ($25 for the first 10 keys, $35 for the next 100, then this) lives in
+ * ladder ($15 for the first 10 keys, $25 for the next 20, then this) lives in
  * lib/pricing.ts; this is the static figure for places that cannot wait for
  * live counts, like the JSON-LD offer.
  */

@@ -139,9 +139,14 @@ window — was removed on 2026-09-15; its clip plays in the screeni studio row.)
 ## 6. Landing page composition (implemented)
 
 1. **hero** — sky + ascii, no windows (the focus timer went 2026-09-13, the
-   video tile 2026-09-15), display headline, `btn-light` (download for
-   windows) + `btn-ghost` (free tool), "also for macOS — soon", glass info
-   panel.
+   video tile 2026-09-15), display headline, verb pills; before launch
+   `btn-light` "get owntools" (→ pricing) + `btn-ghost` "see the tools" and
+   "windows & mac - launching soon" as plain text (a glass pill next to the
+   ghost button read as a third button); from launch the download buttons.
+   **CTA bands** (2026-09-15, `CtaBand.tsx`) follow the bento, the studio,
+   social and the speed section: an accent-tinted strip with one display line, "Every
+   tool is free. Pro removes the badge from exports.", the live launch price
+   and "get the pro key" (plus "download free" once there is a download).
 2. **01 · one app bento** — numbered mono header with rule line, then a
    bento grid of `.bento` tiles whose visuals are `.nature` panels
    (meadow-sky gradient + ASCII overlay, dusk variant at night): big
@@ -176,8 +181,8 @@ window — was removed on 2026-09-15; its clip plays in the screeni studio row.)
     live owntools price; the check date sits in the window bar, no footnotes
     under it (removed 2026-09-14), and a centred "see the launch prices" button.
     **pricing** — `.sky-day`, 2 forced-light plan windows ($0 / the live
-    launch price with $49 struck + "popular" tab), a `launch.pricing` ladder
-    window (keys 1-10 $25 → 11-110 $35 → $49; current step outlined in
+    launch price with $39 struck + "popular" tab), a `launch.pricing` ladder
+    window (keys 1-10 $15 → 11-30 $25 → $39; current step outlined in
     accent, gone steps struck), messages.log terminal.
 11. **faq** — accordion + "help.app" side window.
 12. **footer** — 4 link columns, giant outline wordmark.

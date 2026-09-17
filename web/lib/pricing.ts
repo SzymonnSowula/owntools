@@ -26,9 +26,9 @@ export interface TierPlan {
 }
 
 export const TIERS: readonly TierPlan[] = [
-  { key: "launch1", price: 25, cap: 10 },
-  { key: "launch2", price: 35, cap: 100 },
-  { key: "list", price: 49, cap: null },
+  { key: "launch1", price: 15, cap: 10 },
+  { key: "launch2", price: 25, cap: 20 },
+  { key: "list", price: 39, cap: null },
 ];
 
 /** The price once every launch step is gone. */
@@ -45,7 +45,7 @@ export const POLAR_META = {
 export type TierStatus = "sold-out" | "current" | "upcoming";
 
 export interface TierView extends TierPlan {
-  /** "keys 1-10", "keys 11-110", "from key 111". */
+  /** "keys 1-10", "keys 11-30", "from key 31". */
   label: string;
   firstKey: number;
   /** Keys taken at this step (a payment in flight counts until it fails). */
@@ -72,7 +72,7 @@ export interface TierCount {
   price?: number;
 }
 
-/** "keys 1-10" for a capped step, "from key 111" for the open one. */
+/** "keys 1-10" for a capped step, "from key 31" for the open one. */
 export function tierLabel(firstKey: number, cap: number | null): string {
   if (cap === null) return `from key ${firstKey}`;
   if (cap === 1) return `key ${firstKey}`;
@@ -123,7 +123,7 @@ export function pricingSnapshot(counts: TierCount[] | null, plan: readonly TierP
   return { live, currency: CURRENCY, listPrice, current, tiers };
 }
 
-/** $25, $964.93 - cents only when there are any. */
+/** $15, $964.93 - cents only when there are any. */
 export function usd(amount: number): string {
   const cents = Math.round(amount * 100);
   return cents % 100 === 0 ? `$${cents / 100}` : `$${(cents / 100).toFixed(2)}`;

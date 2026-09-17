@@ -17,7 +17,7 @@
  *
  * Why a session and not a checkout link: a link lives until it is deleted and
  * silently drops a discount that no longer applies, so once the code was used
- * or had expired the same link would open an ordinary $49 checkout. A session
+ * or had expired the same link would open an ordinary $39 checkout. A session
  * can be paid once, expires on its own, and cannot be created with a spent
  * code (Polar answers 422). Run the script again for a fresh one: it reuses a
  * code that is still unused and makes a new code once the old one is spent.

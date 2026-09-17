@@ -49,7 +49,7 @@ async function handle(input: RequestInfo | URL, init?: RequestInit): Promise<Res
           name: "owntools Pro",
           is_archived: false,
           metadata: { owntools_product: "pro" },
-          prices: [{ id: "p", amount_type: "fixed", price_amount: 4900, price_currency: "usd", is_archived: false }],
+          prices: [{ id: "p", amount_type: "fixed", price_amount: 3900, price_currency: "usd", is_archived: false }],
         },
       ],
       pagination: { total_count: 1, max_page: 1 },
@@ -121,7 +121,7 @@ beforeEach(() => {
   fake = {
     discounts: [
       { id: D1, tier: "launch1", amount: 2400, max: 10, used: 0 },
-      { id: D2, tier: "launch2", amount: 1400, max: 100, used: 0 },
+      { id: D2, tier: "launch2", amount: 1400, max: 20, used: 0 },
     ],
     checkouts: new Map(),
     orders: [],
@@ -140,9 +140,9 @@ describe("loadPricing", () => {
     const s = await loadPricing(0);
     expect(s.live).toBe(true);
     expect(s.tiers.map((t) => [t.key, t.price, t.left])).toEqual([
-      ["launch1", 25, 3],
-      ["launch2", 35, 100],
-      ["list", 49, null],
+      ["launch1", 15, 3],
+      ["launch2", 25, 20],
+      ["list", 39, null],
     ]);
   });
 
@@ -189,7 +189,7 @@ describe("openCheckout", () => {
 
   it("sells at the list price, codes allowed, once every launch key is gone", async () => {
     fake.discounts[0].used = 10;
-    fake.discounts[1].used = 100;
+    fake.discounts[1].used = 20;
     const res = await openCheckout(req);
     expect(res.tier).toBe("list");
     expect(fake.created[0]).not.toHaveProperty("discount_id");
@@ -235,14 +235,14 @@ describe("lookupPurchase", () => {
   it("shows the key derived from the paid order", async () => {
     const id = await checkoutWith("succeeded");
     const orderId = "66666666-6666-4666-8666-666666666666";
-    fake.orders.push({ id: orderId, checkout_id: id, status: "paid", paid: true, total_amount: 2500, metadata: { owntools_tier: "launch1" } });
+    fake.orders.push({ id: orderId, checkout_id: id, status: "paid", paid: true, total_amount: 1500, metadata: { owntools_tier: "launch1" } });
     const purchase = await lookupPurchase(id);
     expect(purchase).toMatchObject({ state: "paid", tier: "launch1", key: licenseKeyForOrder(orderId, "test-secret") });
   });
 
   it("shows no key for a refunded order", async () => {
     const id = await checkoutWith("succeeded");
-    fake.orders.push({ id: "77777777-7777-4777-8777-777777777777", checkout_id: id, status: "refunded", paid: true, total_amount: 2500, metadata: {} });
+    fake.orders.push({ id: "77777777-7777-4777-8777-777777777777", checkout_id: id, status: "refunded", paid: true, total_amount: 1500, metadata: {} });
     expect(await lookupPurchase(id)).toMatchObject({ state: "refunded" });
   });
 });
