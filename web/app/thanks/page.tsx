@@ -148,6 +148,15 @@ function render(view: View): ReactNode {
           </p>
         </Message>
       );
+    case "key-unavailable":
+      return (
+        <Message kicker="paid - one step left" title="your key comes by hand">
+          <p>
+            The payment went through, but this server cannot sign keys right now.{" "}
+            <WriteToUs lead={`Quote the order ${view.order.id} and`} /> You will get your key.
+          </p>
+        </Message>
+      );
     case "not-found":
       return (
         <Message kicker="nothing here" title="no purchase at this link">
@@ -190,8 +199,8 @@ function Paid({ view }: { view: Extract<Purchase, { state: "paid" }> }) {
       <p className="kicker">thank you</p>
       <h1 className="display mt-3 text-4xl md:text-5xl">your pro key</h1>
       <p className="mt-4 text-[16px] leading-7 text-muted">
-        Paste it into owntools once and the badge is gone from everything you export - on each machine
-        you own, with the wi-fi on or off.
+        Paste it into owntools once and the badge is gone from everything you export - on the
+        computer you use, with the wi-fi on or off. Moving to a new one is a deactivate and a paste.
       </p>
 
       <div className="mt-8">

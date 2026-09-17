@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { PRICING_URL } from "@core/branding";
+import { CONTACT_EMAIL, PRICING_URL } from "@core/branding";
 import { activateLicense, deactivateLicense, getLicense, maskLicenseKey, onLicenseChange } from "@licensing/license";
 import { openExternal } from "../../../lib/links";
 import { Button, Card, Note, Row } from "../ui";
@@ -30,7 +30,7 @@ export function LicensePage() {
         setInput("");
         setMsg("License active. Thanks for the support!");
       } else {
-        setMsg("That key doesn't check out - it looks like SCRN-XXXXX-XXXXX-XXXXX.");
+        setMsg("That key doesn't check out. A key starts with OWNT- and is about 130 characters long - paste the whole thing, dashes and all.");
       }
     } finally {
       setBusy(false);
@@ -42,7 +42,7 @@ export function LicensePage() {
     try {
       await deactivateLicense();
       setShow(false);
-      setMsg("License removed from this device. The key still works elsewhere.");
+      setMsg("Key removed from this computer. You can activate it on another one now.");
     } finally {
       setBusy(false);
     }
@@ -52,7 +52,7 @@ export function LicensePage() {
     <Card
       id="license"
       title="License"
-      desc="The key is checked on this device - no account, nothing to sign into."
+      desc="The key is checked on this computer - no account, nothing to sign into. One key covers one computer at a time."
       action={<span className={`st-badge${key ? " on" : ""}`}>{key ? "Pro" : "Free"}</span>}
     >
       {key ? (
@@ -63,7 +63,10 @@ export function LicensePage() {
               {show ? "Hide" : "Show"}
             </Button>
           </Row>
-          <Row label="Remove from this device" hint="The key keeps working on your other machines.">
+          <Row
+            label="Remove from this computer"
+            hint={`Moving to a new computer? Deactivate here first, then activate there. If the old computer is gone, write to ${CONTACT_EMAIL} and the key is moved for you.`}
+          >
             <Button disabled={busy} onClick={() => void deactivate()}>
               Deactivate
             </Button>
@@ -75,7 +78,7 @@ export function LicensePage() {
             <div className="st-inline">
               <input
                 className="st-input mono"
-                placeholder="SCRN-XXXXX-XXXXX-XXXXX"
+                placeholder="OWNT-XXXXXXXX-XXXXXXXX-…"
                 value={input}
                 spellCheck={false}
                 autoCapitalize="characters"

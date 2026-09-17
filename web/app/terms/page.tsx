@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import { LegalPage, Operator } from "../components/LegalPage";
+import { shareTtlDays } from "@/lib/share";
 import { POLICIES_UPDATED, REFUND_DAYS } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Terms",
   description:
-    "The plain-English rules for using owntools and the Pro key: a personal, non-transferable license, no resale of keys, software provided as is, Polish law.",
+    "The plain-English rules for using owntools and the Pro key: a personal license for one computer at a time, no resale of keys, software provided as is, Polish law.",
   alternates: { canonical: "/terms" },
 };
 
@@ -26,12 +27,16 @@ export default function TermsPage() {
 
       <h2>the pro key</h2>
       <p>
-        Buying a Pro key gives you a personal, non-exclusive, non-transferable license to use
-        owntools without the badge. The key:
+        Buying a Pro key gives you a personal, non-exclusive license to use owntools without the
+        badge - yours, not for passing on to someone else. The key:
       </p>
       <ul>
         <li>works offline and without an account - it is checked on your machine, not on a server;</li>
-        <li>may be used on the devices you own and use yourself;</li>
+        <li>
+          covers one computer at a time. Moving to a new one? Deactivate it on the old computer first
+          (Settings → License → Deactivate) and activate it on the new one. If the old computer is
+          gone, write to us and we move the key;
+        </li>
         <li>covers updates to the app as we release them;</li>
         <li>
           removes the badge from video exports. That is the only paid feature - nothing else is
@@ -52,6 +57,18 @@ export default function TermsPage() {
         Everything you make with owntools is yours. We claim no rights to your recordings, notes,
         transcripts or videos, and we never see them. Because they live only on your disk, keeping
         backups is your responsibility.
+      </p>
+
+      <h2>share links</h2>
+      <p>
+        A share link puts one exported video online for anyone who has the link. It is a copy for
+        watching, not a backup:{" "}
+        {shareTtlDays() > 0
+          ? `it stops working after ${shareTtlDays()} days, and you can remove it from the export dialog at any time.`
+          : "it stays up until you remove it from the export dialog."}{" "}
+        Only share what you have the right to share, and nothing unlawful. Every shared page has a
+        report link; we take down a link that breaks these terms or the law. Because there are no
+        accounts, we cannot tell the person who shared it.
       </p>
 
       <h2>as is</h2>

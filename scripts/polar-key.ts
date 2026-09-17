@@ -9,13 +9,13 @@
  * looked up in a database: it asks Polar for the orders and recomputes. It has
  * to run with the same LICENSE_KEY_SECRET as the site - the one in
  * web/.env.local that `pnpm polar:setup` wrote and the host was given. A
- * different secret prints different keys; the one the buyer already has keeps
- * working either way, so re-sending one of these is always safe.
+ * different secret would print keys the app rejects, so it refuses to run
+ * without one.
  */
 
 import { licenseKeyForOrder } from "../web/lib/licenseKey.ts";
 import { POLAR_META, TIERS, pricingSnapshot } from "../web/lib/pricing.ts";
-import { bold, connect, dim, fail, green, listAll, money, setting, warn, type Page } from "./lib/polar-cli.ts";
+import { bold, connect, dim, fail, green, listAll, money, setting, type Page } from "./lib/polar-cli.ts";
 
 interface Order {
   id: string;
@@ -54,11 +54,11 @@ function show(order: Order): void {
     console.log(`  ${dim("refunded - no key to send")}`);
     return;
   }
-  console.log(`  key   ${green(licenseKeyForOrder(order.id, secret ?? ""))}`);
+  console.log(`  key   ${green(licenseKeyForOrder(order.id, secret!))}`);
 }
 
 async function main(): Promise<void> {
-  if (!secret) warn("LICENSE_KEY_SECRET is not set here, so these keys will not match the ones the site showed (they still work in the app).");
+  if (!secret) fail("LICENSE_KEY_SECRET is not set here (web/.env.local). A key signed with anything but the site's secret would not open the app.");
 
   if (UUID.test(target!)) {
     show(await polar.get<Order>(`/v1/orders/${target}`));

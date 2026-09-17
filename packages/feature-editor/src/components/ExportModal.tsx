@@ -578,7 +578,7 @@ export function ExportModal({
               <div className="flex gap-2">
                 <input
                   className="field h-8 flex-1 font-mono text-xs uppercase"
-                  placeholder="SCRN-XXXXX-XXXXX-XXXXX"
+                  placeholder="OWNT-XXXXXXXX-…"
                   value={licenseInput}
                   onChange={(e) => setLicenseInput(e.target.value)}
                   onKeyDown={(e) => {

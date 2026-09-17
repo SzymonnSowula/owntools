@@ -31,6 +31,8 @@ export const SUITE_TAGLINE = "your voice, your screen, your files — all on you
 export const SITE_URL = "https://owntools.app";
 export const PRICING_URL = `${SITE_URL}/#pricing`;
 export const SUPPORT_URL = `${SITE_URL}/#faq`;
+/** Where a person writes about a key, a refund or a bug - the site's contact address. */
+export const CONTACT_EMAIL = "hello@owntools.app";
 export const PRIVACY_URL = `${SITE_URL}/privacy`;
 export const CHANGELOG_URL = `${SITE_URL}/changelog`;
 /** Source + releases; the updater manifest is published on the GitHub release. */

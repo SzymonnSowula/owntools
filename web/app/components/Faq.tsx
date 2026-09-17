@@ -50,8 +50,9 @@ const ITEMS: { q: string; a: ReactNode }[] = [
     q: "How does the Pro key work?",
     a: (
       <>
-        Paste it into the app once. It is checked on your computer, with no account and no server. Not for you?
-        There is a 14-day{" "}
+        Paste it into the app once. It is checked on your computer, with no account and no server. One key
+        covers one computer at a time - moving is a deactivate on the old one and a paste on the new (or an
+        e-mail to us if the old one is gone). Not for you? There is a 14-day{" "}
         <a href="/refunds" className="font-semibold text-accent underline underline-offset-4">
           refund
         </a>

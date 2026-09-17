@@ -1,133 +1,172 @@
 import { describe, expect, it } from "vitest";
-import { licenseKeyForOrder } from "../../../web/lib/licenseKey";
-import { isValidLicenseKey } from "./license";
+import {
+  LICENSE_BODY_LENGTH,
+  licenseKeyForOrder,
+  licensePublicKey,
+  mintLicenseKey,
+  orderTag,
+} from "../../../web/lib/licenseKey";
+import {
+  LICENSE_ALPHABET,
+  LICENSE_PUBLIC_KEY,
+  decodeLicenseKey,
+  isValidLicenseKey,
+  maskLicenseKey,
+  normalizeLicenseKey,
+} from "./license";
 
-/**
- * The key format is the contract with the store: SCRN-XXXXX-XXXXX-XXXXX over a
- * 32-symbol alphabet (A–Z without I and O, digits 2–9), last character = checksum
- * of the 14 payload characters. The generator is re-implemented here on purpose:
- * if either side drifts, this test is where it shows up.
+/*
+ * The key format is the contract with the store: the site signs (web/lib/
+ * licenseKey.ts), the app verifies (here). Web cannot import from packages,
+ * so the round trip is checked from this side, with a test secret whose
+ * public key is handed to the validator - the app itself only ever trusts
+ * LICENSE_PUBLIC_KEY.
  */
-const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
-function checksum(payload: string): string {
-  let sum = 0;
-  for (let i = 0; i < payload.length; i++) {
-    sum += ALPHABET.indexOf(payload[i]) * (i % 2 === 0 ? 3 : 7);
-  }
-  return ALPHABET[sum % ALPHABET.length];
-}
+const SECRET = "test-secret";
+const PUBLIC = licensePublicKey(SECRET);
+const OTHER_PUBLIC = licensePublicKey("another-secret");
 
-function formatKey(body: string): string {
-  return `SCRN-${body.slice(0, 5)}-${body.slice(5, 10)}-${body.slice(10, 15)}`;
-}
+const SHAPE = /^OWNT(-[A-HJ-NP-Z2-9]{8}){14}-[A-HJ-NP-Z2-9]{5}$/;
 
-function generateKey(rng: () => number): string {
-  let payload = "";
-  for (let i = 0; i < 14; i++) payload += ALPHABET[Math.floor(rng() * ALPHABET.length)];
-  return formatKey(payload + checksum(payload));
-}
+const orderIds = Array.from({ length: 200 }, (_, i) => {
+  const hex = (Math.imul(i + 1, 2654435761) >>> 0).toString(16).padStart(8, "0");
+  return `${hex}-${hex.slice(0, 4)}-4${hex.slice(1, 4)}-8${hex.slice(4, 7)}-${hex}${hex.slice(0, 4)}`;
+});
+const KEYS = orderIds.map((id) => licenseKeyForOrder(id, SECRET));
 
-/** Small deterministic PRNG (mulberry32) so a failing key is reproducible. */
-function seeded(seed: number): () => number {
-  let a = seed >>> 0;
-  return () => {
-    a = (a + 0x6d2b79f5) >>> 0;
-    let t = a;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-/** The 15 key characters without prefix and dashes: 14 payload + check. */
+/** The 117 symbols without prefix and dashes. */
 function bodyOf(key: string): string {
-  return key.replace(/-/g, "").slice(4);
+  return key.replace(/^OWNT-/, "").replace(/-/g, "");
 }
 
-const rng = seeded(20260901);
-const KEYS = Array.from({ length: 200 }, () => generateKey(rng));
+function withBody(body: string): string {
+  const groups: string[] = [];
+  for (let i = 0; i < body.length; i += 8) groups.push(body.slice(i, i + 8));
+  return `OWNT-${groups.join("-")}`;
+}
 
-describe("isValidLicenseKey", () => {
-  it("accepts 200 generated keys", () => {
-    const rejected = KEYS.filter((key) => !isValidLicenseKey(key));
+describe("keys the site signs", () => {
+  it("are all accepted by the app against the matching public key", () => {
+    const rejected = KEYS.filter((key) => !isValidLicenseKey(key, PUBLIC));
     expect(rejected).toEqual([]);
   });
 
-  it("generates keys in the documented shape (no 0, 1, I or O)", () => {
-    for (const key of KEYS) {
-      expect(key).toMatch(/^SCRN-[A-HJ-NP-Z2-9]{5}-[A-HJ-NP-Z2-9]{5}-[A-HJ-NP-Z2-9]{5}$/);
-    }
+  it("have the documented shape: OWNT-, 117 symbols in groups of eight, no 0, 1, I or O", () => {
+    for (const key of KEYS) expect(key).toMatch(SHAPE);
+    expect(bodyOf(KEYS[0])).toHaveLength(LICENSE_BODY_LENGTH);
   });
 
-  it("rejects the key when any single payload character is changed", () => {
-    const body = bodyOf(KEYS[0]);
-    for (let i = 0; i < 14; i++) {
-      const replacement = ALPHABET[(ALPHABET.indexOf(body[i]) + 1) % ALPHABET.length];
-      const tampered = formatKey(body.slice(0, i) + replacement + body.slice(i + 1));
-      expect(isValidLicenseKey(tampered), `payload position ${i}`).toBe(false);
-    }
+  it("carry the order's tag and version 1", () => {
+    const decoded = decodeLicenseKey(KEYS[3]);
+    expect(decoded?.version).toBe(1);
+    expect(Array.from(decoded!.tag)).toEqual(Array.from(orderTag(orderIds[3])));
+    expect(decoded?.signature).toHaveLength(64);
   });
 
-  it("rejects every wrong checksum character", () => {
+  it("are rejected by any other public key - including the one baked into the app", () => {
     for (const key of KEYS.slice(0, 20)) {
-      const body = bodyOf(key);
-      for (const ch of ALPHABET) {
-        if (ch === body[14]) continue;
-        expect(isValidLicenseKey(formatKey(body.slice(0, 14) + ch))).toBe(false);
-      }
+      expect(isValidLicenseKey(key, OTHER_PUBLIC)).toBe(false);
+      expect(isValidLicenseKey(key)).toBe(false);
+      expect(isValidLicenseKey(key, LICENSE_PUBLIC_KEY)).toBe(false);
     }
   });
 
-  it("accepts lower-case input and surrounding whitespace", () => {
-    const key = KEYS[1];
-    expect(isValidLicenseKey(key.toLowerCase())).toBe(true);
-    expect(isValidLicenseKey(`  ${key}  `)).toBe(true);
-    expect(isValidLicenseKey(`\n${key.toLowerCase()}\t`)).toBe(true);
-  });
-
-  it("rejects malformed input", () => {
-    const key = KEYS[2];
-    const malformed = [
-      "",
-      "   ",
-      "SCRN",
-      "SCRN-",
-      "SCRN-AAAAA-AAAAA", // a group short
-      "SCRN-AAAAA-AAAAA-AAAA", // last group too short
-      `${key}-AAAAA`, // extra group
-      key.replace(/-/g, ""), // no dashes
-      key.replace(/-/g, " "), // spaces instead of dashes
-      key.replace("SCRN", "SCRM"), // wrong prefix
-      key.replace("SCRN", "XSCRN"),
-      key.slice(5), // prefix missing
-      `${key.slice(0, -1)}0`, // 0 and 1 are not in the alphabet
-      `${key.slice(0, -1)}1`,
-      `${key.slice(0, 5)}O${key.slice(6)}`, // neither are O and I (look-alikes)
-      `${key.slice(0, 5)}I${key.slice(6)}`,
-      "SCRN-ABCDE-FGHIJ-KLMNO",
-    ];
-    for (const input of malformed) {
-      expect(isValidLicenseKey(input), JSON.stringify(input)).toBe(false);
+  it("include gift keys with a random tag", () => {
+    const gifts = Array.from({ length: 20 }, () => mintLicenseKey(SECRET));
+    expect(new Set(gifts).size).toBe(20);
+    for (const key of gifts) {
+      expect(key).toMatch(SHAPE);
+      expect(isValidLicenseKey(key, PUBLIC)).toBe(true);
     }
   });
 });
 
-/**
- * The keys buyers actually get: the landing derives one per Polar order
- * (web/lib/licenseKey.ts) instead of printing them with the CLI. Web cannot
- * import from packages, so the round trip is checked from this side.
- */
-describe("keys the landing derives from Polar orders", () => {
-  const orderIds = Array.from({ length: 300 }, (_, i) => {
-    const hex = (Math.imul(i + 1, 2654435761) >>> 0).toString(16).padStart(8, "0");
-    return `${hex}-${hex.slice(0, 4)}-4${hex.slice(1, 4)}-8${hex.slice(4, 7)}-${hex}${hex.slice(0, 4)}`;
+describe("isValidLicenseKey", () => {
+  it("rejects the key when any single symbol is changed", () => {
+    const body = bodyOf(KEYS[0]);
+    for (let i = 0; i < body.length; i++) {
+      const replacement = LICENSE_ALPHABET[(LICENSE_ALPHABET.indexOf(body[i]) + 1) % LICENSE_ALPHABET.length];
+      const tampered = withBody(body.slice(0, i) + replacement + body.slice(i + 1));
+      expect(isValidLicenseKey(tampered, PUBLIC), `symbol ${i}`).toBe(false);
+    }
   });
 
-  it("are all accepted by the app, with or without a secret", () => {
-    const rejected = orderIds.flatMap((id) =>
-      [licenseKeyForOrder(id, "a-secret"), licenseKeyForOrder(id, "")].filter((key) => !isValidLicenseKey(key)),
-    );
-    expect(rejected).toEqual([]);
+  it("rejects a signature moved onto another tag", () => {
+    const a = bodyOf(KEYS[0]);
+    const b = bodyOf(KEYS[1]);
+    // the first 15 symbols hold the version and the tag (9 bytes = 72 bits + 3 bits of the signature)
+    expect(isValidLicenseKey(withBody(b.slice(0, 15) + a.slice(15)), PUBLIC)).toBe(false);
+  });
+
+  it("accepts lower case, whitespace, line breaks and missing dashes", () => {
+    const key = KEYS[1];
+    expect(isValidLicenseKey(key.toLowerCase(), PUBLIC)).toBe(true);
+    expect(isValidLicenseKey(`  ${key}  `, PUBLIC)).toBe(true);
+    expect(isValidLicenseKey(key.replace(/-/g, ""), PUBLIC)).toBe(true);
+    expect(isValidLicenseKey(key.replace(/-/g, " "), PUBLIC)).toBe(true);
+    expect(isValidLicenseKey(key.replace(/-/g, "\n"), PUBLIC)).toBe(true);
+  });
+
+  it("rejects malformed input", () => {
+    const key = KEYS[2];
+    const body = bodyOf(key);
+    const malformed = [
+      "",
+      "   ",
+      "OWNT",
+      "OWNT-",
+      key.slice(0, -1), // a symbol short
+      `${key}A`, // a symbol long
+      `${key}-AAAAAAAA`, // an extra group
+      key.replace("OWNT", "OWNS"), // wrong prefix
+      key.replace("OWNT", "XOWNT"),
+      key.slice(5), // prefix missing
+      withBody(`${body.slice(0, -1)}0`), // 0 and 1 are not in the alphabet
+      withBody(`${body.slice(0, -1)}1`),
+      withBody(`O${body.slice(1)}`), // neither are O and I (look-alikes)
+      withBody(`I${body.slice(1)}`),
+      "SCRN-AB3F4-QWERT-ZXC89", // the format before 2026-09-17
+    ];
+    for (const input of malformed) {
+      expect(isValidLicenseKey(input, PUBLIC), JSON.stringify(input)).toBe(false);
+    }
+  });
+
+  it("rejects a key whose padding bit is set, so every key has one spelling", () => {
+    const body = bodyOf(KEYS[4]);
+    const last = body[body.length - 1];
+    const flipped = LICENSE_ALPHABET[LICENSE_ALPHABET.indexOf(last) ^ 1];
+    const key = withBody(body.slice(0, -1) + flipped);
+    expect(decodeLicenseKey(key)).toBeNull();
+    expect(isValidLicenseKey(key, PUBLIC)).toBe(false);
+  });
+
+  it("does not trust a public key that is not one", () => {
+    expect(isValidLicenseKey(KEYS[0], "")).toBe(false);
+    expect(isValidLicenseKey(KEYS[0], "zz")).toBe(false);
+  });
+});
+
+describe("normalizeLicenseKey / maskLicenseKey", () => {
+  it("spells a pasted key the canonical way", () => {
+    const key = KEYS[5];
+    expect(normalizeLicenseKey(key.toLowerCase().replace(/-/g, " "))).toBe(key);
+    expect(normalizeLicenseKey("not a key")).toBeNull();
+  });
+
+  it("shows the first group and the last two symbols", () => {
+    const key = KEYS[6];
+    const masked = maskLicenseKey(key);
+    expect(masked).toMatch(/^OWNT-[A-HJ-NP-Z2-9]{8}-…-•••[A-HJ-NP-Z2-9]{2}$/);
+    expect(masked.startsWith(key.slice(0, 13))).toBe(true);
+    expect(masked.endsWith(key.slice(-2))).toBe(true);
+    expect(maskLicenseKey("SOMETHINGELSE")).toBe("SOME•••••••SE");
+  });
+});
+
+describe("the app's public key", () => {
+  it("is a 32-byte hex string", () => {
+    expect(LICENSE_PUBLIC_KEY).toMatch(/^[0-9a-f]{64}$/);
   });
 });

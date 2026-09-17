@@ -1,3 +1,6 @@
+import * as ed from "@noble/ed25519";
+import { sha512 } from "@noble/hashes/sha2.js";
+import { concatBytes, hexToBytes, utf8ToBytes } from "@noble/hashes/utils.js";
 import { isTauri } from "@core/env";
 
 /**
@@ -6,36 +9,125 @@ import { isTauri } from "@core/env";
  * WebView2 reinstall) must not revoke a purchase. In the desktop app the Tauri
  * store `license.json` is the source of truth; localStorage keeps a copy so the
  * browser preview and any code that runs before `initLicense()` still work.
+ *
+ * A key is an Ed25519 signature, not a format: the site signs a short payload
+ * with a private key only it has (web/lib/licenseKey.ts), and this file checks
+ * the signature against the public half below - locally, with no request to
+ * anyone. The source being public changes nothing: reading this tells you how
+ * a key is checked, not how to make one. There is no registry of issued keys
+ * and nothing counts installs; "one computer at a time" is the licence's
+ * promise (terms, FAQ, the receipt), kept by people, not by code.
  */
+
+ed.hashes.sha512 = sha512;
 
 const STORAGE_KEY = "screeni-license";
 const STORE_FILE = "license.json";
 const STORE_KEY = "key";
-const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
+export const LICENSE_KEY_PREFIX = "OWNT";
+/** 32 symbols, no look-alikes: no I, O, 0 or 1. The prefix's O and I can never appear in a body. */
+export const LICENSE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 /**
- * Offline license key: SCRN-XXXXX-XXXXX-XXXXX where the last character is a
- * checksum over the preceding 14 payload characters. Keys are issued by the
- * store after purchase; this only has to keep honest people honest.
+ * The public half of the key that signs Pro keys (hex, 32 bytes). Its private
+ * half is derived from LICENSE_KEY_SECRET on the site; `pnpm polar:setup`
+ * checks that the two still belong together. Changing it here means every
+ * key signed before stops opening this build - never do that after a sale.
  */
-export function isValidLicenseKey(raw: string): boolean {
-  const key = raw.trim().toUpperCase();
-  const match = /^SCRN-([A-Z2-9]{5})-([A-Z2-9]{5})-([A-Z2-9]{5})$/.exec(key);
-  if (!match) return false;
-  const payload = (match[1] + match[2] + match[3]).split("");
-  const check = payload.pop()!;
-  let sum = 0;
-  payload.forEach((ch, i) => {
-    const v = ALPHABET.indexOf(ch);
-    if (v < 0) sum = -1e9;
-    sum += v * (i % 2 === 0 ? 3 : 7);
-  });
-  if (sum < 0) return false;
-  return ALPHABET[sum % ALPHABET.length] === check;
+export const LICENSE_PUBLIC_KEY = "45f84e72eb43e8a2546ff079d4433fa1f974b517f9223a2d1508067b39b2e190";
+
+const KEY_VERSION = 1;
+const TAG_BYTES = 8;
+const SIGNATURE_BYTES = 64;
+const PAYLOAD_BYTES = 1 + TAG_BYTES + SIGNATURE_BYTES;
+/** 73 bytes × 8 bits / 5 bits a symbol = 117 symbols; the last one carries a padding bit that must be 0. */
+const BODY_LENGTH = Math.ceil((PAYLOAD_BYTES * 8) / 5);
+const GROUP = 8;
+const SIGNING_DOMAIN = "owntools-pro:";
+
+export interface DecodedLicenseKey {
+  /** The canonical spelling: OWNT- and the body in groups of eight. */
+  key: string;
+  version: number;
+  tag: Uint8Array;
+  signature: Uint8Array;
 }
 
-function normalize(raw: string): string {
-  return raw.trim().toUpperCase();
+/**
+ * The canonical spelling of whatever was pasted - upper case, groups of
+ * eight - or null when it is not even the right shape (prefix + 117 symbols of
+ * the alphabet). Dashes, spaces and line breaks are ignored on the way in, so
+ * a key copied out of an e-mail with a wrap in it still works.
+ */
+export function normalizeLicenseKey(raw: string): string | null {
+  const symbols = raw.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  if (!symbols.startsWith(LICENSE_KEY_PREFIX)) return null;
+  const body = symbols.slice(LICENSE_KEY_PREFIX.length);
+  if (body.length !== BODY_LENGTH) return null;
+  for (const ch of body) if (!LICENSE_ALPHABET.includes(ch)) return null;
+  const groups: string[] = [];
+  for (let i = 0; i < body.length; i += GROUP) groups.push(body.slice(i, i + GROUP));
+  return `${LICENSE_KEY_PREFIX}-${groups.join("-")}`;
+}
+
+/** Symbols → bytes, five bits each, most significant first; null unless the padding bits are zero. */
+function decodeBase32(body: string, bytes: number): Uint8Array | null {
+  const out = new Uint8Array(bytes);
+  let acc = 0;
+  let bits = 0;
+  let n = 0;
+  for (const ch of body) {
+    const v = LICENSE_ALPHABET.indexOf(ch);
+    if (v < 0) return null;
+    acc = ((acc << 5) | v) & 0xffff;
+    bits += 5;
+    if (bits >= 8) {
+      bits -= 8;
+      if (n >= bytes) return null;
+      out[n++] = (acc >> bits) & 0xff;
+    }
+  }
+  if (n !== bytes) return null;
+  // whatever is left is padding, and a canonical key pads with zeros
+  if ((acc & ((1 << bits) - 1)) !== 0) return null;
+  return out;
+}
+
+/** The parts of a well-formed key; null says nothing about the signature yet. */
+export function decodeLicenseKey(raw: string): DecodedLicenseKey | null {
+  const key = normalizeLicenseKey(raw);
+  if (!key) return null;
+  const payload = decodeBase32(key.slice(LICENSE_KEY_PREFIX.length + 1).replace(/-/g, ""), PAYLOAD_BYTES);
+  if (!payload) return null;
+  return {
+    key,
+    version: payload[0],
+    tag: payload.slice(1, 1 + TAG_BYTES),
+    signature: payload.slice(1 + TAG_BYTES),
+  };
+}
+
+/**
+ * Is this a key the site signed? Checked entirely on this machine. The public
+ * key can be swapped for tests; the app always uses `LICENSE_PUBLIC_KEY`.
+ */
+export function isValidLicenseKey(raw: string, publicKeyHex: string = LICENSE_PUBLIC_KEY): boolean {
+  const decoded = decodeLicenseKey(raw);
+  if (!decoded || decoded.version !== KEY_VERSION) return false;
+  try {
+    const head = new Uint8Array(1 + TAG_BYTES);
+    head[0] = decoded.version;
+    head.set(decoded.tag, 1);
+    return ed.verify(decoded.signature, concatBytes(utf8ToBytes(SIGNING_DOMAIN), head), hexToBytes(publicKeyHex));
+  } catch {
+    return false;
+  }
+}
+
+/** The canonical key when `raw` is one the site signed, else null. */
+function validKey(raw: string): string | null {
+  const key = normalizeLicenseKey(raw);
+  return key && isValidLicenseKey(key) ? key : null;
 }
 
 /* ------------------------------------------------------------------ */
@@ -78,7 +170,7 @@ function ensureCache(): void {
 function readLocal(): string | null {
   try {
     const key = localStorage.getItem(STORAGE_KEY);
-    return key && isValidLicenseKey(key) ? normalize(key) : null;
+    return key ? validKey(key) : null;
   } catch {
     return null;
   }
@@ -118,7 +210,7 @@ async function tauriStore(): Promise<LicenseStore | null> {
 async function readStore(store: LicenseStore): Promise<string | null> {
   try {
     const raw = await store.get<unknown>(STORE_KEY);
-    return typeof raw === "string" && isValidLicenseKey(raw) ? normalize(raw) : null;
+    return typeof raw === "string" ? validKey(raw) : null;
   } catch {
     return null;
   }
@@ -192,8 +284,8 @@ export function isPro(): boolean {
  * one backend accepted it; listeners fire before it resolves.
  */
 export async function activateLicense(key: string): Promise<boolean> {
-  if (!isValidLicenseKey(key)) return false;
-  const normalized = normalize(key);
+  const normalized = validKey(key);
+  if (!normalized) return false;
   const store = await tauriStore();
   const storeOk = store ? await writeStore(store, normalized) : false;
   const localOk = writeLocal(normalized);
@@ -219,23 +311,19 @@ export function onLicenseChange(cb: () => void): () => void {
 }
 
 /**
- * `SCRN-AB3F4-QWERT-ZXC89` → `SCRN-AB3F4-•••••-•••89`: the prefix and first
- * payload group identify the key well enough for support, the last two
- * characters confirm it is the one you meant, the rest stays off-screen.
+ * `OWNT-K4M2ZQ7A-…-P3X9Z` → `OWNT-K4M2ZQ7A-…-•••9Z`: the first group (the
+ * version and most of the tag) identifies the key well enough for support,
+ * the last two characters confirm it is the one you meant, the rest stays
+ * off-screen. Anything that is not a key is masked the plain way.
  */
 export function maskLicenseKey(key: string): string {
-  const k = normalize(key);
-  const groups = k.split("-");
-  if (groups.length >= 3) {
-    const head = groups.slice(0, 2);
-    const rest = groups.slice(2);
-    const masked = rest.map((g, i) => {
-      if (i < rest.length - 1) return "•".repeat(g.length);
-      const keep = Math.min(2, g.length);
-      return "•".repeat(g.length - keep) + g.slice(g.length - keep);
-    });
-    return [...head, ...masked].join("-");
+  const canonical = normalizeLicenseKey(key);
+  if (canonical) {
+    const groups = canonical.split("-");
+    const last = groups[groups.length - 1];
+    return `${groups[0]}-${groups[1]}-…-${"•".repeat(last.length - 2)}${last.slice(-2)}`;
   }
+  const k = key.trim().toUpperCase();
   if (k.length <= 6) return k;
   return `${k.slice(0, 4)}${"•".repeat(k.length - 6)}${k.slice(-2)}`;
 }

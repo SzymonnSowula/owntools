@@ -31,6 +31,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { basename, resolve } from "node:path";
+import { licensePublicKey } from "../web/lib/licenseKey.ts";
 import { LIST_PRICE, POLAR_META, TIERS, pricingSnapshot, usd } from "../web/lib/pricing.ts";
 import {
   PolarApiError,
@@ -158,6 +159,16 @@ const sha256 = (data: Uint8Array) => createHash("sha256").update(data).digest("b
 const listCents = LIST_PRICE * 100;
 const labels = new Map(pricingSnapshot(null).tiers.map((t) => [t.key, t.label]));
 
+/** The public key baked into the app, read off the source so the two are compared, not assumed. */
+function appPublicKey(): string | null {
+  try {
+    const source = readFileSync(resolve(import.meta.dirname, "../packages/licensing/src/license.ts"), "utf8");
+    return /LICENSE_PUBLIC_KEY = "([0-9a-f]{64})"/.exec(source)?.[1] ?? null;
+  } catch {
+    return null;
+  }
+}
+
 function keyNote(): string {
   const install = [
     downloadWindows ? `[Windows](${downloadWindows})` : null,
@@ -170,6 +181,7 @@ function keyNote(): string {
     "",
     `1. Install owntools: ${install.length ? install.join(" · ") : `[${site.replace(/^https?:\/\//, "")}](${site})`}`,
     "2. Open **Settings → License**, paste the key and press **Activate**.",
+    "3. One key covers one computer at a time. Changing computers? Deactivate it there first (Settings → License), then activate on the new one - or write to us if the old computer is gone.",
     "",
     `The key works offline, never expires and covers every update. Lost it? Write to ${reach} from the address you paid with and you will get it again.`,
   ].join("\n");
@@ -189,8 +201,19 @@ function productDescription(): string {
 
 /* ---------------------------------- steps --------------------------------- */
 
-async function organization(): Promise<Organization> {
-  const page = await polar.get<Page<Organization>>("/v1/organizations/?limit=10");
+async function organization(): Promise<Organization | null> {
+  let page: Page<Organization>;
+  try {
+    page = await polar.get<Page<Organization>>("/v1/organizations/?limit=10");
+  } catch (err) {
+    if (!(err instanceof PolarApiError && err.status === 403)) throw err;
+    // An organization token acts on its own organization anyway; without the
+    // organizations scopes only these checks and settings are left to a person.
+    console.log(`${bold("organization")} ${dim(`· ${polar.server} · the token has no organizations:read, so not checked here`)}`);
+    warn("In the dashboard, check Settings → Payments: default currency USD (a product without a price in it sells for nothing).");
+    warn(`And Settings → General: support e-mail ${contact}, website ${site}.`);
+    return null;
+  }
   const org = page.items[0];
   if (!org) fail("The token does not see an organization. Does it have the organizations:read scope?");
 
@@ -473,11 +496,26 @@ function environment(): void {
     const secret = randomBytes(32).toString("base64url");
     if (dryRun) console.log(`  ${dim("would")} add LICENSE_KEY_SECRET`);
     else {
-      appendToWebEnv("LICENSE_KEY_SECRET", secret, "Pro keys are derived from Polar order ids with this. Keep it; set the same value on the host.");
+      appendToWebEnv(
+        "LICENSE_KEY_SECRET",
+        secret,
+        "Pro keys are signed with a key derived from this. Never change it once a key has been sold; set the same value on the host.",
+      );
       console.log(`  ${green("✓")} added LICENSE_KEY_SECRET`);
     }
   } else {
     console.log(`  ${dim("✓")} LICENSE_KEY_SECRET is set`);
+  }
+  const secret = setting("LICENSE_KEY_SECRET");
+  if (secret) {
+    const derived = licensePublicKey(secret);
+    const inApp = appPublicKey();
+    if (inApp === derived) console.log(`  ${dim("✓")} the app's LICENSE_PUBLIC_KEY belongs to this secret ${dim(`${derived.slice(0, 12)}…`)}`);
+    else {
+      warn(
+        `the app's LICENSE_PUBLIC_KEY (${inApp ?? "not found"}) does not belong to this secret (${derived}): keys issued with it would not open the app. Put the derived value into packages/licensing/src/license.ts and rebuild - or restore the secret the app was built for.`,
+      );
+    }
   }
   if (polar.server === "sandbox" && setting("POLAR_SERVER") !== "sandbox") {
     if (dryRun) console.log(`  ${dim("would")} add POLAR_SERVER=sandbox`);

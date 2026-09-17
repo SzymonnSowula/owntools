@@ -13,7 +13,8 @@
     "check": "pnpm typecheck && pnpm test",
     "polar:setup": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/polar-setup.ts",
     "polar:key": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/polar-key.ts",
-    "polar:test-link": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/polar-test-link.ts"
+    "polar:test-link": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/polar-test-link.ts",
+    "license:generate": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/generate-license.ts"
   },
   "packageManager": "pnpm@10.33.2",
   "dependencies": {
@@ -24,6 +25,8 @@
     "@fontsource/inter": "^5.2.6",
     "@fontsource/outfit": "^5.3.0",
     "@mediabunny/mp3-encoder": "^1.55.7",
+    "@noble/ed25519": "^3.2.0",
+    "@noble/hashes": "^2.4.0",
     "@radix-ui/react-dialog": "^1.1.23",
     "@radix-ui/react-dropdown-menu": "^2.1.24",
     "@radix-ui/react-popover": "^1.1.23",

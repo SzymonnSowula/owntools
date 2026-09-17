@@ -353,6 +353,8 @@ export type Purchase =
   | { state: "unpaid"; status: CheckoutStatus; url: string }
   | { state: "pending" }
   | { state: "refunded"; order: PolarOrder }
+  /** Paid, but this server has no LICENSE_KEY_SECRET, so no key could be signed. */
+  | { state: "key-unavailable"; order: PolarOrder }
   | { state: "paid"; order: PolarOrder; key: string; tier: TierKey | null };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -381,11 +383,16 @@ export async function lookupPurchase(checkoutId: string | undefined): Promise<Pu
   if (!order || !order.paid) return { state: "pending" };
   if (order.status === "refunded") return { state: "refunded", order };
 
+  const secret = process.env.LICENSE_KEY_SECRET?.trim() ?? "";
+  if (!secret) {
+    console.error("[polar] LICENSE_KEY_SECRET is not set: a paid order has no key to show");
+    return { state: "key-unavailable", order };
+  }
   const tier = order.metadata?.[POLAR_META.tier];
   return {
     state: "paid",
     order,
-    key: licenseKeyForOrder(order.id, process.env.LICENSE_KEY_SECRET?.trim() ?? ""),
+    key: licenseKeyForOrder(order.id, secret),
     tier: typeof tier === "string" && TIERS.some((t) => t.key === tier) ? (tier as TierKey) : null,
   };
 }
