@@ -42,6 +42,12 @@ CI (`.github/workflows/ci.yml`) runs on every push and PR: typecheck + vitest +
 | `APPLE_SIGNING_IDENTITY` | `Developer ID Application: Your Name (TEAMID)`. | with the above |
 | `APPLE_ID` / `APPLE_PASSWORD` / `APPLE_TEAM_ID` | Notarization. `APPLE_PASSWORD` is an **app-specific** password from appleid.apple.com, never the account password. | for macOS |
 
+The macOS job is **opt-in**: it only runs when the repository variable
+`MACOS_RELEASE` is `true` (Settings → Secrets and variables → Actions →
+Variables). An unsigned `.dmg` opens as "damaged", so the switch stays off until
+the Apple secrets above exist; without it a release is Windows only and
+`latest.json` lists only `windows-x86_64`.
+
 ```powershell
 gh secret set TAURI_SIGNING_PRIVATE_KEY < $HOME\.tauri\owntools.key
 gh secret set TAURI_SIGNING_PRIVATE_KEY_PASSWORD --body ""
