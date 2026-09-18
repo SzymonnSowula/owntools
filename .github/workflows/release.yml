@@ -50,6 +50,18 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # Without the updater key the build stops half-way with a cryptic message;
+      # say so at the top instead (repo Settings → Secrets and variables → Actions).
+      - name: Updater signing key present?
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: |
+          if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ]; then
+            echo "::error::TAURI_SIGNING_PRIVATE_KEY is not set - the updater artifacts cannot be signed. docs/release.md, section 2."
+            exit 1
+          fi
+
       # Optional Windows code signing: WINDOWS_CERTIFICATE is a base64-encoded PFX.
       # Without it the installer is built unsigned (SmartScreen will warn).
       - name: Import code-signing certificate
