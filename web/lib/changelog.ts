@@ -12,6 +12,16 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.3.2",
+    date: "2026-09-18",
+    title: "dictate is the free tool",
+    notes: [
+      "Free is now dictate - the hotkey, the pill, live captions, its models - and the quick file tools. Every other tool comes with the Pro key: focus, screeni, capture and board join meet, social, disk and launch.",
+      "Nothing is deleted by the change: tasks, notes, boards, recordings and screenshots made before stay on the computer, untouched, and open again with a key.",
+      "Without a key the bar still dictates; Record, Focus, Meeting and Screenshot lead to the plans, and so do the screenshot shortcut and the tray's items. Time tracking and the scroll guard stay off while focus is locked.",
+    ],
+  },
+  {
     version: "0.3.1",
     date: "2026-09-18",
     title: "free and Pro",
