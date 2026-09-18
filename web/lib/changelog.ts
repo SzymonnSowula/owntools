@@ -12,6 +12,16 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.3.1",
+    date: "2026-09-18",
+    title: "free and Pro",
+    notes: [
+      "owntools Pro now holds four tools: meet, social, disk and launch. dictate, screeni, focus, board, capture and the twelve quick file tools stay free, and exported videos keep their small badge without a key.",
+      "A Pro tool without a key shows what it does and two ways forward - get a key, or paste the one you have - instead of itself. Activating a key opens the tool on the spot; the hub marks the four with a pro tag.",
+      "For agents: the local social API still answers every read without a key and refuses changes with a plain message saying why.",
+    ],
+  },
+  {
     version: "0.3.0",
     date: "2026-09-18",
     title: "nine tools, the bar, and the source on GitHub",

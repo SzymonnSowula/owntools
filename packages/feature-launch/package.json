@@ -1,6 +1,6 @@
 {
   "name": "@owntools/launch-engine",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "private": true,
   "type": "module",
   "description": "URL/brief → launch video: style packs, takes, formats. Used by the desktop app's launch tool.",
