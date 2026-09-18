@@ -181,6 +181,37 @@ Manual run: *Actions → Release → Run workflow* builds the current branch int
 draft named after the version in `tauri.conf.json` — handy for a release
 candidate without a tag.
 
+## Releasing from this machine
+
+The workflow is the normal road; this is the one taken when it cannot run
+(no `TAURI_SIGNING_PRIVATE_KEY` in the repo yet, a runner outage). It makes
+the same assets by hand - 0.3.0 shipped this way on 2026-09-18.
+
+1. `node scripts/bump-version.mjs x.y.z`, `cargo check` in `src-tauri`, a
+   changelog entry, commit, push.
+2. Build with the updater key in the environment (Git Bash; the value is the
+   file's contents, `_PATH` is not read):
+   ```bash
+   export TAURI_SIGNING_PRIVATE_KEY="$(cat ~/.tauri/owntools.key)" TAURI_SIGNING_PRIVATE_KEY_PASSWORD=""
+   pnpm --filter desktop tauri build
+   ```
+   → `apps/desktop/src-tauri/target/release/bundle/nsis/owntools_x.y.z_x64-setup.exe` + `.sig`.
+3. Write `latest.json` by hand (the shape is in *Testing an update locally*
+   below): `version`, `notes`, `pub_date`, and under `platforms.windows-x86_64`
+   the `.sig` file's contents as `signature` and
+   `https://github.com/SzymonnSowula/owntools/releases/download/vx.y.z/owntools_x.y.z_x64-setup.exe`
+   as `url`. Only the platforms you built - a Mac entry pointing at nothing
+   would make every Mac fail its update check.
+4. Draft, check, publish:
+   ```bash
+   gh release create vx.y.z --draft --title "owntools vx.y.z" --notes-file notes.md owntools_x.y.z_x64-setup.exe owntools_x.y.z_x64-setup.exe.sig latest.json
+   gh release edit vx.y.z --draft=false --latest
+   ```
+   Publishing creates the tag, which starts `release.yml`; without the
+   secret that run fails at its first step and changes nothing on the release.
+   With the secret it rebuilds and replaces the assets with the CI-built,
+   identically signed ones.
+
 ## Testing an update locally
 
 The updater trusts one URL and one public key, so a local test means building
