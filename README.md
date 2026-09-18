@@ -29,15 +29,16 @@ lists every request the app ever made.
 
 ## Free and Pro
 
-Everything above is free, and every tool is included. The one paid feature is
-a **Pro key**: a one-time purchase that removes the "made with owntools" badge
-from video exports. That is the whole difference.
+dictate, screeni, focus, board, capture and the quick file tools are free.
+A one-time **Pro key** adds meet, social, disk and launch, and removes the
+"made with owntools" badge from video exports.
 
 - A key is an Ed25519 signature checked on your computer against a public key
   built into the app (`packages/licensing/src/license.ts`). It never phones
   home, and there is no activation server.
-- Building from source gives you the free app, badge included - the private
-  key that signs Pro keys is not in this repository.
+- Building from source gives you the free app: the same tools, the badge, and
+  the Pro tools locked - the private key that signs Pro keys is not in this
+  repository.
 - One key covers **one computer at a time**. Moving to a new computer is a
   deactivate on the old one (Settings → License) and a paste on the new; if
   the old computer is gone, write to hello@owntools.app and the key is moved.

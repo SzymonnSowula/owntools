@@ -19,18 +19,12 @@ import { SubscriptionBill } from "./components/SubscriptionBill";
 import { CheckoutNotice } from "./components/pricing/CheckoutNotice";
 import { LivePrice, LiveStepNote } from "./components/pricing/LivePrice";
 import { PriceLadder } from "./components/pricing/PriceLadder";
-import {
-  CheckoutCta,
-  DOWNLOAD_SOON,
-  DownloadCta,
-  MAC_DOWNLOAD_SOON,
-  MacDownloadCta,
-} from "./components/Cta";
+import { CheckoutCta, DownloadCta } from "./components/Cta";
 import { CtaBand } from "./components/CtaBand";
 import { BarSection } from "./components/bar/BarSection";
 import { imageSize } from "@/lib/imageSize";
 import { polarConfig } from "@/lib/polar";
-import { PRICE, checkoutUrl, contactEmail, downloadUrl, downloadUrlMac, repoUrl, xUrl } from "@/lib/site";
+import { PRICE, checkoutUrl, contactEmail, downloadUrl, repoUrl, xUrl } from "@/lib/site";
 
 /* "get the pro key" goes through /checkout once Polar is configured - that
    route picks the launch-price step. Decided when the page is built, so set
@@ -50,8 +44,8 @@ const jsonLd = {
   description:
     "Dictate, transcribe, record your screen and your calls, take notes and more. Eight tools in one desktop app that runs on your own device.",
   offers: [
-    { "@type": "Offer", price: "0", priceCurrency: PRICE.currency, name: "Free (badge on exports)" },
-    { "@type": "Offer", price: String(PRICE.amount), priceCurrency: PRICE.currency, name: "Pro (lifetime)" },
+    { "@type": "Offer", price: "0", priceCurrency: PRICE.currency, name: "Free (dictate, screeni, focus, board; badge on exports)" },
+    { "@type": "Offer", price: String(PRICE.amount), priceCurrency: PRICE.currency, name: "Pro (all tools, no badge, lifetime)" },
   ],
 };
 
@@ -933,8 +927,8 @@ export default function Home() {
             <a href="#pricing" className="hidden transition hover:text-ink md:block">pricing</a>
             <a href="#faq" className="hidden transition hover:text-ink md:block">faq</a>
             <ThemeToggle />
-            {/* before launch this leads to pricing, where the status is spelled out */}
-            <a href={downloadUrl ?? "#pricing"} className="btn btn-accent !h-9 !px-4 text-[13px]">
+            {/* every call to action leads to the plans: the free download and the Pro key sit side by side there */}
+            <a href="#pricing" className="btn btn-accent !h-9 !px-4 text-[13px]">
               get owntools
             </a>
           </nav>
@@ -976,53 +970,25 @@ export default function Home() {
           </ul>
 
           <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
-            {downloadUrl || downloadUrlMac ? (
-              <>
-                <DownloadCta
-                  className="btn btn-light"
-                  fallback={
-                    <>
-                      <WindowsGlyph /> {DOWNLOAD_SOON}
-                    </>
-                  }
-                >
-                  <WindowsGlyph /> download for windows
-                </DownloadCta>
-                <MacDownloadCta
-                  className="btn btn-light"
-                  fallback={
-                    <>
-                      <AppleGlyph /> {MAC_DOWNLOAD_SOON}
-                    </>
-                  }
-                >
-                  <AppleGlyph /> download for mac
-                </MacDownloadCta>
-              </>
-            ) : (
-              /* Before launch only these two work, so only they look like
-                 buttons: two identical dead ones side by side taught the reader
-                 the whole hero was inert. "get owntools" leads to the plans,
-                 like the nav's. */
-              <>
-                <a href="#pricing" className="btn btn-light">
-                  get owntools
-                </a>
-                <a href="#tools" className="btn btn-ghost">
-                  see the tools <ArrowDown size={15} />
-                </a>
-                {/* plain words, not a pill: next to the ghost button a glass pill
-                    read as one more button */}
-                <span
-                  className="inline-flex items-center gap-2 px-1 text-[13px] font-medium text-white/85"
-                  style={{ textShadow: "0 1px 14px rgba(10,30,60,0.45)" }}
-                >
-                  <WindowsGlyph />
-                  <AppleGlyph />
-                  windows &amp; mac - launching soon
-                </span>
-              </>
-            )}
+            {/* Every button up here leads to the plans (2026-09-18): the free
+                download and the Pro key sit side by side there, so a visitor
+                sees the whole offer before choosing. */}
+            <a href="#pricing" className="btn btn-light">
+              get owntools
+            </a>
+            <a href="#tools" className="btn btn-ghost">
+              see the tools <ArrowDown size={15} />
+            </a>
+            {/* plain words, not a pill: next to the ghost button a glass pill
+                read as one more button */}
+            <span
+              className="inline-flex items-center gap-2 px-1 text-[13px] font-medium text-white/85"
+              style={{ textShadow: "0 1px 14px rgba(10,30,60,0.45)" }}
+            >
+              <WindowsGlyph />
+              <AppleGlyph />
+              {downloadUrl ? "windows now \u00b7 mac soon" : "windows & mac - launching soon"}
+            </span>
           </div>
 
           <p
@@ -1428,7 +1394,9 @@ export default function Home() {
           <Reveal className="text-center">
             <p className="text-xs font-bold uppercase tracking-[0.16em] opacity-60">pricing</p>
             <h2 className="display mt-3 text-4xl md:text-5xl">free, or paid once</h2>
-            <p className="mt-3 opacity-75">Every tool is free. Pro removes the badge from exports, for good.</p>
+            <p className="mt-3 opacity-75">
+              Four tools and the quick tools are free, for good. Pro adds meet, social, disk and launch, and takes the badge off exports.
+            </p>
           </Reveal>
           <CheckoutNotice />
           <div className="mt-12 grid gap-6 md:grid-cols-2">
@@ -1440,10 +1408,11 @@ export default function Home() {
                 </div>
                 <div className="p-7">
                   <h3 className="display text-lg">free</h3>
-                  <p className="text-[13px] text-[#6e6e73]">every tool, no limits</p>
+                  <p className="text-[13px] text-[#6e6e73]">the everyday desk, no time limit</p>
                   <p className="display mt-3 text-5xl font-extrabold">$0</p>
                   <ul className="mt-5 space-y-2.5 text-sm text-[#6e6e73]">
-                    <li className="flex gap-2"><Check size={15} className="mt-0.5 text-accent" /> all eight tools</li>
+                    <li className="flex gap-2"><Check size={15} className="mt-0.5 text-accent" /> dictate, screeni, focus, board</li>
+                    <li className="flex gap-2"><Check size={15} className="mt-0.5 text-accent" /> screenshots and twelve quick file tools</li>
                     <li className="flex gap-2"><Check size={15} className="mt-0.5 text-accent" /> MP4 export up to 60 fps</li>
                     <li className="flex gap-2"><Check size={15} className="mt-0.5 text-accent" /> a small badge on exported videos</li>
                   </ul>
@@ -1473,6 +1442,7 @@ export default function Home() {
                   />
                   <LiveStepNote className="mt-1.5 block text-[12.5px] font-semibold text-accent" />
                   <ul className="mt-4 space-y-2.5 text-sm text-[#6e6e73]">
+                    <li className="flex gap-2"><Check size={15} className="mt-0.5 text-accent" /> everything in free, plus meet, social, disk and launch</li>
                     <li className="flex gap-2"><Check size={15} className="mt-0.5 text-accent" /> no badge on exports</li>
                     <li className="flex gap-2"><Check size={15} className="mt-0.5 text-accent" /> lifetime updates</li>
                     <li className="flex gap-2"><Check size={15} className="mt-0.5 text-accent" /> offline key, no account</li>

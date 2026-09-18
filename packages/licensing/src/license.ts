@@ -302,6 +302,19 @@ export async function deactivateLicense(): Promise<void> {
   setCached(null);
 }
 
+/**
+ * Every window has its own copy of this module; the bar (the dictation
+ * window) learns about a key activated or removed in the main window from
+ * the localStorage mirror's `storage` event, which only fires in *other*
+ * windows - exactly the ones that need it.
+ */
+if (typeof window !== "undefined") {
+  window.addEventListener("storage", (event) => {
+    if (event.key !== STORAGE_KEY) return;
+    setCached(event.newValue ? validKey(event.newValue) : null);
+  });
+}
+
 /** Subscribe to activations/deactivations (and the async initial load). */
 export function onLicenseChange(cb: () => void): () => void {
   listeners.add(cb);

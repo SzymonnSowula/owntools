@@ -14,6 +14,7 @@ mod hotkeys;
 mod importer;
 mod input_track;
 mod launcher;
+mod license;
 mod llm;
 #[cfg(target_os = "macos")]
 mod mac;
@@ -253,6 +254,7 @@ pub fn run() {
             hotkeys::dictation_hotkey,
             hotkeys::dictation_hotkey_registered,
             hotkeys::dictation_cancel_hotkey,
+            license::license_set_pro,
             social::social_agent_info,
             social::social_agent_regenerate_token,
             social::social_agent_configure,

@@ -1,4 +1,5 @@
 import { logError, logInfo } from "@core/errors";
+import { toolLocked } from "@licensing/plan";
 import { notify } from "@feature-focus/lib/notify";
 import { makeEntry } from "./activity";
 import { credentialSaver, noteChannelHealth } from "./channelHealth";
@@ -130,6 +131,8 @@ async function loadMedia(refs: PostContent["media"], mediaById: (id: string) => 
  */
 export async function publishPost(id: string, opts: { manual?: boolean } = {}): Promise<Post | null> {
   const store = useSocialStore.getState();
+  // social comes with Pro: without a key nothing leaves, scheduled posts just wait
+  if (toolLocked("social")) return store.getPost(id) ?? null;
   if (store.publishing.has(id)) return store.getPost(id) ?? null;
   store.markPublishing(id, true);
   try {
@@ -230,6 +233,7 @@ export async function tick(): Promise<void> {
   try {
     const state = useSocialStore.getState();
     if (!state.ready) return;
+    if (toolLocked("social")) return;
     const now = new Date();
     // Crashed mid-publish last time: hand the post back to the queue.
     for (const p of state.posts) {

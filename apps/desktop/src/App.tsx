@@ -23,6 +23,8 @@ import { SUITE_NAME } from "@core/branding";
 import { logError } from "@core/errors";
 import { listenForDictation } from "@feature-dictation/insert";
 import { initLicense } from "@licensing/license";
+import { syncLicenseToNative } from "@licensing/native";
+import { ProGate } from "@ui/ProGate";
 
 const TOOLS: readonly Tool[] = [
   "hub",
@@ -80,6 +82,7 @@ export default function App() {
     void (async () => {
       // The license cache has to be warm before any module renders isPro().
       await initLicense().catch((err) => logError("main", "license init", err));
+      syncLicenseToNative();
       await runLegacyImport();
       await hydrate();
     })();
@@ -305,7 +308,9 @@ export default function App() {
           </LazyPane>
         ) : tool === "launch" ? (
           <LazyPane>
-            <LaunchModule />
+            <ProGate tool="launch">
+              <LaunchModule />
+            </ProGate>
           </LazyPane>
         ) : tool === "board" ? (
           <main className="create-main mod-board">
@@ -316,13 +321,17 @@ export default function App() {
         ) : tool === "social" ? (
           <main className="create-main">
             <Suspense fallback={<div className="grid flex-1 place-items-center text-sm">Loading social…</div>}>
-              <SocialModule />
+              <ProGate tool="social">
+                <SocialModule />
+              </ProGate>
             </Suspense>
           </main>
         ) : tool === "meet" ? (
           <main className="create-main mod-meet">
             <Suspense fallback={<div className="grid flex-1 place-items-center text-sm">Loading meet…</div>}>
-              <MeetModule />
+              <ProGate tool="meet">
+                <MeetModule />
+              </ProGate>
             </Suspense>
           </main>
         ) : tool === "capture" ? (
@@ -334,7 +343,9 @@ export default function App() {
         ) : tool === "disk" ? (
           <main className="create-main mod-disk">
             <Suspense fallback={<div className="grid flex-1 place-items-center text-sm">Loading disk…</div>}>
-              <DiskModule />
+              <ProGate tool="disk">
+                <DiskModule />
+              </ProGate>
             </Suspense>
           </main>
         ) : tool === "settings" ? (

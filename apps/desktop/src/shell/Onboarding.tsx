@@ -57,19 +57,19 @@ const ENGINE_DOWNLOAD_BYTES =
   DEFAULT_SPEECH_MODEL.bytes;
 
 /** All nine, one sentence each; dictate spans the row because it carries the engine download. */
-const TOOL_ROWS = [
+const TOOL_ROWS: { name: string; desc: string; pro?: boolean }[] = [
   {
     name: "dictate",
     desc: `Press ${DICTATION_HOTKEY_LABEL}, speak, press again: an on-device model types in any app. A one-time ${formatBytes(ENGINE_DOWNLOAD_BYTES)} download.`,
   },
   { name: "screeni", desc: "Screen recordings that zoom in on your clicks." },
   { name: "capture", desc: `${CAPTURE_HOTKEY_LABEL}: grab part of the screen, copy its text.` },
-  { name: "meet", desc: "A call transcribed on this machine, notes after." },
+  { name: "meet", desc: "A call transcribed on this machine, notes after.", pro: true },
   { name: "focus", desc: "Timer, tasks, notes and habits." },
-  { name: "launch", desc: "A URL becomes a short video." },
+  { name: "launch", desc: "A URL becomes a short video.", pro: true },
   { name: "board", desc: "An endless whiteboard." },
-  { name: "social", desc: "Posts scheduled to 30+ networks." },
-  { name: "disk", desc: "Where the space went." },
+  { name: "social", desc: "Posts scheduled to 30+ networks.", pro: true },
+  { name: "disk", desc: "Where the space went.", pro: true },
 ];
 
 const SHORTCUTS = [
@@ -252,7 +252,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
                 <li>No accounts, no cloud — everything stays on this device.</li>
                 <li>Nine tools, one desk: dictation, recording, screenshots, a quiet desk, launch videos, call transcripts, a whiteboard, a social scheduler, a disk analyzer.</li>
                 <li>Workspaces are sessions: one click opens your apps, links and timer.</li>
-                <li>Free to use; Pro unlocks watermark-free exports.</li>
+                <li>Free: dictate, screeni, capture, focus and board. Pro adds meet, launch, social and disk, and exports without the badge.</li>
               </ul>
             </>
           ) : null}
@@ -263,7 +263,10 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
               <div className="onb-tools compact">
                 {TOOL_ROWS.map((t) => (
                   <div key={t.name} className={`onb-tool${t.name === "dictate" ? " wide" : ""}`}>
-                    <span className="onb-tool-name">{t.name}</span>
+                    <span className="onb-tool-name">
+                      {t.name}
+                      {t.pro ? <span className="onb-pro">pro</span> : null}
+                    </span>
                     <span className="onb-tool-desc">{t.desc}</span>
                     {t.name === "dictate" ? <EngineSetup /> : null}
                   </div>

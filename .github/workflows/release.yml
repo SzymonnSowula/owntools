@@ -119,6 +119,9 @@ jobs:
     name: macos universal (dmg + app)
     runs-on: macos-14
     needs: windows
+    # An unsigned macOS build opens as "damaged" (docs/macos.md), so the job is
+    # opt-in until Apple signing exists: repo Settings → Variables → MACOS_RELEASE = true.
+    if: vars.MACOS_RELEASE == 'true'
     env:
       # An Apple Developer ID certificate is what turns "macOS says this app is
       # damaged" into a normal double-click. Without it the build still runs and

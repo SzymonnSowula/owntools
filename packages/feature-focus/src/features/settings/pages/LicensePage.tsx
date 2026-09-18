@@ -93,7 +93,7 @@ export function LicensePage() {
               </Button>
             </div>
           </Row>
-          <Row label="No key yet" hint="Everything works without one; the key only removes the badge from exports.">
+          <Row label="No key yet" hint="The free tools keep working. A key unlocks meet, social, disk and launch, and removes the badge from exports.">
             <Button onClick={() => void openExternal(PRICING_URL)}>Get Pro</Button>
           </Row>
         </>

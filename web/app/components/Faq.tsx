@@ -40,7 +40,7 @@ const ITEMS: { q: string; a: ReactNode }[] = [
   },
   {
     q: "What's the difference between free and Pro?",
-    a: "Only the small badge on exported videos. Pro removes it with a one-time payment.",
+    a: "Four tools are free: dictate, screeni (with a small badge on exports), focus and board, plus screenshots and the quick file tools. Pro adds meet, social, disk and launch, and takes the badge off exports - one payment.",
   },
   {
     q: "Why is it cheaper at the start?",

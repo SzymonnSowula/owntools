@@ -20,9 +20,9 @@ export default function TermsPage() {
     >
       <h2>the free app</h2>
       <p>
-        owntools is free to download and use, for personal and commercial work alike. Every tool
-        is included. The only difference from Pro is a small “made with owntools” badge on the
-        videos you export.
+        owntools is free to download and use, for personal and commercial work alike. The free app
+        holds dictate, screeni, focus, board, capture and the quick file tools; the videos you
+        export carry a small “made with owntools” badge.
       </p>
 
       <h2>the pro key</h2>
@@ -39,8 +39,7 @@ export default function TermsPage() {
         </li>
         <li>covers updates to the app as we release them;</li>
         <li>
-          removes the badge from video exports. That is the only paid feature - nothing else is
-          locked behind it.
+          unlocks meet, social, disk and launch, and removes the badge from video exports.
         </li>
       </ul>
 

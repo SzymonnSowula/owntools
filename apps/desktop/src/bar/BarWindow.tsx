@@ -35,6 +35,7 @@ import {
 } from "@core/bar";
 import { isTauri, isWindows } from "@core/env";
 import { logInfo } from "@core/errors";
+import { useIsPro } from "@licensing/useLicense";
 import { recordsItself } from "@core/recorderWindow";
 import { DictationPill, standalonePillHost, type PillHost } from "@feature-dictation/DictationPill";
 import {
@@ -96,6 +97,7 @@ function useNow(phase: number | null): number {
 }
 
 export function BarWindow() {
+  const pro = useIsPro();
   const settings = useSyncExternalStore(subscribeBarSettings, getBarSettings, getBarSettings);
   const [notice, setNotice] = useState<string | null>(null);
   // "Hide the bar" shows a notice first, and the notice needs the bar's layout.
@@ -576,6 +578,7 @@ export function BarWindow() {
           />
         ) : panel === "meet" ? (
           <MeetPanel
+            locked={!pro}
             meet={state.meet}
             now={now}
             onStart={() => send({ kind: "meet-start" })}

@@ -11,6 +11,8 @@ import { TOOL_CARDS, openQuickTool } from "./toolCatalogue";
 import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 import { activeSteps, ritualIsEmpty } from "./ritual";
 import { QUICK_TOOLS } from "@feature-tools/catalogue";
+import { isProTool } from "@licensing/plan";
+import { useIsPro } from "@licensing/useLicense";
 
 function greetingFor(hour: number): string {
   if (hour < 5) return "good night";
@@ -20,6 +22,7 @@ function greetingFor(hour: number): string {
 }
 
 export function Hub() {
+  const pro = useIsPro();
   const setTool = useShellStore((s) => s.setTool);
   const setFocusOverview = useShellStore((s) => s.setFocusOverview);
   const tasks = useFocusStore((s) => s.tasks);
@@ -135,7 +138,10 @@ export function Hub() {
                 </svg>
               </span>
             </div>
-            <div className="hub-card-name">{card.name}</div>
+            <div className="hub-card-name">
+              {card.name}
+              {!pro && isProTool(card.tool) ? <span className="hub-pro">pro</span> : null}
+            </div>
             <div className="hub-card-desc">{card.desc}</div>
           </button>
         ))}

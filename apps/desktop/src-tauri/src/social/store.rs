@@ -466,6 +466,10 @@ impl ApiError {
     pub fn conflict(message: impl Into<String>) -> Self {
         Self { status: 409, message: message.into() }
     }
+    /// social is part of Pro and this install has no key.
+    pub fn pro_required() -> Self {
+        Self { status: 402, message: super::server::PRO_REQUIRED.to_string() }
+    }
     pub fn internal(message: impl Into<String>) -> Self {
         Self { status: 500, message: message.into() }
     }

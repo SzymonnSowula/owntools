@@ -23,6 +23,21 @@ use super::{SocialState, CHANGED_EVENT, OAUTH_EVENT};
 
 type Shared = Arc<SocialState>;
 
+/// What an agent gets when the install has no Pro key: social is part of Pro,
+/// so reads (listing, checking, the guide) still answer and every change does
+/// not. The window pushes the key's state through `license_set_pro`.
+pub const PRO_REQUIRED: &str =
+    "social is part of owntools Pro - activate a key in owntools → Settings → License, then try again";
+
+/// A request that changes something. `/mcp` carries reads and writes in one
+/// POST and is sorted out per tool in `mcp::call_tool`; `/check` only validates.
+pub fn is_write(method: &Method, path: &str) -> bool {
+    path != "/mcp"
+        && path != "/check"
+        && path != "/oauth/callback"
+        && matches!(*method, Method::POST | Method::PATCH | Method::DELETE)
+}
+
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
         let status = StatusCode::from_u16(self.status).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
@@ -74,6 +89,9 @@ async fn auth(State(state): State<Shared>, req: Request, next: Next) -> Response
         )
             .into_response();
     }
+    if is_write(req.method(), path) && !crate::license::is_pro() {
+        return (StatusCode::PAYMENT_REQUIRED, Json(json!({ "error": PRO_REQUIRED }))).into_response();
+    }
     let token = req
         .headers()
         .get(header::AUTHORIZATION)
@@ -97,6 +115,7 @@ async fn health(State(state): State<Shared>) -> Json<Value> {
         "name": "owntools-social",
         "version": state.app.package_info().version.to_string(),
         "enabled": state.enabled.load(Ordering::Relaxed),
+        "pro": crate::license::is_pro(),
         "mcp": "/mcp",
     }))
 }
@@ -344,4 +363,21 @@ async fn mcp_get() -> Response {
 
 async fn mcp_delete() -> StatusCode {
     StatusCode::OK
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn writes_are_the_methods_that_change_something() {
+        assert!(is_write(&Method::POST, "/posts"));
+        assert!(is_write(&Method::PATCH, "/posts/x"));
+        assert!(is_write(&Method::DELETE, "/posts/x"));
+        assert!(is_write(&Method::POST, "/media/path"));
+        assert!(!is_write(&Method::GET, "/posts"));
+        assert!(!is_write(&Method::POST, "/check"));
+        assert!(!is_write(&Method::POST, "/mcp"));
+        assert!(!is_write(&Method::GET, "/oauth/callback"));
+    }
 }

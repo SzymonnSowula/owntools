@@ -22,6 +22,7 @@ import {
 } from "@core/bar";
 import { isTauri } from "@core/env";
 import { logError, logInfo } from "@core/errors";
+import { toolLocked } from "@licensing/plan";
 import { useAppStore } from "@feature-focus/store/useAppStore";
 import type { Task } from "@feature-focus/types";
 import { quietNextTakeover } from "./FocusTimerOverlay";
@@ -136,6 +137,11 @@ async function handle(command: BarCommand): Promise<void> {
     case "meet-pause":
     case "meet-resume":
     case "meet-stop": {
+      if (command.kind === "meet-start" && toolLocked("meet")) {
+        // meet comes with Pro: the lock screen, not a capture that goes nowhere
+        await handle({ kind: "open", tool: "meet" });
+        return;
+      }
       const { useMeetStore } = await import("@feature-meet/store");
       const store = useMeetStore.getState();
       if (command.kind === "meet-start") {

@@ -183,7 +183,7 @@ function keyNote(): string {
     "2. Open **Settings → License**, paste the key and press **Activate**.",
     "3. One key covers one computer at a time. Changing computers? Deactivate it there first (Settings → License), then activate on the new one - or write to us if the old computer is gone.",
     "",
-    `The key works offline, never expires and covers every update. Lost it? Write to ${reach} from the address you paid with and you will get it again.`,
+    `The key unlocks meet, social, disk and launch, takes the badge off exported videos, works offline, never expires and covers every update. Lost it? Write to ${reach} from the address you paid with and you will get it again.`,
   ].join("\n");
 }
 

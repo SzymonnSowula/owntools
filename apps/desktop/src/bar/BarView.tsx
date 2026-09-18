@@ -315,9 +315,12 @@ export function MeetPanel({
   onResume,
   onStop,
   onOpen,
+  locked = false,
 }: {
   meet: BarMeetState;
   now: number;
+  /** No Pro key in this install: say so instead of offering Start. */
+  locked?: boolean;
   onStart: () => void;
   onPause: () => void;
   onResume: () => void;
@@ -325,6 +328,21 @@ export function MeetPanel({
   onOpen: () => void;
 }) {
   const phase = meet.phase;
+  if (locked && !meetLive(meet)) {
+    return (
+      <div className="bar-panel bar-surface">
+        <div className="bar-panel-head">
+          <ToolGlyph tool="meet" size={18} />
+          <span>Meeting notes</span>
+        </div>
+        <p className="bar-text">Meeting notes come with owntools Pro: one key unlocks meet, social, disk and launch.</p>
+        <button type="button" className="bar-action" onClick={onOpen}>
+          <OpenIcon />
+          Get Pro in owntools
+        </button>
+      </div>
+    );
+  }
   if (meetLive(meet)) {
     const title =
       phase === "starting" ? "Starting…" : phase === "stopping" ? "Saving…" : phase === "paused" ? "Paused" : "Recording";

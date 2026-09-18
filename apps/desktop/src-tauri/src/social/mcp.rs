@@ -358,7 +358,25 @@ fn error_result(err: &ApiError) -> Value {
     json!({ "content": [{ "type": "text", "text": format!("{} ({})", err.message, err.status) }], "isError": true })
 }
 
+/// The tools that change something; the rest answer without a key.
+const WRITE_TOOLS: &[&str] = &[
+    "create_post",
+    "update_post",
+    "delete_post",
+    "publish_post",
+    "upload_media",
+    "add_media_from_path",
+    "post_now",
+    "add_to_queue",
+    "reschedule",
+    "duplicate_post",
+    "set_brand_voice",
+];
+
 fn call_tool(state: &SocialState, name: &str, args: &Value) -> Result<Value, ApiError> {
+    if WRITE_TOOLS.contains(&name) && !crate::license::is_pro() {
+        return Err(ApiError::pro_required());
+    }
     let root = &state.root;
     let arg = |key: &str| args.get(key).cloned().unwrap_or(Value::Null);
     let id = || -> Result<String, ApiError> {
