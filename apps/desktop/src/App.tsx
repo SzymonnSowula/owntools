@@ -22,9 +22,11 @@ import { UpdateBanner } from "./shell/UpdateBanner";
 import { SUITE_NAME } from "@core/branding";
 import { logError } from "@core/errors";
 import { listenForDictation } from "@feature-dictation/insert";
-import { initLicense } from "@licensing/license";
+import { initLicense, onLicenseChange } from "@licensing/license";
 import { syncLicenseToNative } from "@licensing/native";
-import { ProGate } from "@ui/ProGate";
+import { toolLocked } from "@licensing/plan";
+import { useIsPro } from "@licensing/useLicense";
+import { ProGate, ProLock } from "@ui/ProGate";
 
 const TOOLS: readonly Tool[] = [
   "hub",
@@ -77,6 +79,7 @@ export default function App() {
   const hubTool = useShellStore((s) => s.hubTool);
   const settingsTarget = useShellStore((s) => s.settingsTarget);
   const [showOnboarding, setShowOnboarding] = useState(() => !isOnboarded());
+  const pro = useIsPro();
 
   useEffect(() => {
     void (async () => {
@@ -157,18 +160,24 @@ export default function App() {
       const { listen } = await import("@tauri-apps/api/event");
       unsubs.push(
         await listen("tray-toggle-focus", () => {
+          if (toolLocked("focus")) return;
           useAppStore.getState().toggleTimer();
         }),
       );
       unsubs.push(
         await listen("tray-quick-note", () => {
           useShellStore.getState().setTool("focus");
+          if (toolLocked("focus")) return;
           useShellStore.getState().setFocusOverview(false);
           useAppStore.getState().openQuickCapture("note");
         }),
       );
       unsubs.push(
         await listen("tray-start-session", () => {
+          if (toolLocked("focus")) {
+            useShellStore.getState().setTool("focus");
+            return;
+          }
           const { workspaceId } = useAppStore.getState();
           useShellStore.getState().openSession(workspaceId);
         }),
@@ -211,21 +220,27 @@ export default function App() {
       unsubs.push(await listenForDictation());
       // Time tracking stays off natively until the user has seen the consent
       // step: the onboarding pushes the choice itself when it finishes.
-      if (isOnboarded()) {
-        const enabled = useAppStore.getState().settings.usageTracking;
+      // It is focus's feature, so without a key nothing is sampled at all; a
+      // key activated later switches it on without a restart.
+      const pushUsage = async () => {
+        if (!isOnboarded()) return;
+        const enabled = useAppStore.getState().settings.usageTracking && !toolLocked("focus");
         try {
           const { invoke } = await import("@tauri-apps/api/core");
           await invoke("usage_set_enabled", { enabled });
         } catch (err) {
           logError("main", "usage_set_enabled", err);
         }
-      }
+      };
+      await pushUsage();
+      unsubs.push(onLicenseChange(() => void pushUsage()));
     })();
     return () => unsubs.forEach((u) => u());
   }, []);
 
   useEffect(() => {
-    if (tool !== "focus") return;
+    // Not on focus's lock screen: Space would start a timer nobody can see.
+    if (tool !== "focus" || !pro) return;
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null;
       const typing =
@@ -280,6 +295,7 @@ export default function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, [
     tool,
+    pro,
     closeQuickCapture,
     openQuickCapture,
     quickOpen,
@@ -301,10 +317,18 @@ export default function App() {
         ) : tool === "hub" ? (
           <Hub />
         ) : tool === "focus" ? (
-          <FocusTool />
+          pro ? (
+            <FocusTool />
+          ) : (
+            <main className="create-main">
+              <ProLock tool="focus" />
+            </main>
+          )
         ) : tool === "create" ? (
           <LazyPane>
-            <CreateModule />
+            <ProGate tool="create">
+              <CreateModule />
+            </ProGate>
           </LazyPane>
         ) : tool === "launch" ? (
           <LazyPane>
@@ -315,7 +339,9 @@ export default function App() {
         ) : tool === "board" ? (
           <main className="create-main mod-board">
             <Suspense fallback={<div className="board-loading">Loading board…</div>}>
-              <BoardModule />
+              <ProGate tool="board">
+                <BoardModule />
+              </ProGate>
             </Suspense>
           </main>
         ) : tool === "social" ? (
@@ -337,7 +363,9 @@ export default function App() {
         ) : tool === "capture" ? (
           <main className="create-main mod-capture">
             <Suspense fallback={<div className="grid flex-1 place-items-center text-sm">Loading capture…</div>}>
-              <CaptureModule />
+              <ProGate tool="capture">
+                <CaptureModule />
+              </ProGate>
             </Suspense>
           </main>
         ) : tool === "disk" ? (

@@ -115,6 +115,11 @@ async function showMain(): Promise<void> {
 async function handle(command: BarCommand): Promise<void> {
   switch (command.kind) {
     case "focus-start":
+      if (toolLocked("focus")) {
+        // Pro: the lock screen, not a timer running behind it
+        await handle({ kind: "open", tool: "focus" });
+        return;
+      }
       await whenReady();
       startFocus(Math.max(1, Math.round(command.minutes)), command.session);
       return;
@@ -125,7 +130,7 @@ async function handle(command: BarCommand): Promise<void> {
     }
     case "focus-resume": {
       const store = useAppStore.getState();
-      if (store.timer.running) return;
+      if (store.timer.running || toolLocked("focus")) return;
       quietNextTakeover();
       store.startTimer();
       return;
@@ -153,6 +158,10 @@ async function handle(command: BarCommand): Promise<void> {
       return;
     }
     case "record": {
+      if (toolLocked("create")) {
+        await handle({ kind: "open", tool: "create" });
+        return;
+      }
       const { openRecorderOverlay } = await import("@core/recorderWindow");
       await openRecorderOverlay();
       return;

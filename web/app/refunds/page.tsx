@@ -53,7 +53,7 @@ export default function RefundsPage() {
       <h2>after a refund</h2>
       <p>
         The key is offline, so we cannot switch it off remotely. Once refunded, your license ends:
-        please remove the key from the app. The free version keeps working, badge and all.
+        please remove the key from the app. dictate and the quick file tools keep working without it.
       </p>
 
       <h2>your statutory rights</h2>

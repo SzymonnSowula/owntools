@@ -44,8 +44,8 @@ const jsonLd = {
   description:
     "Dictate, transcribe, record your screen and your calls, take notes and more. Eight tools in one desktop app that runs on your own device.",
   offers: [
-    { "@type": "Offer", price: "0", priceCurrency: PRICE.currency, name: "Free (dictate, screeni, focus, board; badge on exports)" },
-    { "@type": "Offer", price: String(PRICE.amount), priceCurrency: PRICE.currency, name: "Pro (all tools, no badge, lifetime)" },
+    { "@type": "Offer", price: "0", priceCurrency: PRICE.currency, name: "Free (dictate and the quick file tools)" },
+    { "@type": "Offer", price: String(PRICE.amount), priceCurrency: PRICE.currency, name: "Pro (every tool, lifetime)" },
   ],
 };
 
@@ -1395,7 +1395,7 @@ export default function Home() {
             <p className="text-xs font-bold uppercase tracking-[0.16em] opacity-60">pricing</p>
             <h2 className="display mt-3 text-4xl md:text-5xl">free, or paid once</h2>
             <p className="mt-3 opacity-75">
-              Four tools and the quick tools are free, for good. Pro adds meet, social, disk and launch, and takes the badge off exports.
+              dictate and the quick file tools are free, for good. One key unlocks every other tool.
             </p>
           </Reveal>
           <CheckoutNotice />
@@ -1408,13 +1408,13 @@ export default function Home() {
                 </div>
                 <div className="p-7">
                   <h3 className="display text-lg">free</h3>
-                  <p className="text-[13px] text-[#6e6e73]">the everyday desk, no time limit</p>
+                  <p className="text-[13px] text-[#6e6e73]">dictation and file tools, no time limit</p>
                   <p className="display mt-3 text-5xl font-extrabold">$0</p>
                   <ul className="mt-5 space-y-2.5 text-sm text-[#6e6e73]">
-                    <li className="flex gap-2"><Check size={15} className="mt-0.5 text-accent" /> dictate, screeni, focus, board</li>
-                    <li className="flex gap-2"><Check size={15} className="mt-0.5 text-accent" /> screenshots and twelve quick file tools</li>
-                    <li className="flex gap-2"><Check size={15} className="mt-0.5 text-accent" /> MP4 export up to 60 fps</li>
-                    <li className="flex gap-2"><Check size={15} className="mt-0.5 text-accent" /> a small badge on exported videos</li>
+                    <li className="flex gap-2"><Check size={15} className="mt-0.5 text-accent" /> dictate: speak, it types, in any app</li>
+                    <li className="flex gap-2"><Check size={15} className="mt-0.5 text-accent" /> the quick file tools: transcribe, convert, PDF, GIF</li>
+                    <li className="flex gap-2"><Check size={15} className="mt-0.5 text-accent" /> live captions, vocabulary, on-device models</li>
+                    <li className="flex gap-2"><Check size={15} className="mt-0.5 text-accent" /> no account, works offline</li>
                   </ul>
                   <DownloadCta className="btn mt-7 w-full border border-[#1d1d1f]/20 bg-white font-semibold text-[#1d1d1f] hover:bg-[#f5f5f7]">
                     download
@@ -1442,8 +1442,8 @@ export default function Home() {
                   />
                   <LiveStepNote className="mt-1.5 block text-[12.5px] font-semibold text-accent" />
                   <ul className="mt-4 space-y-2.5 text-sm text-[#6e6e73]">
-                    <li className="flex gap-2"><Check size={15} className="mt-0.5 text-accent" /> everything in free, plus meet, social, disk and launch</li>
-                    <li className="flex gap-2"><Check size={15} className="mt-0.5 text-accent" /> no badge on exports</li>
+                    <li className="flex gap-2"><Check size={15} className="mt-0.5 text-accent" /> everything in free, plus every other tool</li>
+                    <li className="flex gap-2"><Check size={15} className="mt-0.5 text-accent" /> screeni, focus, board, meet, social, disk, launch, screenshots</li>
                     <li className="flex gap-2"><Check size={15} className="mt-0.5 text-accent" /> lifetime updates</li>
                     <li className="flex gap-2"><Check size={15} className="mt-0.5 text-accent" /> offline key, no account</li>
                   </ul>

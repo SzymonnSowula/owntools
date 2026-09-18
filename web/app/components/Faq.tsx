@@ -40,7 +40,7 @@ const ITEMS: { q: string; a: ReactNode }[] = [
   },
   {
     q: "What's the difference between free and Pro?",
-    a: "Four tools are free: dictate, screeni (with a small badge on exports), focus and board, plus screenshots and the quick file tools. Pro adds meet, social, disk and launch, and takes the badge off exports - one payment.",
+    a: "dictate and the quick file tools are free, with no time limit. Pro unlocks every other tool - screeni, meet, focus, board, social, disk, launch and screenshots - for one payment.",
   },
   {
     q: "Why is it cheaper at the start?",

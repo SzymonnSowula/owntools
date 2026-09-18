@@ -11,8 +11,10 @@ import { TOOL_CARDS, openQuickTool } from "./toolCatalogue";
 import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 import { activeSteps, ritualIsEmpty } from "./ritual";
 import { QUICK_TOOLS } from "@feature-tools/catalogue";
-import { isProTool } from "@licensing/plan";
+import { openSettings } from "@core/navigation";
+import { isProTool, quickToolHome } from "@licensing/plan";
 import { useIsPro } from "@licensing/useLicense";
+import { openPricing } from "@ui/ProGate";
 
 function greetingFor(hour: number): string {
   if (hour < 5) return "good night";
@@ -64,9 +66,9 @@ export function Hub() {
       </div>
 
       <div className="hub">
-        <div className="hub-top">
-          <WorkspaceSwitcher />
-        </div>
+        {/* Workspaces, the day strip and the record button belong to focus and
+            screeni: without a key the hub says what is free instead. */}
+        <div className="hub-top">{pro ? <WorkspaceSwitcher /> : null}</div>
 
         <div className="hub-brand">
           <BrandMark size={34} filled />
@@ -76,6 +78,17 @@ export function Hub() {
           {greeting} · {dateLabel}
         </div>
 
+        {!pro ? (
+          <div className="hub-today hub-plan">
+            <span className="hub-plan-text">dictate and the quick tools are free. One key unlocks the other eight.</span>
+            <button className="hub-chip primary" onClick={() => void openPricing()}>
+              get Pro
+            </button>
+            <button className="hub-chip" onClick={() => openSettings("license")}>
+              I have a key
+            </button>
+          </div>
+        ) : (
         <div className="hub-today">
           {hasRitual ? (
             <button
@@ -114,6 +127,7 @@ export function Hub() {
             {focusedMin} min focused today
           </button>
         </div>
+        )}
 
         <div className="hub-grid">
         {TOOL_CARDS.map((card) => (
@@ -163,7 +177,10 @@ export function Hub() {
             <div className="wincard-body hub-tool-body">
               <div className="hub-tool-icon">{tool.icon}</div>
               <div>
-                <div className="hub-tool-name">{tool.name}</div>
+                <div className="hub-tool-name">
+                  {tool.name}
+                  {!pro && quickToolHome(tool.key) ? <span className="hub-pro">pro</span> : null}
+                </div>
                 <div className="hub-tool-desc">{tool.desc}</div>
               </div>
             </div>
@@ -171,10 +188,12 @@ export function Hub() {
         ))}
       </div>
 
-      <button className="btn primary" style={{ marginTop: 34 }} onClick={() => void openRecorderOverlay()}>
-        <span style={{ width: 8, height: 8, borderRadius: 999, background: "#ff5f57", display: "inline-block", marginRight: 8 }} />
-        record screen now
-      </button>
+      {pro ? (
+        <button className="btn primary" style={{ marginTop: 34 }} onClick={() => void openRecorderOverlay()}>
+          <span style={{ width: 8, height: 8, borderRadius: 999, background: "#ff5f57", display: "inline-block", marginRight: 8 }} />
+          record screen now
+        </button>
+      ) : null}
 
         <div className="hub-foot">no accounts · no cloud · your files, your machine</div>
       </div>

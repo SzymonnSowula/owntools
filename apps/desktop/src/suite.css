@@ -2533,6 +2533,16 @@ button.wincard:hover {
   color: var(--color-accent);
   background: color-mix(in srgb, var(--color-accent) 12%, transparent);
 }
+/* The hub without a key: where the day strip sits for Pro, one sentence on
+   what is free and the two ways forward. */
+.hub-plan { align-items: center; }
+.hub-plan-text {
+  width: 100%;
+  margin-bottom: 2px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--color-muted);
+}
 .pro-gate {
   flex: 1;
   display: grid;
@@ -2549,6 +2559,13 @@ button.wincard:hover {
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.08);
 }
 .pro-gate-mark { display: flex; justify-content: center; }
+/* The card is the same in every pane: under `.mod-create` the reset zeroes
+   the browser's paragraph and heading margins, elsewhere they would add up to
+   a taller card, so the bottom margins are spelled out here. */
+.pro-gate-kicker,
+.pro-gate-title,
+.pro-gate-text,
+.pro-gate-foot { margin-bottom: 0; }
 .pro-gate-kicker {
   margin-top: 18px;
   font-size: 11px;

@@ -57,7 +57,7 @@ export function LicensePage() {
     >
       {key ? (
         <>
-          <Row label="Your key" hint="Removes the “made with owntools” badge from everything you export.">
+          <Row label="Your key" hint="Unlocks every tool on this computer: focus, screeni, capture, board, meet, social, disk and launch.">
             <code className="st-code">{show ? key : maskLicenseKey(key)}</code>
             <Button kind="ghost" onClick={() => setShow((v) => !v)}>
               {show ? "Hide" : "Show"}
@@ -93,7 +93,7 @@ export function LicensePage() {
               </Button>
             </div>
           </Row>
-          <Row label="No key yet" hint="The free tools keep working. A key unlocks meet, social, disk and launch, and removes the badge from exports.">
+          <Row label="No key yet" hint="dictate and the quick file tools are free. A key unlocks the other eight tools: focus, screeni, capture, board, meet, social, disk and launch.">
             <Button onClick={() => void openExternal(PRICING_URL)}>Get Pro</Button>
           </Row>
         </>

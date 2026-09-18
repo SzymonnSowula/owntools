@@ -392,10 +392,19 @@ pub fn grab_and_show(app: &AppHandle, target: &str) -> Result<CaptureFrame, Stri
     Ok(meta)
 }
 
+/// What a grab answers without a Pro key (capture is part of Pro).
+pub const PRO_REQUIRED: &str = "capture comes with owntools Pro - activate a key in Settings → License";
+
 /// The global shortcut's handler: never on the shortcut thread itself.
 pub fn on_hotkey(app: &AppHandle) {
     let app = app.clone();
     std::thread::spawn(move || {
+        // The hotkey never passes through the window, so the key is checked
+        // here: without one it opens capture's lock screen, not the overlay.
+        if !crate::license::is_pro() {
+            crate::license::show_lock_screen(&app, "capture");
+            return;
+        }
         if let Err(e) = grab_and_show(&app, "cursor") {
             log::error!("capture hotkey: {e}");
         }
@@ -551,6 +560,9 @@ pub async fn capture_grab(app: AppHandle, target: Option<serde_json::Value>) -> 
             .unwrap_or_else(|| "cursor".into()),
         _ => "cursor".to_string(),
     };
+    if !crate::license::is_pro() {
+        return Err(PRO_REQUIRED.into());
+    }
     tauri::async_runtime::spawn_blocking(move || grab_and_show(&app, &target))
         .await
         .map_err(|e| e.to_string())?

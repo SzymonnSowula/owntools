@@ -183,15 +183,15 @@ function keyNote(): string {
     "2. Open **Settings → License**, paste the key and press **Activate**.",
     "3. One key covers one computer at a time. Changing computers? Deactivate it there first (Settings → License), then activate on the new one - or write to us if the old computer is gone.",
     "",
-    `The key unlocks meet, social, disk and launch, takes the badge off exported videos, works offline, never expires and covers every update. Lost it? Write to ${reach} from the address you paid with and you will get it again.`,
+    `The key unlocks every tool - focus, screeni, capture, board, meet, social, disk and launch - works offline, never expires and covers every update. Lost it? Write to ${reach} from the address you paid with and you will get it again.`,
   ].join("\n");
 }
 
 function productDescription(): string {
   return [
-    "One payment removes the \"made with owntools\" badge from everything you export - for good.",
+    "One payment unlocks every tool in owntools - for good. dictate and the quick file tools are free; the key opens the rest.",
     "",
-    "- every tool in the app, on Windows and macOS",
+    "- focus, screeni, capture, board, meet, social, disk and launch (Windows today; the same key opens the macOS build when it ships)",
     "- every future update",
     "- an offline license key: no account, nothing phones home",
     "",

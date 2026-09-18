@@ -278,7 +278,10 @@ function syncNativeUsage(enabled: boolean) {
       const { isTauri } = await import("../lib/env");
       if (!isTauri()) return;
       const { invoke } = await import("@tauri-apps/api/core");
-      await invoke("usage_set_enabled", { enabled });
+      // Time tracking is focus's feature: while focus is locked the choice is
+      // kept, but nothing is sampled (App.tsx pushes again when a key arrives).
+      const { toolLocked } = await import("@licensing/plan");
+      await invoke("usage_set_enabled", { enabled: enabled && !toolLocked("focus") });
     } catch {
       /* browser preview */
     }
@@ -1157,8 +1160,11 @@ function nativeScrollGuard(get: () => AppState) {
       const { isTauri } = await import("../lib/env");
       if (!isTauri()) return;
       const { invoke } = await import("@tauri-apps/api/core");
+      // A guard armed before focus needed a key must not keep its hooks: the
+      // only switch that disarms it sits inside the locked tool.
+      const { toolLocked } = await import("@licensing/plan");
       await invoke("scroll_guard_sync", {
-        armed,
+        armed: armed && !toolLocked("focus"),
         sites: s.settings.scrollGuardSites,
       });
       await invoke("scroll_guard_note", { site: s.usageNow?.site ?? null });

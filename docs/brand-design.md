@@ -144,9 +144,10 @@ window — was removed on 2026-09-15; its clip plays in the screeni studio row.)
    "windows & mac - launching soon" as plain text (a glass pill next to the
    ghost button read as a third button); from launch the download buttons.
    **CTA bands** (2026-09-15, `CtaBand.tsx`) follow the bento, the studio,
-   social and the speed section: an accent-tinted strip with one display line, "Every
-   tool is free. Pro removes the badge from exports.", the live launch price
-   and "get the pro key" (plus "download free" once there is a download).
+   social and the speed section: an accent-tinted strip with one display line,
+   "dictate and the quick file tools are free. One key unlocks every other
+   tool, for good.", the live launch price and "get owntools" (→ pricing,
+   where the free download and the Pro key sit side by side).
 2. **01 · one app bento** — numbered mono header with rule line, then a
    bento grid of `.bento` tiles whose visuals are `.nature` panels
    (meadow-sky gradient + ASCII overlay, dusk variant at night): big

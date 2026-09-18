@@ -400,6 +400,14 @@ pub fn run() {
                     "bar" => {
                         let _ = app.emit_to(bar::LABEL, "bar-toggle", ());
                     }
+                    // focus and screeni come with Pro: without a key their
+                    // tray items open the tool's lock screen instead of acting.
+                    "start-session" | "toggle-focus" | "quick-note" if !license::is_pro() => {
+                        license::show_lock_screen(app, "focus");
+                    }
+                    "record" if !license::is_pro() => {
+                        license::show_lock_screen(app, "create");
+                    }
                     "start-session" => {
                         show_main(app);
                         let _ = app.emit("tray-start-session", ());

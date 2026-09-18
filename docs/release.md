@@ -269,7 +269,7 @@ two versions against a local endpoint.
   - `NEXT_PUBLIC_SITE_URL` — canonical origin (sitemap, robots, OG)
   - contact e-mail, Plausible domain and the X profile URL, if the landing reads them from env by then
 - [ ] Polar product live: price, licence-key delivery text, refund policy. Buyers' keys are signed on `/thanks` from the Polar order (`web/lib/licenseKey.ts`); `pnpm license:generate <n>` signs gift keys — nothing tracks them, so note where each one went.
-- [ ] Test purchase end to end (Polar sandbox → key → activate in the app → watermark gone).
+- [ ] Test purchase end to end (Polar sandbox → key → activate in the app → the locked tools open).
 - [ ] Changelog entry for the version live on the landing; sitemap includes the new pages.
 - [ ] Plausible receiving events from the production domain.
 - [ ] Private key and certificate backed up; secrets confirmed in the repo.

@@ -3,6 +3,8 @@ import { isMac } from "@core/env";
 import { BrandMark } from "@ui/BrandMark";
 import { ToolGlyph, TOOL_TINT } from "@ui/ToolMark";
 import { QUICK_TOOLS } from "@feature-tools/catalogue";
+import { isProTool, quickToolHome } from "@licensing/plan";
+import { useIsPro } from "@licensing/useLicense";
 import { useShellStore } from "./shellStore";
 import { TOOL_CARDS, openQuickTool } from "./toolCatalogue";
 
@@ -17,6 +19,7 @@ export function ToolRail() {
   const openSettings = useShellStore((s) => s.openSettings);
   const [quickOpen, setQuickOpen] = useState(false);
   const quickRef = useRef<HTMLDivElement | null>(null);
+  const pro = useIsPro();
 
   const activeIndex = TOOL_CARDS.findIndex((c) => c.tool === tool);
 
@@ -97,7 +100,9 @@ export function ToolRail() {
             <span className="rail-tip">
               <b>{card.name}</b>
               <em>{card.blurb}</em>
-              <i>alt {i + 1}</i>
+              <i>
+                {!pro && isProTool(card.tool) ? "pro · " : ""}alt {i + 1}
+              </i>
             </span>
           </button>
         ))}
@@ -142,7 +147,10 @@ export function ToolRail() {
               >
                 <span className="rail-pop-icon">{q.icon}</span>
                 <span>
-                  <b>{q.name}</b>
+                  <b>
+                    {q.name}
+                    {!pro && quickToolHome(q.key) ? <span className="hub-pro">pro</span> : null}
+                  </b>
                   <i>{q.desc}</i>
                 </span>
               </button>

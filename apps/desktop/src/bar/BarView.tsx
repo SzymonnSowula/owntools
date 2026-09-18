@@ -121,11 +121,14 @@ export function BarRow({
   onRecord,
   onPanel,
   drag,
+  locked = false,
 }: {
   state: BarState;
   now: number;
   panel: BarPanel | null;
   download: number | null;
+  /** No Pro key in this install: only Dictate acts, the rest lead to the plans. */
+  locked?: boolean;
   onMark: () => void;
   onDictate: () => void;
   onRecord: () => void;
@@ -134,6 +137,7 @@ export function BarRow({
 }) {
   const focusOn = focusActive(state.focus);
   const live = meetLive(state.meet);
+  const proNote = locked ? " · Pro" : "";
   return (
     <div className="bar-row bar-surface" {...drag}>
       <button type="button" className="bar-btn bar-mark" title="Open owntools" aria-label="Open owntools" onClick={onMark}>
@@ -145,7 +149,7 @@ export function BarRow({
         Dictate
         {download !== null ? <span className="bar-muted bar-clock">{download}%</span> : null}
       </button>
-      <button type="button" className="bar-btn" title="Record the screen" onClick={onRecord}>
+      <button type="button" className="bar-btn" title={`Record the screen${proNote}`} onClick={onRecord}>
         <ToolGlyph tool="screeni" size={18} />
         Record
       </button>
@@ -153,7 +157,7 @@ export function BarRow({
         type="button"
         className="bar-btn"
         data-on={panel === "focus"}
-        title="Focus session"
+        title={`Focus session${proNote}`}
         onClick={() => onPanel("focus")}
       >
         <ToolGlyph tool="focus" size={18} />
@@ -163,7 +167,7 @@ export function BarRow({
         type="button"
         className="bar-btn"
         data-on={panel === "meet"}
-        title="Meeting notes"
+        title={`Meeting notes${proNote}`}
         onClick={() => onPanel("meet")}
       >
         {live ? (
@@ -193,6 +197,34 @@ export function BarRow({
   );
 }
 
+/** Without a key: what the button is for, and the way to the plans. */
+function ProPanel({
+  tool,
+  title,
+  text,
+  onOpen,
+}: {
+  tool: "focus" | "meet";
+  title: string;
+  text: string;
+  onOpen: () => void;
+}) {
+  return (
+    <div className="bar-panel bar-surface">
+      <div className="bar-panel-head">
+        <ToolGlyph tool={tool} size={18} />
+        <span>{title}</span>
+        <span className="bar-muted bar-push">Pro</span>
+      </div>
+      <p className="bar-text">{text}</p>
+      <button type="button" className="bar-action" onClick={onOpen}>
+        <OpenIcon />
+        Get Pro in owntools
+      </button>
+    </div>
+  );
+}
+
 export function FocusPanel({
   focus,
   now,
@@ -203,9 +235,12 @@ export function FocusPanel({
   onResume,
   onStop,
   onOpen,
+  locked = false,
 }: {
   focus: BarFocusState;
   now: number;
+  /** No Pro key in this install: say so instead of offering Start. */
+  locked?: boolean;
   minutes: number;
   onMinutes: (minutes: number) => void;
   onStart: (minutes: number, session: string) => void;
@@ -215,6 +250,17 @@ export function FocusPanel({
   onOpen: () => void;
 }) {
   const [task, setTask] = useState<string | null>(null);
+
+  if (locked && !focusActive(focus)) {
+    return (
+      <ProPanel
+        tool="focus"
+        title="Focus session"
+        text="Focus sessions come with owntools Pro. One key unlocks every tool; dictation stays free."
+        onOpen={onOpen}
+      />
+    );
+  }
 
   if (focusActive(focus)) {
     const title = focus.stopwatch ? "Stopwatch" : focus.mode === "break" ? "Break" : "Focus";
@@ -330,17 +376,12 @@ export function MeetPanel({
   const phase = meet.phase;
   if (locked && !meetLive(meet)) {
     return (
-      <div className="bar-panel bar-surface">
-        <div className="bar-panel-head">
-          <ToolGlyph tool="meet" size={18} />
-          <span>Meeting notes</span>
-        </div>
-        <p className="bar-text">Meeting notes come with owntools Pro: one key unlocks meet, social, disk and launch.</p>
-        <button type="button" className="bar-action" onClick={onOpen}>
-          <OpenIcon />
-          Get Pro in owntools
-        </button>
-      </div>
+      <ProPanel
+        tool="meet"
+        title="Meeting notes"
+        text="Meeting notes come with owntools Pro. One key unlocks every tool; dictation stays free."
+        onOpen={onOpen}
+      />
     );
   }
   if (meetLive(meet)) {
@@ -409,7 +450,10 @@ export function MorePanel({
   onOpen,
   onSettings,
   onHide,
+  locked = false,
 }: {
+  /** No Pro key in this install: Screenshot leads to capture's lock screen. */
+  locked?: boolean;
   onScreenshot: () => void;
   onOpen: () => void;
   onSettings: () => void;
@@ -422,7 +466,7 @@ export function MorePanel({
           <ToolGlyph tool="capture" size={17} />
         </span>
         Screenshot
-        <kbd>{CAPTURE_HOTKEY_LABEL}</kbd>
+        <kbd>{locked ? "Pro" : CAPTURE_HOTKEY_LABEL}</kbd>
       </button>
       <button type="button" className="bar-menu-item" role="menuitem" onClick={onOpen}>
         <span className="bar-menu-icon">
@@ -447,12 +491,24 @@ export function MorePanel({
   );
 }
 
-export function Tip({ privateToCapture, onDismiss }: { privateToCapture: boolean; onDismiss: () => void }) {
+export function Tip({
+  privateToCapture,
+  onDismiss,
+  locked = false,
+}: {
+  privateToCapture: boolean;
+  onDismiss: () => void;
+  /** No Pro key in this install: only dictation works from here. */
+  locked?: boolean;
+}) {
   return (
     <div className="bar-panel bar-tip bar-surface" role="status">
       <p className="bar-tip-title">Your bar</p>
       <p className="bar-text">
-        Dictate, record, focus and take meeting notes from any app. Drag it anywhere. It steps aside in full screen
+        {locked
+          ? "Dictate from any app; recording, focus and meeting notes come with Pro."
+          : "Dictate, record, focus and take meeting notes from any app."}{" "}
+        Drag it anywhere. It steps aside in full screen
         {privateToCapture ? " and stays out of recordings and screen sharing." : "."}
       </p>
       <button type="button" className="bar-action" onClick={onDismiss}>

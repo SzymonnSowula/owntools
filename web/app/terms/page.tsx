@@ -15,20 +15,20 @@ export default function TermsPage() {
     <LegalPage
       kicker="legal"
       title="terms"
-      intro="The plain-English rules for using owntools and the Pro key. They are short because the product is simple: a desktop app that runs on your machine, and a key that removes a badge."
+      intro="The plain-English rules for using owntools and the Pro key. They are short because the product is simple: a desktop app that runs on your machine, and a key that unlocks its tools."
       updated={POLICIES_UPDATED}
     >
       <h2>the free app</h2>
       <p>
-        owntools is free to download and use, for personal and commercial work alike. The free app
-        holds dictate, screeni, focus, board, capture and the quick file tools; the videos you
-        export carry a small “made with owntools” badge.
+        owntools is free to download and use, for personal and commercial work alike. Without a
+        key the app holds dictate and the quick file tools, with no time limit; every other tool
+        shows what it does and asks for a key.
       </p>
 
       <h2>the pro key</h2>
       <p>
-        Buying a Pro key gives you a personal, non-exclusive license to use owntools without the
-        badge - yours, not for passing on to someone else. The key:
+        Buying a Pro key gives you a personal, non-exclusive license to use every tool in
+        owntools - yours, not for passing on to someone else. The key:
       </p>
       <ul>
         <li>works offline and without an account - it is checked on your machine, not on a server;</li>
@@ -39,14 +39,14 @@ export default function TermsPage() {
         </li>
         <li>covers updates to the app as we release them;</li>
         <li>
-          unlocks meet, social, disk and launch, and removes the badge from video exports.
+          unlocks focus, screeni, capture, board, meet, social, disk and launch.
         </li>
       </ul>
 
       <h2>what you may not do</h2>
       <ul>
         <li>resell, rent, give away or publicly share your key;</li>
-        <li>remove or alter the badge by any means other than a key;</li>
+        <li>unlock the Pro tools in the builds we publish by any means other than a key;</li>
         <li>use the software to break the law.</li>
       </ul>
       <p>That is the whole list.</p>

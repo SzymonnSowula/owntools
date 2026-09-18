@@ -19,7 +19,7 @@ export function CtaBand({ title }: { title: string; checkoutHref?: string }) {
           <div className="min-w-0">
             <p className="display text-2xl leading-tight md:text-[28px]">{title}</p>
             <p className="mt-1.5 text-[14px] text-muted">
-              Four tools free. Pro adds meet, social, disk and launch, and takes the badge off exports.
+              dictate and the quick file tools are free. One key unlocks every other tool, for good.
             </p>
           </div>
 

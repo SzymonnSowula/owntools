@@ -56,18 +56,21 @@ const ENGINE_DOWNLOAD_BYTES =
   (runtimeFor(DEFAULT_SPEECH_MODEL.engine)?.bytes ?? ENGINE.bytes) +
   DEFAULT_SPEECH_MODEL.bytes;
 
-/** All nine, one sentence each; dictate spans the row because it carries the engine download. */
+/**
+ * All nine, one sentence each; dictate spans the row because it carries the
+ * engine download - and it is the one that needs no key (`@licensing/plan`).
+ */
 const TOOL_ROWS: { name: string; desc: string; pro?: boolean }[] = [
   {
     name: "dictate",
     desc: `Press ${DICTATION_HOTKEY_LABEL}, speak, press again: an on-device model types in any app. A one-time ${formatBytes(ENGINE_DOWNLOAD_BYTES)} download.`,
   },
-  { name: "screeni", desc: "Screen recordings that zoom in on your clicks." },
-  { name: "capture", desc: `${CAPTURE_HOTKEY_LABEL}: grab part of the screen, copy its text.` },
+  { name: "screeni", desc: "Screen recordings that zoom in on your clicks.", pro: true },
+  { name: "capture", desc: `${CAPTURE_HOTKEY_LABEL}: grab part of the screen, copy its text.`, pro: true },
   { name: "meet", desc: "A call transcribed on this machine, notes after.", pro: true },
-  { name: "focus", desc: "Timer, tasks, notes and habits." },
+  { name: "focus", desc: "Timer, tasks, notes and habits.", pro: true },
   { name: "launch", desc: "A URL becomes a short video.", pro: true },
-  { name: "board", desc: "An endless whiteboard." },
+  { name: "board", desc: "An endless whiteboard.", pro: true },
   { name: "social", desc: "Posts scheduled to 30+ networks.", pro: true },
   { name: "disk", desc: "Where the space went.", pro: true },
 ];
@@ -252,7 +255,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
                 <li>No accounts, no cloud — everything stays on this device.</li>
                 <li>Nine tools, one desk: dictation, recording, screenshots, a quiet desk, launch videos, call transcripts, a whiteboard, a social scheduler, a disk analyzer.</li>
                 <li>Workspaces are sessions: one click opens your apps, links and timer.</li>
-                <li>Free: dictate, screeni, capture, focus and board. Pro adds meet, launch, social and disk, and exports without the badge.</li>
+                <li>Free: dictate and the quick file tools. One Pro key unlocks the other eight - paste it in Settings → License.</li>
               </ul>
             </>
           ) : null}

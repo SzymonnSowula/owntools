@@ -143,8 +143,8 @@ function render(view: View): ReactNode {
       return (
         <Message kicker="refunded" title="this order was refunded">
           <p>
-            There is no key to show for it any more. The free version keeps working, badge and all -
-            and if you remove the key from Settings → License, you are square.
+            There is no key to show for it any more. dictate and the quick file tools keep working
+            without one - and if you remove the key from Settings → License, you are square.
           </p>
         </Message>
       );
@@ -199,8 +199,8 @@ function Paid({ view }: { view: Extract<Purchase, { state: "paid" }> }) {
       <p className="kicker">thank you</p>
       <h1 className="display mt-3 text-4xl md:text-5xl">your pro key</h1>
       <p className="mt-4 text-[16px] leading-7 text-muted">
-        Paste it into owntools once and the badge is gone from everything you export - on the
-        computer you use, with the wi-fi on or off. Moving to a new one is a deactivate and a paste.
+        Paste it into owntools once (Settings → License) and every tool opens - on the computer
+        you use, with the wi-fi on or off. Moving to a new one is a deactivate and a paste.
       </p>
 
       <div className="mt-8">

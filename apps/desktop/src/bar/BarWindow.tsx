@@ -527,6 +527,11 @@ export function BarWindow() {
 
   const onScreenshot = async () => {
     fold();
+    if (!pro) {
+      // capture comes with Pro: its lock screen, not a grab Rust would refuse
+      send({ kind: "open", tool: "capture" });
+      return;
+    }
     // Hidden before the grab: with "Record owntools itself" on, the bar is not
     // excluded from captures and would be in the picture.
     setGrabbing(true);
@@ -557,9 +562,10 @@ export function BarWindow() {
   const extras =
     barVisible && expanded ? (
       <>
-        {showTip ? <Tip privateToCapture={privateToCapture} onDismiss={dismissTip} /> : null}
+        {showTip ? <Tip locked={!pro} privateToCapture={privateToCapture} onDismiss={dismissTip} /> : null}
         {panel === "focus" ? (
           <FocusPanel
+            locked={!pro}
             focus={state.focus}
             now={now}
             minutes={settings.focusMinutes}
@@ -592,6 +598,7 @@ export function BarWindow() {
           />
         ) : panel === "more" ? (
           <MorePanel
+            locked={!pro}
             onScreenshot={() => void onScreenshot()}
             onOpen={() => {
               fold();
@@ -613,6 +620,7 @@ export function BarWindow() {
     else if (expanded)
       row = (
         <BarRow
+          locked={!pro}
           state={state}
           now={now}
           panel={panel}
