@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { downloadFallback, goesStale, isDownloadPlatform, pickInstaller, repoSlug } from "./download";
+import {
+  downloadFallback,
+  goesStale,
+  isDownloadPlatform,
+  pickInstaller,
+  repoSlug,
+  tagFromLocation,
+  windowsInstallerFor,
+} from "./download";
 
 const REPO = "https://github.com/SzymonnSowula/owntools";
 
@@ -33,6 +41,16 @@ describe("the download link", () => {
       "https://cdn.example.com/owntools-setup.exe",
     );
     expect(downloadFallback(undefined, `${REPO}/`)).toBe(`${REPO}/releases/latest`);
+  });
+
+  it("finds the installer from the tag alone when the API will not answer", () => {
+    expect(tagFromLocation(`${REPO}/releases/tag/v0.3.3`)).toBe("v0.3.3");
+    expect(tagFromLocation(`${REPO}/releases/tag/v0.3.3/`)).toBe("v0.3.3");
+    expect(tagFromLocation(`${REPO}/releases`)).toBeNull(); // no release published yet
+    expect(tagFromLocation(null)).toBeNull();
+    expect(windowsInstallerFor(`${REPO}/`, "v0.3.3")).toBe(
+      `${REPO}/releases/download/v0.3.3/owntools_0.3.3_x64-setup.exe`,
+    );
   });
 
   it("reads the repository out of its address and the platform out of the path", () => {

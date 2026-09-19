@@ -3,6 +3,8 @@ import { downloadFallback, isDownloadPlatform, latestInstaller } from "@/lib/dow
 import { downloadUrl, downloadUrlMac, repoUrl } from "@/lib/site";
 
 export const runtime = "nodejs";
+// Asked afresh on every miss; the one cache is the CDN's five minutes below.
+export const dynamic = "force-dynamic";
 
 type Params = { params: Promise<{ platform: string }> };
 

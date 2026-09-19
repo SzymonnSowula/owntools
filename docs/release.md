@@ -178,12 +178,15 @@ What happens next:
    `NEXT_PUBLIC_DOWNLOAD_URL_MACOS` only switch a platform's download *on*
    (any installer URL will do); the buttons link to `/download/windows` and
    `/download/mac`, which redirect to the installer of the latest published
-   release (`web/lib/download.ts`, GitHub's API, cached five minutes). The
+   release (`web/lib/download.ts`: GitHub's API, and when that refuses a
+   shared address, the tag that `/releases/latest` redirects to; the answer is
+   cached at the CDN for five minutes, so the button follows a release within
+   that). The
    asset name carries the version, so a pasted
    `…/releases/latest/download/owntools_0.3.0_x64-setup.exe` answered 404 from
    0.3.1 on - that is why the page no longer links to the variable's value.
-   If GitHub's API does not answer, the route falls back to the variable when
-   it cannot have gone stale, else to the latest release's page.
+   If neither road answers, the route falls back to the variable when it
+   cannot have gone stale, else to the latest release's page.
 
 Manual run: *Actions → Release → Run workflow* builds the current branch into a
 draft named after the version in `tauri.conf.json` — handy for a release

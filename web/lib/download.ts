@@ -9,6 +9,11 @@
  * which asks GitHub which installer the latest published release holds and
  * redirects there; the environment variable only says *that* a download
  * exists (and stays the fallback when it is a link that cannot go stale).
+ *
+ * Nothing here is cached: the route's answer is, once, at the CDN (five
+ * minutes). The first version also cached this fetch, and two
+ * stale-while-revalidate layers on top of each other kept the 0.3.2 installer
+ * on the button for ten minutes after 0.3.3 was out.
  */
 
 export type DownloadPlatform = "windows" | "mac";
@@ -46,23 +51,63 @@ export function pickInstaller(assets: readonly ReleaseAsset[], platform: Downloa
   return assets.find((a) => wanted.test(a.name)) ?? null;
 }
 
+/** `v0.3.3` out of the address GitHub redirects `…/releases/latest` to. */
+export function tagFromLocation(location: string | null | undefined): string | null {
+  const m = location ? /\/releases\/tag\/([^/?#]+)\/?$/.exec(location) : null;
+  return m ? decodeURIComponent(m[1]) : null;
+}
+
+/** The Windows installer of a tag, by the name Tauri's bundler gives it. */
+export function windowsInstallerFor(repoUrl: string, tag: string): string {
+  const version = tag.replace(/^v/i, "");
+  return `${repoUrl.replace(/\/$/, "")}/releases/download/${tag}/owntools_${version}_x64-setup.exe`;
+}
+
+/** What the API lists for the latest published release. */
+async function viaApi(slug: string, platform: DownloadPlatform): Promise<string | null> {
+  const res = await fetch(`https://api.github.com/repos/${slug}/releases/latest`, {
+    headers: { accept: "application/vnd.github+json", "user-agent": "owntools-site" },
+    cache: "no-store",
+  });
+  if (!res.ok) return null;
+  const release = (await res.json()) as { assets?: ReleaseAsset[] };
+  return pickInstaller(release.assets ?? [], platform)?.browser_download_url ?? null;
+}
+
 /**
- * The latest *published* release's installer, straight from GitHub. Cached for
- * five minutes by Next's fetch cache, so a busy day is a dozen API calls an
- * hour, far under the 60 an anonymous client gets. Null on any trouble - the
- * caller has somewhere else to send people.
+ * The same answer without the API: github.com redirects `/releases/latest` to
+ * the tag, and the installer's name follows from the tag. Checked with a HEAD
+ * before anyone is sent there. Windows only - every release has that installer,
+ * a disk image only when the macOS job ran.
+ */
+async function viaTag(repoUrl: string): Promise<string | null> {
+  const base = repoUrl.replace(/\/$/, "");
+  const latest = await fetch(`${base}/releases/latest`, { redirect: "manual", cache: "no-store" });
+  const tag = tagFromLocation(latest.headers.get("location"));
+  if (!tag) return null;
+  const url = windowsInstallerFor(base, tag);
+  const head = await fetch(url, { method: "HEAD", redirect: "manual", cache: "no-store" });
+  return head.status === 302 || head.ok ? url : null;
+}
+
+/**
+ * The latest *published* release's installer. The API first; an anonymous
+ * client gets 60 calls an hour *per address*, and a host's addresses are
+ * shared, so when it refuses, the tag redirect answers instead. Null on any
+ * trouble - the caller has somewhere else to send people.
  */
 export async function latestInstaller(repoUrl: string, platform: DownloadPlatform): Promise<string | null> {
   const slug = repoSlug(repoUrl);
   if (!slug) return null;
   try {
-    const res = await fetch(`https://api.github.com/repos/${slug}/releases/latest`, {
-      headers: { accept: "application/vnd.github+json", "user-agent": "owntools-site" },
-      next: { revalidate: 300 },
-    });
-    if (!res.ok) return null;
-    const release = (await res.json()) as { assets?: ReleaseAsset[] };
-    return pickInstaller(release.assets ?? [], platform)?.browser_download_url ?? null;
+    const listed = await viaApi(slug, platform);
+    if (listed) return listed;
+  } catch {
+    /* the second road below */
+  }
+  if (platform !== "windows") return null;
+  try {
+    return await viaTag(repoUrl);
   } catch {
     return null;
   }
