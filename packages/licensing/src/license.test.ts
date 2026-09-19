@@ -6,14 +6,21 @@ import {
   mintLicenseKey,
   orderTag,
 } from "../../../web/lib/licenseKey";
+import { tagOfLicenseKey } from "../../../web/lib/licenseKey";
 import {
   LICENSE_ALPHABET,
   LICENSE_PUBLIC_KEY,
   decodeLicenseKey,
+  isSignedLicenseKey,
   isValidLicenseKey,
+  licenseKeyProblem,
   maskLicenseKey,
   normalizeLicenseKey,
+  revocationOf,
+  type LicenseKeyProblem,
 } from "./license";
+import { licenseProblemMessage, switchedOffMessage } from "./messages";
+import { REVOKED_FILE_ENTRIES, REVOKED_KEYS, type RevokedKey } from "./revoked";
 
 /*
  * The key format is the contract with the store: the site signs (web/lib/
@@ -168,5 +175,91 @@ describe("normalizeLicenseKey / maskLicenseKey", () => {
 describe("the app's public key", () => {
   it("is a 32-byte hex string", () => {
     expect(LICENSE_PUBLIC_KEY).toMatch(/^[0-9a-f]{64}$/);
+  });
+});
+
+describe("switched-off keys", () => {
+  const refunded = KEYS[10];
+  const shared = KEYS[11];
+  const list: RevokedKey[] = [
+    { tag: tagOfLicenseKey(refunded)!, reason: "refunded", since: "2026-09-19" },
+    { tag: tagOfLicenseKey(shared)!, reason: "shared", since: "2026-09-19" },
+  ];
+
+  it("a key on the list no longer opens the app, though its signature still holds", () => {
+    expect(isSignedLicenseKey(refunded, PUBLIC)).toBe(true);
+    expect(isValidLicenseKey(refunded, PUBLIC, [])).toBe(true);
+    expect(isValidLicenseKey(refunded, PUBLIC, list)).toBe(false);
+    expect(isValidLicenseKey(shared, PUBLIC, list)).toBe(false);
+    // however it is typed
+    expect(isValidLicenseKey(refunded.toLowerCase().replace(/-/g, " "), PUBLIC, list)).toBe(false);
+  });
+
+  it("every other key is untouched by the list", () => {
+    const others = KEYS.filter((k) => k !== refunded && k !== shared);
+    expect(others.filter((k) => !isValidLicenseKey(k, PUBLIC, list))).toEqual([]);
+  });
+
+  it("says why", () => {
+    expect(revocationOf(refunded, list)?.reason).toBe("refunded");
+    expect(revocationOf(shared, list)?.reason).toBe("shared");
+    expect(revocationOf(KEYS[12], list)).toBeNull();
+    expect(revocationOf("not a key", list)).toBeNull();
+  });
+
+  it("the web side reads the same tag out of a key as the app does", () => {
+    for (const key of KEYS.slice(0, 20)) {
+      const decoded = decodeLicenseKey(key)!;
+      expect(tagOfLicenseKey(key)).toBe(Array.from(decoded.tag, (b) => b.toString(16).padStart(2, "0")).join(""));
+    }
+  });
+
+  it("the list baked into this build is well-formed: nothing in revoked.json is skipped", () => {
+    expect(REVOKED_KEYS).toHaveLength(REVOKED_FILE_ENTRIES);
+    expect(new Set(REVOKED_KEYS.map((k) => k.tag)).size).toBe(REVOKED_KEYS.length);
+    for (const entry of REVOKED_KEYS) expect(entry.since).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+});
+
+describe("licenseKeyProblem", () => {
+  const key = KEYS[7];
+  const body = bodyOf(key);
+  const list: RevokedKey[] = [{ tag: tagOfLicenseKey(KEYS[8])!, reason: "shared", since: "2026-09-19" }];
+  const problem = (raw: string) => licenseKeyProblem(raw, PUBLIC, list);
+
+  it("finds nothing wrong with a good key", () => {
+    expect(problem(key)).toBeNull();
+    expect(problem(`  ${key.toLowerCase()}\n`)).toBeNull();
+  });
+
+  it("tells a partial copy from a wrong paste from a changed character", () => {
+    expect(problem("")).toBe("empty");
+    expect(problem(" - ")).toBe("empty");
+    expect(problem("hello@example.com")).toBe("not-a-key");
+    expect(problem("SCRN-AB3F4-QWERT-ZXC89")).toBe("not-a-key");
+    expect(problem(key.slice(0, 60))).toBe("cut-off");
+    expect(problem("OWNT-")).toBe("cut-off");
+    expect(problem(`${key} ${key}`)).toBe("too-long");
+    expect(problem(withBody(`${body.slice(0, -1)}0`))).toBe("mistyped"); // a look-alike keys never contain
+    const changed = LICENSE_ALPHABET[(LICENSE_ALPHABET.indexOf(body[40]) + 1) % LICENSE_ALPHABET.length];
+    expect(problem(withBody(body.slice(0, 40) + changed + body.slice(41)))).toBe("mistyped");
+  });
+
+  it("names a switched-off key as what it is, not as a typo", () => {
+    expect(problem(KEYS[8])).toBe("shared");
+    expect(licenseKeyProblem(KEYS[8], PUBLIC, [{ ...list[0], reason: "refunded" }])).toBe("refunded");
+  });
+
+  it("has a sentence for every problem, and only the shared one sends people to the inbox", () => {
+    const all: LicenseKeyProblem[] = ["empty", "not-a-key", "cut-off", "too-long", "mistyped", "refunded", "shared"];
+    for (const p of all) {
+      const message = licenseProblemMessage(p, "hello@example.com");
+      expect(message.length).toBeGreaterThan(10);
+      expect(message.includes("hello@example.com")).toBe(p === "shared");
+    }
+    const notice = switchedOffMessage({ key, reason: "refunded", since: "2026-09-19" }, "hello@example.com");
+    expect(notice).toContain(maskLicenseKey(key));
+    expect(notice).not.toContain(key);
+    expect(notice).not.toContain("hello@example.com");
   });
 });

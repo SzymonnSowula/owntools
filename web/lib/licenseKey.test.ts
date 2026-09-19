@@ -4,12 +4,16 @@ import {
   LICENSE_ALPHABET,
   LICENSE_BODY_LENGTH,
   LicenseSecretMissing,
+  canonicalLicenseKey,
+  decodeBase32,
   encodeBase32,
   formatLicenseKey,
   licenseKeyForOrder,
   licensePublicKey,
   mintLicenseKey,
   orderTag,
+  orderTagHex,
+  tagOfLicenseKey,
 } from "./licenseKey";
 
 /*
@@ -78,5 +82,41 @@ describe("encodeBase32 / formatLicenseKey", () => {
 
   it("groups the body by eight behind the prefix", () => {
     expect(formatLicenseKey("ABCDEFGHJKLMN")).toBe("OWNT-ABCDEFGH-JKLMN");
+  });
+
+  it("decodes what it encodes, and only the canonical spelling", () => {
+    const bytes = new Uint8Array([0, 1, 2, 3, 4, 250, 251, 252]);
+    expect(Array.from(decodeBase32(encodeBase32(bytes), bytes.length)!)).toEqual(Array.from(bytes));
+    expect(decodeBase32("AA", 1)).not.toBeNull();
+    expect(decodeBase32("AB", 1)).toBeNull(); // a padding bit set
+    expect(decodeBase32("A0", 1)).toBeNull(); // not in the alphabet
+    expect(decodeBase32("AA", 2)).toBeNull(); // too short
+  });
+});
+
+describe("tagOfLicenseKey", () => {
+  it("reads the order's tag back out of its key - which is how a leaked key is traced to its order", () => {
+    for (let i = 0; i < 50; i++) {
+      const id = randomUUID();
+      const key = licenseKeyForOrder(id, "secret");
+      expect(tagOfLicenseKey(key)).toBe(orderTagHex(id));
+      expect(tagOfLicenseKey(key)).toMatch(/^[0-9a-f]{16}$/);
+    }
+  });
+
+  it("does not depend on the secret: the tag is the order's, the signature is the shop's", () => {
+    const id = randomUUID();
+    expect(tagOfLicenseKey(licenseKeyForOrder(id, "a"))).toBe(tagOfLicenseKey(licenseKeyForOrder(id, "b")));
+  });
+
+  it("forgives what a paste does to a key, and answers null for anything else", () => {
+    const key = licenseKeyForOrder(randomUUID(), "secret");
+    const tag = tagOfLicenseKey(key);
+    expect(tagOfLicenseKey(` ${key.toLowerCase().replace(/-/g, "\n")} `)).toBe(tag);
+    expect(canonicalLicenseKey(key.toLowerCase().replace(/-/g, " "))).toBe(key);
+    for (const bad of ["", "OWNT-", key.slice(0, -1), `${key}A`, key.replace("OWNT", "OWNS"), "hello@example.com"]) {
+      expect(tagOfLicenseKey(bad), bad).toBeNull();
+      expect(canonicalLicenseKey(bad), bad).toBeNull();
+    }
   });
 });

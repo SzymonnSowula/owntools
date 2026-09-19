@@ -1,7 +1,8 @@
 import * as ed from "@noble/ed25519";
 import { sha512 } from "@noble/hashes/sha2.js";
-import { concatBytes, hexToBytes, utf8ToBytes } from "@noble/hashes/utils.js";
+import { bytesToHex, concatBytes, hexToBytes, utf8ToBytes } from "@noble/hashes/utils.js";
 import { isTauri } from "@core/env";
+import { REVOKED_KEYS, type RevokedKey, type RevokedReason } from "./revoked";
 
 /**
  * Offline license keys. The key is a few bytes the user paid for, so it is not
@@ -17,6 +18,12 @@ import { isTauri } from "@core/env";
  * a key is checked, not how to make one. There is no registry of issued keys
  * and nothing counts installs; "one computer at a time" is the licence's
  * promise (terms, FAQ, the receipt), kept by people, not by code.
+ *
+ * What code does keep: a key can be switched off. `revoked.ts` lists the tags
+ * of refunded and passed-around keys, the list ships inside the build, and a
+ * key on it stops opening the app with that update - still without a request
+ * to anyone. A switched-off key is never dropped silently: it stays stored,
+ * and `getSwitchedOffLicense()` lets Settings say why Pro is gone.
  */
 
 ed.hashes.sha512 = sha512;
@@ -108,10 +115,11 @@ export function decodeLicenseKey(raw: string): DecodedLicenseKey | null {
 }
 
 /**
- * Is this a key the site signed? Checked entirely on this machine. The public
- * key can be swapped for tests; the app always uses `LICENSE_PUBLIC_KEY`.
+ * Is this a key the site signed? The signature only - a switched-off key is
+ * still a signed one. Checked entirely on this machine. The public key can be
+ * swapped for tests; the app always uses `LICENSE_PUBLIC_KEY`.
  */
-export function isValidLicenseKey(raw: string, publicKeyHex: string = LICENSE_PUBLIC_KEY): boolean {
+export function isSignedLicenseKey(raw: string, publicKeyHex: string = LICENSE_PUBLIC_KEY): boolean {
   const decoded = decodeLicenseKey(raw);
   if (!decoded || decoded.version !== KEY_VERSION) return false;
   try {
@@ -124,7 +132,62 @@ export function isValidLicenseKey(raw: string, publicKeyHex: string = LICENSE_PU
   }
 }
 
-/** The canonical key when `raw` is one the site signed, else null. */
+/**
+ * The entry that switched this key off, or null. It reads the tag only, so it
+ * answers for any text shaped like a key - ask `isSignedLicenseKey` first when
+ * it matters that the key is real.
+ */
+export function revocationOf(raw: string, list: readonly RevokedKey[] = REVOKED_KEYS): RevokedKey | null {
+  if (list.length === 0) return null;
+  const decoded = decodeLicenseKey(raw);
+  if (!decoded) return null;
+  const tag = bytesToHex(decoded.tag);
+  return list.find((entry) => entry.tag === tag) ?? null;
+}
+
+/**
+ * Does this key open the app? Signed by the site *and* not switched off
+ * (refunded, or passed around - see revoked.ts). Everything that decides
+ * whether the app is Pro goes through here.
+ */
+export function isValidLicenseKey(
+  raw: string,
+  publicKeyHex: string = LICENSE_PUBLIC_KEY,
+  revoked: readonly RevokedKey[] = REVOKED_KEYS,
+): boolean {
+  return isSignedLicenseKey(raw, publicKeyHex) && revocationOf(raw, revoked) === null;
+}
+
+/**
+ * Why a pasted key was not accepted, so Settings can say something a person can
+ * act on instead of "invalid" - every vague message here is an e-mail to
+ * support later:
+ * - `empty`: nothing was pasted;
+ * - `not-a-key`: it does not start with OWNT - something else was on the clipboard;
+ * - `cut-off` / `too-long`: the right start, the wrong length - a partial copy,
+ *   or the key pasted twice;
+ * - `mistyped`: the right shape, but it is not a key the site signed (a changed
+ *   character, or a look-alike 0 / 1 / I / O that keys never contain);
+ * - `refunded` / `shared`: a real key that was switched off.
+ */
+export type LicenseKeyProblem = "empty" | "not-a-key" | "cut-off" | "too-long" | "mistyped" | RevokedReason;
+
+export function licenseKeyProblem(
+  raw: string,
+  publicKeyHex: string = LICENSE_PUBLIC_KEY,
+  revoked: readonly RevokedKey[] = REVOKED_KEYS,
+): LicenseKeyProblem | null {
+  const symbols = raw.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  if (!symbols) return "empty";
+  if (!symbols.startsWith(LICENSE_KEY_PREFIX)) return "not-a-key";
+  const length = symbols.length - LICENSE_KEY_PREFIX.length;
+  if (length < BODY_LENGTH) return "cut-off";
+  if (length > BODY_LENGTH) return "too-long";
+  if (!isSignedLicenseKey(raw, publicKeyHex)) return "mistyped";
+  return revocationOf(raw, revoked)?.reason ?? null;
+}
+
+/** The canonical key when `raw` is one that opens the app, else null. */
 function validKey(raw: string): string | null {
   const key = normalizeLicenseKey(raw);
   return key && isValidLicenseKey(key) ? key : null;
@@ -139,10 +202,16 @@ let cached: string | null | undefined;
 let initPromise: Promise<void> | null = null;
 const listeners = new Set<() => void>();
 
-function setCached(next: string | null): void {
-  const prev = cached ?? null;
-  cached = next;
-  if (prev === next) return;
+/** A key stored on this computer that is real but switched off, and why. */
+export interface SwitchedOffLicense {
+  key: string;
+  reason: RevokedReason;
+  since: string;
+}
+
+let switchedOff: SwitchedOffLicense | null = null;
+
+function notify(): void {
   for (const cb of Array.from(listeners)) {
     try {
       cb();
@@ -150,6 +219,34 @@ function setCached(next: string | null): void {
       /* a broken listener must not take the others down */
     }
   }
+}
+
+function setCached(next: string | null): void {
+  const prev = cached ?? null;
+  cached = next;
+  // a working key replaces whatever was switched off before it
+  const cleared = next !== null && switchedOff !== null;
+  if (cleared) switchedOff = null;
+  if (prev === next && !cleared) return;
+  notify();
+}
+
+/**
+ * Remembers a stored key that is signed but on the list, so the app can say
+ * why it is Free again after an update instead of just locking the tools.
+ * Anything else stored under the key's name (garbage, a key for another
+ * public key) is not worth a sentence.
+ */
+function noteStored(raw: string): void {
+  const key = normalizeLicenseKey(raw);
+  // the list first: it is a lookup, and with nothing on it no signature is checked twice
+  const listed = key ? revocationOf(key) : null;
+  const entry = key && listed && isSignedLicenseKey(key) ? listed : null;
+  const next = key && entry ? { key, reason: entry.reason, since: entry.since } : null;
+  if ((switchedOff?.key ?? null) === (next?.key ?? null)) return;
+  switchedOff = next;
+  // the first read happens inside getLicense(), mid-render: tell subscribers after it
+  if (cached !== undefined) notify();
 }
 
 /**
@@ -170,7 +267,9 @@ function ensureCache(): void {
 function readLocal(): string | null {
   try {
     const key = localStorage.getItem(STORAGE_KEY);
-    return key ? validKey(key) : null;
+    if (!key) return null;
+    noteStored(key);
+    return validKey(key);
   } catch {
     return null;
   }
@@ -210,7 +309,9 @@ async function tauriStore(): Promise<LicenseStore | null> {
 async function readStore(store: LicenseStore): Promise<string | null> {
   try {
     const raw = await store.get<unknown>(STORE_KEY);
-    return typeof raw === "string" ? validKey(raw) : null;
+    if (typeof raw !== "string" || !raw) return null;
+    noteStored(raw);
+    return validKey(raw);
   } catch {
     return null;
   }
@@ -294,12 +395,27 @@ export async function activateLicense(key: string): Promise<boolean> {
   return true;
 }
 
-/** Remove the key from every backend and drop to Free. */
+/** Remove the key from every backend and drop to Free. Also how a switched-off key is cleared away. */
 export async function deactivateLicense(): Promise<void> {
   const store = await tauriStore();
   if (store) await writeStore(store, null);
   writeLocal(null);
+  const hadSwitchedOff = switchedOff !== null;
+  switchedOff = null;
+  const wasPro = (cached ?? null) !== null;
   setCached(null);
+  // setCached only speaks up when the key changed; a cleared notice is news too
+  if (hadSwitchedOff && !wasPro) notify();
+}
+
+/**
+ * The key stored on this computer that was switched off, if that is why the
+ * app is Free: refunded, or passed around (revoked.ts). Null while a working
+ * key is active or nothing is stored.
+ */
+export function getSwitchedOffLicense(): SwitchedOffLicense | null {
+  ensureCache();
+  return switchedOff;
 }
 
 /**
@@ -311,6 +427,8 @@ export async function deactivateLicense(): Promise<void> {
 if (typeof window !== "undefined") {
   window.addEventListener("storage", (event) => {
     if (event.key !== STORAGE_KEY) return;
+    if (event.newValue) noteStored(event.newValue);
+    else switchedOff = null;
     setCached(event.newValue ? validKey(event.newValue) : null);
   });
 }

@@ -1,22 +1,40 @@
 import { useEffect, useState } from "react";
-import { CONTACT_EMAIL, PRICING_URL } from "@core/branding";
-import { activateLicense, deactivateLicense, getLicense, maskLicenseKey, onLicenseChange } from "@licensing/license";
+import { CONTACT_EMAIL, KEY_RECOVERY_URL, PRICING_URL } from "@core/branding";
+import {
+  activateLicense,
+  deactivateLicense,
+  getLicense,
+  getSwitchedOffLicense,
+  licenseKeyProblem,
+  maskLicenseKey,
+  onLicenseChange,
+  type SwitchedOffLicense,
+} from "@licensing/license";
+import { licenseProblemMessage, switchedOffMessage } from "@licensing/messages";
 import { openExternal } from "../../../lib/links";
 import { Button, Card, Note, Row } from "../ui";
 
-function useLicenseKey(): string | null {
-  const [key, setKey] = useState<string | null>(() => getLicense());
+interface LicenseState {
+  key: string | null;
+  /** A key that is stored here but was switched off by an update (refunded, passed around). */
+  switchedOff: SwitchedOffLicense | null;
+}
+
+const read = (): LicenseState => ({ key: getLicense(), switchedOff: getSwitchedOffLicense() });
+
+function useLicenseState(): LicenseState {
+  const [state, setState] = useState<LicenseState>(read);
   useEffect(() => {
     // The store load may have finished between the first render and this
     // subscription - re-read once so nothing is missed.
-    setKey(getLicense());
-    return onLicenseChange(() => setKey(getLicense()));
+    setState(read());
+    return onLicenseChange(() => setState(read()));
   }, []);
-  return key;
+  return state;
 }
 
 export function LicensePage() {
-  const key = useLicenseKey();
+  const { key, switchedOff } = useLicenseState();
   const [input, setInput] = useState("");
   const [show, setShow] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -30,7 +48,13 @@ export function LicensePage() {
         setInput("");
         setMsg("License active. Thanks for the support!");
       } else {
-        setMsg("That key doesn't check out. A key starts with OWNT- and is about 130 characters long - paste the whole thing, dashes and all.");
+        // say what is wrong with *this* paste - "invalid key" is an e-mail to support
+        const problem = licenseKeyProblem(input);
+        setMsg(
+          problem
+            ? licenseProblemMessage(problem, CONTACT_EMAIL)
+            : "The key is fine, but it could not be saved on this computer. Try once more.",
+        );
       }
     } finally {
       setBusy(false);
@@ -42,7 +66,17 @@ export function LicensePage() {
     try {
       await deactivateLicense();
       setShow(false);
-      setMsg("Key removed from this computer. You can activate it on another one now.");
+      setMsg("Key removed from this computer. Paste it on the other one and you are set.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const forget = async () => {
+    setBusy(true);
+    try {
+      await deactivateLicense();
+      setMsg(null);
     } finally {
       setBusy(false);
     }
@@ -65,7 +99,7 @@ export function LicensePage() {
           </Row>
           <Row
             label="Remove from this computer"
-            hint={`Moving to a new computer? Deactivate here first, then activate there. If the old computer is gone, write to ${CONTACT_EMAIL} and the key is moved for you.`}
+            hint="Moving to a new computer? Remove the key here and paste it there. If the old computer is gone, just paste the key on the new one - there is nothing to transfer."
           >
             <Button disabled={busy} onClick={() => void deactivate()}>
               Deactivate
@@ -74,7 +108,14 @@ export function LicensePage() {
         </>
       ) : (
         <>
-          <Row label="Activate a key" hint="Paste the key from the page you saw after paying." stack>
+          {switchedOff ? (
+            <Row label="This key was switched off" hint={switchedOffMessage(switchedOff, CONTACT_EMAIL)}>
+              <Button disabled={busy} onClick={() => void forget()}>
+                Remove it
+              </Button>
+            </Row>
+          ) : null}
+          <Row label="Activate a key" hint="Paste the key from the e-mail you got after paying, or from the page you saw then." stack>
             <div className="st-inline">
               <input
                 className="st-input mono"
@@ -92,6 +133,9 @@ export function LicensePage() {
                 {busy ? "Checking…" : "Activate"}
               </Button>
             </div>
+          </Row>
+          <Row label="Lost your key?" hint="The site sends it again to the e-mail address you paid with - a minute, and nobody to write to.">
+            <Button onClick={() => void openExternal(KEY_RECOVERY_URL)}>Send it again</Button>
           </Row>
           <Row label="No key yet" hint="dictate and the quick file tools are free. A key unlocks the other eight tools: focus, screeni, capture, board, meet, social, disk and launch.">
             <Button onClick={() => void openExternal(PRICING_URL)}>Get Pro</Button>

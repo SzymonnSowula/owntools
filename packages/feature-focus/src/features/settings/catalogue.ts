@@ -102,7 +102,7 @@ export const SETTINGS_ITEMS: readonly SettingsItem[] = [
   { id: "quit", label: "Quit owntools", where: "general", keywords: ["exit", "close app", "stop"] },
   { id: "shortcuts", label: "Keyboard shortcuts", where: "general", keywords: ["hotkey", "keys", "ctrl", "dictation hotkey", "capture shortcut"] },
   { id: "theme", label: "Theme", where: "appearance", keywords: ["dark", "night", "light", "day", "colours", "colors", "nature", "ocean", "sunset"] },
-  { id: "license", label: "License key", where: "license", keywords: ["pro", "activate", "deactivate", "badge", "watermark", "buy", "purchase"] },
+  { id: "license", label: "License key", where: "license", keywords: ["pro", "activate", "deactivate", "badge", "watermark", "buy", "purchase", "lost key", "recover", "send again", "refund", "new computer"] },
   { id: "timer", label: "Focus and break length", where: "focus", keywords: ["pomodoro", "timer", "minutes", "break"] },
   { id: "session", label: "What a session does", where: "focus", keywords: ["notifications", "notify", "full screen", "fullscreen"] },
   { id: "heatmap", label: "Heatmap goal", where: "focus", keywords: ["stats", "active time", "daily goal", "tasks"] },

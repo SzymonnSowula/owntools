@@ -7,12 +7,18 @@
  *   packages/feature-launch/package.json · apps/desktop/src-tauri/tauri.conf.json ·
  *   apps/desktop/src-tauri/Cargo.toml ([package] version only)
  *
+ * It also brings the list of switched-off keys up to date
+ * (`pnpm license:revoke --sync`: every refunded order on Polar → the list that
+ * ships inside the build), because a release is when that list has to be
+ * current and nobody would remember to run it.
+ *
  * All files are checked first and nothing is written unless every one of them
  * can be updated. Cargo.lock is not touched — `cargo check` refreshes it (see the
  * reminder printed at the end). The version in tauri.conf.json is what the
  * release workflow turns into the tag name (v__VERSION__), so it must match the
  * git tag you push afterwards.
  */
+import { spawnSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -107,10 +113,29 @@ for (const change of changes) {
   console.log(`${change.relPath}: ${change.current} -> ${next}`);
 }
 
+/**
+ * Refunded keys are switched off by a list that ships inside the build
+ * (packages/licensing/src/revoked.json), so a release is the moment it has to
+ * be current - and the one moment nobody would remember to run a script. It
+ * asks Polar with the token in web/.env.local; without one (CI, a fresh clone,
+ * no network) the list stays as committed, which is a warning, not an error.
+ */
+function syncRevokedKeys() {
+  const result = spawnSync(
+    process.execPath,
+    ["--disable-warning=MODULE_TYPELESS_PACKAGE_JSON", resolve(root, "scripts/license-revoke.ts"), "--sync", "--quiet"],
+    { cwd: root, encoding: "utf8" },
+  );
+  const out = `${result.stdout ?? ""}${result.stderr ?? ""}`.trim();
+  if (result.status === 0) console.log(out);
+  else console.warn(`revoked keys: NOT synced with Polar - the list stays as committed.\n  ${out.split("\n").filter(Boolean).slice(0, 3).join("\n  ")}\n  Run "pnpm license:revoke --sync" yourself before tagging.`);
+}
+syncRevokedKeys();
+
 console.log(`
 Next steps:
   1. (cd apps/desktop/src-tauri && cargo check)   # refreshes Cargo.lock with ${next}
   2. add a ${next} entry to ${CHANGELOG}
-  3. git add -A && git commit -m "v${next}"
+  3. git add -A && git commit -m "v${next}"      # includes packages/licensing/src/revoked.json if a refund changed it
   4. git tag v${next} && git push && git push --tags   # the tag triggers .github/workflows/release.yml
 `);

@@ -40,9 +40,14 @@ social, disk and launch.
 - Building from source gives you the free app: dictate, the quick file tools,
   and the other tools locked - the private key that signs Pro keys is not in
   this repository.
-- One key covers **one computer at a time**. Moving to a new computer is a
-  deactivate on the old one (Settings → License) and a paste on the new; if
-  the old computer is gone, write to hello@owntools.app and the key is moved.
+- One key covers **one computer at a time**. On a new computer you paste the
+  same key (and remove it on the old one, Settings → License); there is
+  nothing to transfer. A lost key is e-mailed again from
+  [owntools.app/key](https://owntools.app/key).
+- A key can be switched off - a refunded order's key, or one that was passed
+  around - through a list that ships inside the build
+  (`packages/licensing/src/revoked.json`), so it takes effect with an update
+  and still asks no server.
 - 14-day refund, no questions asked. Terms: [owntools.app/terms](https://owntools.app/terms).
 
 ## Build from source

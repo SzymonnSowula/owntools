@@ -102,6 +102,68 @@ export function formatLicenseKey(body: string): string {
   return `${LICENSE_KEY_PREFIX}-${groups.join("-")}`;
 }
 
+/** A tag the way the revocation list and the scripts spell it: 16 hex digits. */
+export function tagHex(tag: Uint8Array): string {
+  return bytesToHex(tag);
+}
+
+/** The tag a Polar order's key carries, as hex. */
+export function orderTagHex(orderId: string): string {
+  return tagHex(orderTag(orderId));
+}
+
+/**
+ * The tag inside a pasted key, as hex - which order it was made for
+ * (`orderTagHex` of every order is compared with it), and what a revocation
+ * is recorded under. Null when the text is not shaped like a key. It reads the
+ * tag only and says nothing about the signature: whether the key opens the app
+ * is the app's validator's business.
+ */
+export function tagOfLicenseKey(raw: string): string | null {
+  const key = canonicalLicenseKey(raw);
+  if (!key) return null;
+  const payload = decodeBase32(key.slice(LICENSE_KEY_PREFIX.length + 1).replace(/-/g, ""), PAYLOAD_BYTES);
+  if (!payload || payload[0] !== LICENSE_KEY_VERSION) return null;
+  return tagHex(payload.slice(1, 1 + LICENSE_TAG_BYTES));
+}
+
+/**
+ * Whatever was pasted, spelled the way keys are printed - upper case, groups
+ * of eight - or null when it is not the shape of a key. The same forgiving
+ * rule as the app's `normalizeLicenseKey`: case, spaces, dashes and line
+ * breaks do not matter.
+ */
+export function canonicalLicenseKey(raw: string): string | null {
+  const symbols = raw.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  if (!symbols.startsWith(LICENSE_KEY_PREFIX)) return null;
+  const body = symbols.slice(LICENSE_KEY_PREFIX.length);
+  if (body.length !== LICENSE_BODY_LENGTH) return null;
+  for (const ch of body) if (!LICENSE_ALPHABET.includes(ch)) return null;
+  return formatLicenseKey(body);
+}
+
+/** Symbols → bytes, the inverse of `encodeBase32`; null unless the padding bits are zero. */
+export function decodeBase32(body: string, bytes: number): Uint8Array | null {
+  const out = new Uint8Array(bytes);
+  let acc = 0;
+  let bits = 0;
+  let n = 0;
+  for (const ch of body) {
+    const v = LICENSE_ALPHABET.indexOf(ch);
+    if (v < 0) return null;
+    acc = ((acc << 5) | v) & 0xffff;
+    bits += 5;
+    if (bits >= 8) {
+      bits -= 8;
+      if (n >= bytes) return null;
+      out[n++] = (acc >> bits) & 0xff;
+    }
+  }
+  if (n !== bytes) return null;
+  if ((acc & ((1 << bits) - 1)) !== 0) return null;
+  return out;
+}
+
 /** Bytes → symbols, five bits each, most significant first, no padding. */
 export function encodeBase32(bytes: Uint8Array): string {
   let out = "";

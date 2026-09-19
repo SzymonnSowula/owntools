@@ -147,6 +147,7 @@ POSIX paths in `TAURI_SIGNING_PRIVATE_KEY_PATH`.
 
 ```powershell
 node scripts/bump-version.mjs 0.2.0          # all package.json files, tauri.conf.json, Cargo.toml
+                                             # + syncs the switched-off keys with Polar (below)
 cd apps/desktop/src-tauri; cargo check; cd ../../..   # refreshes Cargo.lock
 # add the 0.2.0 entry to web/lib/changelog.ts
 git add -A
@@ -155,6 +156,19 @@ git push
 git tag v0.2.0
 git push --tags                               # (or: git push origin v0.2.0)
 ```
+
+**Switched-off keys ride along.** A Pro key is an offline signature, so the only
+way to switch one off is a list inside the build:
+`packages/licensing/src/revoked.json` (what it is and why:
+`packages/licensing/src/revoked.ts`). `bump-version.mjs` runs
+`pnpm license:revoke --sync`, which adds every refunded Pro order on Polar - so a
+refund needs no thought, it simply stops opening the app from the next release
+on. It needs `POLAR_ACCESS_TOKEN` in `web/.env.local`; without it (CI, a fresh
+clone) the script warns and the list stays as committed, which is why the file
+is committed and CI never regenerates it. A key that was passed around goes on
+by hand: `pnpm polar:key OWNT-…` says whose order it is,
+`pnpm license:revoke OWNT-…` lists it, and the commit carries it. Builds that
+are already installed never learn - that is the price of asking no server.
 
 What happens next:
 

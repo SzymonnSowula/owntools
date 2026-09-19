@@ -30,6 +30,8 @@ export const SUITE_TAGLINE = "your voice, your screen, your files — all on you
  */
 export const SITE_URL = "https://owntools.app";
 export const PRICING_URL = `${SITE_URL}/#pricing`;
+/** "Lost your key?": the site e-mails it again to the address that paid - nobody has to be written to. */
+export const KEY_RECOVERY_URL = `${SITE_URL}/key`;
 export const SUPPORT_URL = `${SITE_URL}/#faq`;
 /** Where a person writes about a key, a refund or a bug - the site's contact address. */
 export const CONTACT_EMAIL = "hello@owntools.app";

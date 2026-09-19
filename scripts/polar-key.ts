@@ -3,6 +3,9 @@
  *
  *   pnpm polar:key someone@example.com     every Pro order paid with that e-mail, with its key
  *   pnpm polar:key <order id>              one order (the id from the Polar dashboard)
+ *   pnpm polar:key OWNT-…                  the other way round: whose key is this? (a key that
+ *                                          turned up on a forum → the order and the buyer;
+ *                                          `pnpm license:revoke OWNT-…` then switches it off)
  *   add --sandbox for the sandbox
  *
  * Keys are derived from the order id (web/lib/licenseKey.ts), so nothing is
@@ -10,10 +13,11 @@
  * to run with the same LICENSE_KEY_SECRET as the site - the one in
  * web/.env.local that `pnpm polar:setup` wrote and the host was given. A
  * different secret would print keys the app rejects, so it refuses to run
- * without one.
+ * without one. Buyers rarely need this any more: owntools.app/key e-mails a
+ * lost key to the address that paid, without anyone being asked.
  */
 
-import { licenseKeyForOrder } from "../web/lib/licenseKey.ts";
+import { canonicalLicenseKey, licenseKeyForOrder, orderTagHex, tagOfLicenseKey } from "../web/lib/licenseKey.ts";
 import { POLAR_META, TIERS, pricingSnapshot } from "../web/lib/pricing.ts";
 import { bold, connect, dim, fail, green, listAll, money, setting, type Page } from "./lib/polar-cli.ts";
 
@@ -33,7 +37,7 @@ const args = process.argv.slice(2).filter((a) => a !== "--");
 const sandbox = args.includes("--sandbox");
 const target = args.find((a) => !a.startsWith("--"));
 if (!target || args.includes("--help") || args.includes("-h")) {
-  fail("Usage: pnpm polar:key <e-mail | order id> [--sandbox]");
+  fail("Usage: pnpm polar:key <e-mail | order id | OWNT-key> [--sandbox]");
 }
 
 const polar = connect({ sandbox });
@@ -69,6 +73,32 @@ async function main(): Promise<void> {
     `/v1/products/?metadata[${POLAR_META.product}]=${POLAR_META.productValue}&limit=10`,
   );
   const productIds = new Set(products.items.map((p) => p.id));
+
+  // a key: which order was it made for? Its tag is a hash of the order id, so every order is tried.
+  if (/^\s*OWNT/i.test(target!)) {
+    const tag = tagOfLicenseKey(target!);
+    if (!tag) fail("That starts like a key but is not one: a key is OWNT- and 117 more characters. Was it cut short?");
+    let owner: Order | null = null;
+    for (const id of productIds) {
+      const orders = await listAll<Order>(polar, `/v1/orders/?product_id=${id}`);
+      owner = orders.find((o) => orderTagHex(o.id) === tag) ?? null;
+      if (owner) break;
+    }
+    if (!owner) {
+      fail(
+        `No order on ${polar.server} has the tag ${tag}.`,
+        "It is a gift key (those carry a random tag and nothing records them), a key from the other",
+        "Polar server (try --sandbox), or not a key this shop made. It can still be switched off:",
+        `pnpm license:revoke ${tag}`,
+      );
+    }
+    // the same key, or somebody edited a character and the signature is dead anyway
+    const genuine = licenseKeyForOrder(owner.id, secret!) === canonicalLicenseKey(target!);
+    show(owner);
+    console.log(`  tag   ${dim(tag)}${genuine ? "" : dim(" · the pasted text differs from this order's key (a changed character): the app rejects it as it is")}`);
+    console.log(`\n  ${dim(`to switch it off: pnpm license:revoke ${owner.id}`)}\n`);
+    return;
+  }
   const customers = await polar.get<Page<{ id: string; email: string }>>(`/v1/customers/?email=${encodeURIComponent(target!)}&limit=10`);
   if (customers.items.length === 0) fail(`No Polar customer with the e-mail ${target}. Try the order id from their receipt.`);
 
