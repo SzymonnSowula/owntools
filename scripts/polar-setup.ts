@@ -10,6 +10,8 @@
  *                                           a File Downloads benefit on the product
  *   pnpm polar:setup --set-usd              switch the organization's default
  *                                           currency to USD if it is not already
+ *   pnpm polar:setup --webhook-url <url>    where Polar reports paid orders, when it is
+ *                                           not <site>/api/polar/webhook (a tunnel, a preview)
  *
  * What it makes, from web/lib/pricing.ts:
  * - product "owntools Pro": one-time, the list price;
@@ -21,6 +23,10 @@
  * - with --installer, a File Downloads benefit carrying the installer(s);
  * - the organization's public support e-mail and website (the contact address
  *   and the site; Polar's review flags a personal address or another domain);
+ * - the webhook that tells the site an order was paid, so the key is e-mailed
+ *   to the buyer (`order.paid` → <site>/api/polar/webhook); its secret goes into
+ *   web/.env.local as POLAR_WEBHOOK_SECRET, and an endpoint Polar switched off
+ *   after failed deliveries is switched back on;
  * - LICENSE_KEY_SECRET in web/.env.local when it is missing.
  *
  * What it cannot make, because Polar only allows it in the dashboard: the
@@ -59,13 +65,18 @@ if (argv.includes("--help") || argv.includes("-h")) {
 let sandbox = false;
 let dryRun = false;
 let setUsd = false;
+let webhookUrlArg: string | null = null;
 const installers: string[] = [];
 for (let i = 0; i < argv.length; i++) {
   const arg = argv[i];
   if (arg === "--sandbox") sandbox = true;
   else if (arg === "--dry-run") dryRun = true;
   else if (arg === "--set-usd") setUsd = true;
-  else if (arg === "--installer") {
+  else if (arg === "--webhook-url") {
+    const url = argv[++i];
+    if (!url || !/^https:\/\//.test(url)) fail("--webhook-url needs an https:// address after it.");
+    webhookUrlArg = url;
+  } else if (arg === "--installer") {
     const file = argv[++i];
     if (!file || file.startsWith("--")) fail("--installer needs a file path after it.");
     const path = resolve(process.cwd(), file);
@@ -169,21 +180,41 @@ function appPublicKey(): string | null {
   }
 }
 
+/**
+ * Does the site e-mail keys right now? Set by the `webhook` step from what the
+ * live site reports, *before* the texts below are written: a receipt that
+ * promises an e-mail which never comes is a support request per sale, so the
+ * promise is only made once it is true - and the next run adds it.
+ */
+let siteEmailsKeys = false;
+
 function keyNote(): string {
   const install = [
     downloadWindows ? `[Windows](${downloadWindows})` : null,
     downloadMac ? `[macOS](${downloadMac})` : null,
   ].filter(Boolean);
   const reach = `[${contact}](mailto:${contact})`;
+  const bare = site.replace(/^https?:\/\//, "");
+  const where = siteEmailsKeys
+    ? [
+        "**Your license key was e-mailed to this address** and is on the page Polar sent you to right after paying -",
+        `the address starts with \`${site}/thanks\`. That link shows the key again whenever you open it, so bookmark it.`,
+      ]
+    : [
+        "**Your license key is on the page Polar sent you to right after paying** - the address starts with",
+        `\`${site}/thanks\`. That link shows the key again whenever you open it, so bookmark it.`,
+      ];
+  const lost = siteEmailsKeys
+    ? `Lost it? [${bare}/key](${site}/key) sends it to this address again - a minute, and nobody to write to.`
+    : `Lost it? Write to ${reach} from the address you paid with and you will get it again.`;
   return [
-    "**Your license key is on the page Polar sent you to right after paying** - the address starts with",
-    `\`${site}/thanks\`. That link shows the key again whenever you open it, so bookmark it.`,
+    ...where,
     "",
-    `1. Install owntools: ${install.length ? install.join(" · ") : `[${site.replace(/^https?:\/\//, "")}](${site})`}`,
+    `1. Install owntools: ${install.length ? install.join(" · ") : `[${bare}](${site})`}`,
     "2. Open **Settings → License**, paste the key and press **Activate**.",
-    "3. One key covers one computer at a time. Changing computers? Deactivate it there first (Settings → License), then activate on the new one - or write to us if the old computer is gone.",
+    "3. One key covers one computer at a time. New computer? Paste the same key there - there is nothing to transfer.",
     "",
-    `The key unlocks every tool - focus, screeni, capture, board, meet, social, disk and launch - works offline, never expires and covers every update. Lost it? Write to ${reach} from the address you paid with and you will get it again.`,
+    `The key unlocks every tool - focus, screeni, capture, board, meet, social, disk and launch - works offline, never expires and covers every update. ${lost}`,
   ].join("\n");
 }
 
@@ -195,7 +226,7 @@ function productDescription(): string {
     "- every future update",
     "- an offline license key: no account, nothing phones home",
     "",
-    `Your key appears on screen as soon as the payment clears. [${site.replace(/^https?:\/\//, "")}](${site})`,
+    `Your key appears on screen as soon as the payment clears${siteEmailsKeys ? " and is e-mailed to you" : ""}. [${site.replace(/^https?:\/\//, "")}](${site})`,
   ].join("\n");
 }
 
@@ -256,6 +287,132 @@ async function organization(): Promise<Organization | null> {
     }
   }
   return org;
+}
+
+interface WebhookEndpoint {
+  id: string;
+  url: string;
+  name?: string | null;
+  format: string;
+  secret: string;
+  events: string[];
+  enabled: boolean;
+}
+
+/** What the live site says it has for e-mailing keys (GET /api/polar/webhook): booleans, no values. */
+interface SiteStatus {
+  webhook: boolean;
+  email: boolean;
+  signing: boolean;
+  polar: boolean;
+}
+
+const WEBHOOK_NAME = "owntools key e-mails";
+const WEBHOOK_EVENTS = ["order.paid"];
+
+/**
+ * Where the site really answers, and what it has. The apex redirects to www
+ * and **Polar counts a redirect as a failed delivery**, so the webhook has to
+ * be registered at the address the redirects end at, not at the one in the
+ * config.
+ */
+async function siteStatus(): Promise<{ url: string; status: SiteStatus | null }> {
+  const asked = webhookUrlArg ?? `${site}/api/polar/webhook`;
+  try {
+    const res = await fetch(asked, { redirect: "follow", signal: AbortSignal.timeout(15_000), headers: { accept: "application/json" } });
+    const url = res.url && /^https:\/\//.test(res.url) ? res.url : asked;
+    if (!res.ok) return { url, status: null };
+    const body = (await res.json()) as Partial<SiteStatus> | null;
+    const ok = body && typeof body.webhook === "boolean" && typeof body.email === "boolean";
+    return { url, status: ok ? { webhook: !!body.webhook, email: !!body.email, signing: !!body.signing, polar: !!body.polar } : null };
+  } catch {
+    return { url: asked, status: null };
+  }
+}
+
+/**
+ * The `order.paid` webhook behind the key e-mail. Sets `siteEmailsKeys`, which
+ * decides what the receipt note and the product description promise.
+ */
+async function webhook(): Promise<void> {
+  console.log(`\n${bold("key e-mails")}`);
+  if (polar.server === "sandbox" && !webhookUrlArg) {
+    console.log(`  ${dim("skipped in the sandbox: the live site verifies production's secret. To try it, pass --webhook-url https://<tunnel>/api/polar/webhook")}`);
+    return;
+  }
+
+  const { url, status } = await siteStatus();
+  if (!status) {
+    warn(`${url} does not answer yet - deploy the site first, then run this again. Until then the key is on /thanks only, as before.`);
+    return;
+  }
+
+  let endpoints: WebhookEndpoint[];
+  try {
+    endpoints = await listAll<WebhookEndpoint>(polar, "/v1/webhooks/endpoints");
+  } catch (err) {
+    if (!(err instanceof PolarApiError && err.status === 403)) throw err;
+    warn("The token cannot manage webhooks (webhooks:read + webhooks:write), so the key is not e-mailed yet. Either make a");
+    warn("new token with those two scopes and run this again, or add the endpoint by hand: dashboard → Settings → Webhooks →");
+    warn(`Add endpoint → URL ${url}, format Raw, event order.paid → copy its secret into POLAR_WEBHOOK_SECRET (web/.env.local + the host).`);
+    return;
+  }
+
+  let endpoint = endpoints.find((e) => e.url === url) ?? endpoints.find((e) => e.name === WEBHOOK_NAME) ?? null;
+  if (!endpoint) {
+    endpoint = await write(`create the webhook: order.paid → ${url}`, () =>
+      polar.post<WebhookEndpoint>("/v1/webhooks/endpoints", {
+        url,
+        name: WEBHOOK_NAME,
+        format: "raw",
+        events: WEBHOOK_EVENTS,
+        api_version: polar.version,
+      }),
+    );
+  } else {
+    const patch: Record<string, unknown> = {};
+    if (endpoint.url !== url) patch.url = url;
+    if (endpoint.format !== "raw") patch.format = "raw";
+    if (WEBHOOK_EVENTS.some((e) => !endpoint!.events.includes(e))) patch.events = [...new Set([...endpoint.events, ...WEBHOOK_EVENTS])];
+    if (!endpoint.enabled) patch.enabled = true;
+    if (Object.keys(patch).length === 0) {
+      console.log(`  ${dim("✓")} webhook order.paid → ${url} ${dim(endpoint.id)}`);
+    } else {
+      if (patch.enabled) warn("Polar had switched the webhook off (ten failed deliveries in a row). Switching it back on - orders paid meanwhile got no e-mail; their keys are on /thanks and at /key.");
+      const id = endpoint.id;
+      endpoint = (await write(`update the webhook: ${Object.keys(patch).join(", ")}`, () => polar.patch<WebhookEndpoint>(`/v1/webhooks/endpoints/${id}`, patch))) ?? endpoint;
+    }
+  }
+  if (!endpoint) return; // a dry run that would have created it
+
+  // the secret is Polar's to make; ours to carry to the site
+  const local = setting("POLAR_WEBHOOK_SECRET");
+  if (!local) {
+    if (dryRun) console.log(`  ${dim("would")} add POLAR_WEBHOOK_SECRET to web/.env.local`);
+    else {
+      appendToWebEnv("POLAR_WEBHOOK_SECRET", endpoint.secret, "Signs Polar's webhook deliveries (order.paid → the key e-mail). Set the same value on the host.");
+      console.log(`  ${green("✓")} added POLAR_WEBHOOK_SECRET to web/.env.local`);
+    }
+  } else if (local !== endpoint.secret) {
+    warn("POLAR_WEBHOOK_SECRET in web/.env.local is not this endpoint's secret - deliveries would be refused (403). Replace it with the one in the dashboard → Settings → Webhooks, there and on the host.");
+  } else {
+    console.log(`  ${dim("✓")} POLAR_WEBHOOK_SECRET is set`);
+  }
+
+  const missing = [
+    status.webhook ? null : "POLAR_WEBHOOK_SECRET (the value now in web/.env.local)",
+    status.email ? null : "RESEND_API_KEY (resend.com → API Keys; the domain has to be verified there first)",
+    status.signing ? null : "LICENSE_KEY_SECRET",
+    status.polar ? null : "POLAR_ACCESS_TOKEN",
+  ].filter(Boolean);
+  if (missing.length > 0) {
+    warn(`The host is missing: ${missing.join("; ")}. Add it, redeploy, run this again.`);
+    warn("Until then Polar's deliveries are refused and retried - nothing is lost, the e-mail just comes late - and the receipt does not promise an e-mail.");
+    return;
+  }
+  if (!endpoint.enabled) return;
+  siteEmailsKeys = true;
+  console.log(`  ${dim("✓")} the site has everything: a paid order's key is e-mailed, and /key sends a lost one again`);
 }
 
 async function product(): Promise<Product | null> {
@@ -531,6 +688,8 @@ function environment(): void {
 async function main(): Promise<void> {
   console.log(`\nowntools → Polar ${dim(`(${polar.base} · API ${polar.version}${dryRun ? " · dry run" : ""})`)}\n`);
   await organization();
+  // before the product and the receipt note: both say whether the key is e-mailed
+  await webhook();
   const prod = await product();
   await discounts(prod?.id ?? null);
   await benefits(prod);
@@ -541,9 +700,11 @@ async function main(): Promise<void> {
   if (dryRun) return;
   console.log(`
 next:
-  1. put POLAR_ACCESS_TOKEN, POLAR_SERVER and LICENSE_KEY_SECRET from web/.env.local on the
-     host that serves the site (e.g. Vercel → Settings → Environment Variables) and redeploy -
-     the "get the pro key" button only points at /checkout when the page is built with a token
+  1. put POLAR_ACCESS_TOKEN, POLAR_SERVER, LICENSE_KEY_SECRET and POLAR_WEBHOOK_SECRET from
+     web/.env.local on the host that serves the site (e.g. Vercel → Settings → Environment
+     Variables), RESEND_API_KEY next to them, and redeploy - the "get the pro key" button only
+     points at /checkout when the page is built with a token, and keys are only e-mailed once
+     the host has all five (run this again afterwards: it checks, and updates the receipt note)
 ${
   polar.server === "sandbox"
     ? `  2. open ${site}/checkout (or http://localhost:3006/checkout): it should land on Polar at ${usd(TIERS[0].price)}; pay with 4242 4242 4242 4242

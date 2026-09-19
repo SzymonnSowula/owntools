@@ -113,6 +113,14 @@ export default function PrivacyPage() {
         to answer your support requests and to process refunds - and for nothing else. No
         newsletters unless you ask for one, no sharing with anyone.
       </p>
+      <p>
+        The key is e-mailed to the address you paid with, and again whenever that address is
+        entered at <a href="/key">owntools.app/key</a>. Those e-mails are sent through{" "}
+        <a href="https://resend.com" rel="noreferrer">Resend</a>, which receives your address and
+        the e-mail&rsquo;s content to deliver it and keeps a delivery log for a short time. We keep
+        no copy and no list of our own: the record of your purchase stays with Polar, and the key
+        is worked out from the order each time. Open and click tracking are switched off.
+      </p>
 
       <h2>your rights</h2>
       <p>

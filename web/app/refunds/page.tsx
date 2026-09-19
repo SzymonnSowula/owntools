@@ -52,8 +52,11 @@ export default function RefundsPage() {
 
       <h2>after a refund</h2>
       <p>
-        The key is offline, so we cannot switch it off remotely. Once refunded, your license ends:
-        please remove the key from the app. dictate and the quick file tools keep working without it.
+        Once refunded, your license ends: please remove the key from the app (Settings → License).
+        The key is checked offline, so nothing switches it off from afar - a refunded key stops
+        opening the Pro tools with the next update of the app, which carries the list of refunded
+        keys. dictate and the quick file tools keep working without it, and everything you made
+        stays on your computer.
       </p>
 
       <h2>your statutory rights</h2>

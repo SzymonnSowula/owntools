@@ -5,9 +5,11 @@
  * What it does, and nothing more: finds the Pro product and the launch-price
  * discounts by the metadata `scripts/polar-setup.ts` wrote on them, reads how
  * many keys each step has taken, opens a checkout session at the cheapest step
- * that still has keys, and looks a finished checkout up for /thanks. Nothing is
- * stored on our side - Polar is the database, and keys are derived from order
- * ids (lib/licenseKey.ts).
+ * that still has keys, looks a finished checkout up for /thanks, and reads the
+ * orders a key is e-mailed for (one by id for the `order.paid` webhook, all of
+ * an address's for /key - lib/keyMail.ts does the sending). Nothing is stored
+ * on our side - Polar is the database, and keys are derived from order ids
+ * (lib/licenseKey.ts).
  *
  * Verified against the 2026-04 OpenAPI document and Polar's server source
  * (2026-09-13): a discount with `max_redemptions` is checked when the session
@@ -108,8 +110,12 @@ export interface PolarOrder {
   total_amount: number;
   currency: string;
   product_id: string | null;
+  /** The checkout the order came from - what /thanks is opened with. */
+  checkout_id?: string | null;
   created_at: string;
   metadata: Metadata;
+  /** Who paid: where the key is e-mailed (lib/keyMail.ts). */
+  customer?: { id?: string; email?: string | null; name?: string | null } | null;
 }
 
 export class PolarError extends Error {
@@ -395,4 +401,52 @@ export async function lookupPurchase(checkoutId: string | undefined): Promise<Pu
     key: licenseKeyForOrder(order.id, secret),
     tier: typeof tier === "string" && TIERS.some((t) => t.key === tier) ? (tier as TierKey) : null,
   };
+}
+
+/* ------------------------------ keys by e-mail ---------------------------- */
+
+/** Does this order carry a key today? Paid, for the Pro product, and not refunded. */
+export function orderHoldsKey(order: PolarOrder, productId: string): boolean {
+  return order.paid && order.product_id === productId && order.status !== "refunded" && order.status !== "void";
+}
+
+/**
+ * One order, fresh from Polar - what the `order.paid` webhook re-reads before
+ * a key is e-mailed, so the e-mail is decided by what Polar says now, not by
+ * what a request body claimed. Null when Polar does not know the id.
+ */
+export async function fetchOrder(cfg: PolarConfig, orderId: string): Promise<PolarOrder | null> {
+  if (!UUID.test(orderId)) return null;
+  try {
+    return await call<PolarOrder>(cfg, "GET", `/v1/orders/${orderId}`);
+  } catch (err) {
+    if (err instanceof PolarError && (err.status === 404 || err.status === 422)) return null;
+    throw err;
+  }
+}
+
+/**
+ * Every order under an e-mail address that carries a key today, newest first -
+ * what /key sends back to that address. Polar's `email` filter is exact, and a
+ * person can be more than one customer record (a second purchase as a guest),
+ * so every match is read.
+ */
+export async function keyOrdersForEmail(cfg: PolarConfig, email: string): Promise<PolarOrder[]> {
+  const product = await findProduct(cfg);
+  if (!product) return [];
+  const customers = await call<Page<{ id: string }>>(
+    cfg,
+    "GET",
+    `/v1/customers/?email=${encodeURIComponent(email)}&limit=10`,
+  );
+  const orders: PolarOrder[] = [];
+  for (const customer of customers.items.slice(0, 10)) {
+    const page = await call<Page<PolarOrder>>(
+      cfg,
+      "GET",
+      `/v1/orders/?customer_id=${customer.id}&product_id=${product.id}&limit=100`,
+    );
+    orders.push(...page.items.filter((o) => orderHoldsKey(o, product.id)));
+  }
+  return orders.sort((a, b) => b.created_at.localeCompare(a.created_at));
 }

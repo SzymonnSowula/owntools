@@ -33,9 +33,17 @@ export default function TermsPage() {
       <ul>
         <li>works offline and without an account - it is checked on your machine, not on a server;</li>
         <li>
-          covers one computer at a time. Moving to a new one? Deactivate it on the old computer first
-          (Settings → License → Deactivate) and activate it on the new one. If the old computer is
-          gone, write to us and we move the key;
+          covers one computer at a time. Moving to a new one? Remove it on the old computer
+          (Settings → License → Deactivate) and paste it on the new one. If the old computer is
+          gone, just paste the key on the new one - there is nothing to transfer;
+        </li>
+        <li>
+          can be sent to you again at any time: <a href="/key">owntools.app/key</a> e-mails it to
+          the address you paid with;
+        </li>
+        <li>
+          stops opening the Pro tools, from the next update on, if its order is refunded or if
+          the key is passed around - the app then says which;
         </li>
         <li>covers updates to the app as we release them;</li>
         <li>

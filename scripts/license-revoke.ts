@@ -71,7 +71,8 @@ function load(): RevokedFile {
 
 function save(file: RevokedFile, before: string): boolean {
   const after = serializeRevokedFile(file);
-  if (after === before) return false;
+  // a Windows checkout may hold the file with CRLF: that is not a change to the list
+  if (after === before.replace(/\r\n/g, "\n")) return false;
   if (!dryRun) writeFileSync(FILE, after);
   return true;
 }

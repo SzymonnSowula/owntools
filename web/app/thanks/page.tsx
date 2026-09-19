@@ -2,8 +2,11 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { headers } from "next/headers";
+import { after } from "next/server";
 import { ArrowRight, Check, LoaderCircle } from "lucide-react";
 import { ThemeToggle } from "../components/ThemeToggle";
+import { emailConfig } from "@/lib/email";
+import { deliverOrderKey } from "@/lib/keyMail";
 import { lookupPurchase, type Purchase } from "@/lib/polar";
 import { pricingSnapshot } from "@/lib/pricing";
 import { allowRequest, clientAddress } from "@/lib/rateLimit";
@@ -22,13 +25,22 @@ export const metadata: Metadata = {
 
 type View = Purchase | { state: "error" } | { state: "busy" };
 
+/** How long after the order /thanks still makes sure the key e-mail went out. */
+const EMAIL_FALLBACK_MS = 60 * 60_000;
+
 /**
  * Where Polar sends the buyer after paying (`success_url` =
  * /thanks?checkout_id={CHECKOUT_ID}, set in lib/polar.ts).
  *
  * The page asks Polar about that checkout and, once the order is paid, shows
  * the key derived from the order id - so the same link shows the same key
- * next week too, and nothing had to be stored or e-mailed for it to work.
+ * next week too, and nothing had to be stored for it to work.
+ *
+ * The key is e-mailed as well. That is the `order.paid` webhook's job; this
+ * page is the second road to the same e-mail, for the day the webhook is
+ * switched off or mis-set - after the response, for the order's first hour
+ * only, and with the same idempotency key, so the two never send twice and a
+ * bookmarked link opened next month sends nothing.
  */
 export default async function ThanksPage({
   searchParams,
@@ -50,6 +62,13 @@ export default async function ThanksPage({
     }
   }
 
+  // can this server e-mail keys? Decides what the page promises, in every state
+  const emailed = emailConfig() !== null;
+  if (view.state === "paid" && emailed && Date.now() - Date.parse(view.order.created_at) < EMAIL_FALLBACK_MS) {
+    const orderId = view.order.id;
+    after(() => deliverOrderKey(orderId).catch((err) => console.error("[thanks] key e-mail:", err)));
+  }
+
   return (
     <div id="top">
       <header className="sticky top-0 z-30 border-b border-line/70 bg-paper/80 backdrop-blur-md">
@@ -62,7 +81,7 @@ export default async function ThanksPage({
       </header>
 
       <main className="dotted min-h-[calc(100vh-61px)]">
-        <div className="mx-auto max-w-2xl px-5 pb-24 pt-14 md:pt-20">{render(view)}</div>
+        <div className="mx-auto max-w-2xl px-5 pb-24 pt-14 md:pt-20">{render(view, emailed)}</div>
       </main>
     </div>
   );
@@ -105,10 +124,10 @@ function WriteToUs({ lead }: { lead: string }) {
   );
 }
 
-function render(view: View): ReactNode {
+function render(view: View, emailed: boolean): ReactNode {
   switch (view.state) {
     case "paid":
-      return <Paid view={view} />;
+      return <Paid view={view} emailed={emailed} />;
     case "pending":
       return (
         <Message kicker="one moment" title="confirming your payment">
@@ -119,7 +138,11 @@ function render(view: View): ReactNode {
             soon as the payment clears.
           </p>
           <p>
-            <WriteToUs lead="Still here after a couple of minutes? Keep this tab open and" />
+            {emailed ? (
+              "Taking a while? You can close this tab - the key is e-mailed to the address you paid with as soon as the payment clears."
+            ) : (
+              <WriteToUs lead="Still here after a couple of minutes? Keep this tab open and" />
+            )}
           </p>
         </Message>
       );
@@ -162,7 +185,19 @@ function render(view: View): ReactNode {
         <Message kicker="nothing here" title="no purchase at this link">
           <p>
             This page shows a Pro key right after a checkout.{" "}
-            <WriteToUs lead="If you just paid and landed here anyway," /> You will get your key.
+            {emailed ? (
+              <>
+                If you just paid and landed here anyway, your key is in your inbox - and{" "}
+                <Link href="/key" className="font-semibold text-accent underline underline-offset-4">
+                  owntools.app/key
+                </Link>{" "}
+                sends it again.
+              </>
+            ) : (
+              <>
+                <WriteToUs lead="If you just paid and landed here anyway," /> You will get your key.
+              </>
+            )}
           </p>
           <Link href="/#pricing" className="btn btn-primary mt-2 !h-11">
             see pricing <ArrowRight size={15} />
@@ -188,7 +223,7 @@ function render(view: View): ReactNode {
   }
 }
 
-function Paid({ view }: { view: Extract<Purchase, { state: "paid" }> }) {
+function Paid({ view, emailed }: { view: Extract<Purchase, { state: "paid" }>; emailed: boolean }) {
   const step = view.tier ? pricingSnapshot(null).tiers.find((t) => t.key === view.tier) : null;
   const paid = new Intl.NumberFormat("en-US", { style: "currency", currency: view.order.currency.toUpperCase() }).format(
     view.order.total_amount / 100,
@@ -200,7 +235,8 @@ function Paid({ view }: { view: Extract<Purchase, { state: "paid" }> }) {
       <h1 className="display mt-3 text-4xl md:text-5xl">your pro key</h1>
       <p className="mt-4 text-[16px] leading-7 text-muted">
         Paste it into owntools once (Settings → License) and every tool opens - on the computer
-        you use, with the wi-fi on or off. Moving to a new one is a deactivate and a paste.
+        you use, with the wi-fi on or off. On a new computer you paste the same key again.
+        {emailed ? " A copy is on its way to the e-mail address you paid with." : ""}
       </p>
 
       <div className="mt-8">
@@ -252,7 +288,18 @@ function Paid({ view }: { view: Extract<Purchase, { state: "paid" }> }) {
 
       <p className="mt-10 rounded-[14px] border border-line bg-card px-5 py-4 text-[13.5px] leading-6 text-muted">
         <span className="font-semibold text-ink">keep the key somewhere safe.</span> This link shows it
-        again whenever you open it, so bookmark it. <WriteToUs lead="Lost both?" />
+        again whenever you open it, so bookmark it.{" "}
+        {emailed ? (
+          <>
+            Lost it one day?{" "}
+            <Link href="/key" className="font-semibold text-accent underline underline-offset-4">
+              owntools.app/key
+            </Link>{" "}
+            sends it to your e-mail address again.
+          </>
+        ) : (
+          <WriteToUs lead="Lost both?" />
+        )}
       </p>
     </>
   );

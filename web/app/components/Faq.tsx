@@ -51,8 +51,11 @@ const ITEMS: { q: string; a: ReactNode }[] = [
     a: (
       <>
         Paste it into the app once. It is checked on your computer, with no account and no server. One key
-        covers one computer at a time - moving is a deactivate on the old one and a paste on the new (or an
-        e-mail to us if the old one is gone). Not for you? There is a 14-day{" "}
+        covers one computer at a time - on a new one you paste the same key. Lost it?{" "}
+        <a href="/key" className="font-semibold text-accent underline underline-offset-4">
+          owntools.app/key
+        </a>{" "}
+        e-mails it to you again. Not for you? There is a 14-day{" "}
         <a href="/refunds" className="font-semibold text-accent underline underline-offset-4">
           refund
         </a>

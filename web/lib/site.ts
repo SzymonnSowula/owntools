@@ -80,7 +80,7 @@ export const PRICE = {
 } as const;
 
 /** Date stamped on the privacy / terms / refund pages. */
-export const POLICIES_UPDATED = "2026-09-15";
+export const POLICIES_UPDATED = "2026-09-19";
 
 /** Refund window for the Pro key, in days. */
 export const REFUND_DAYS = 14;

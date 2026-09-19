@@ -101,8 +101,9 @@ export function connect(options: { sandbox?: boolean } = {}): Polar {
       "    POLAR_ACCESS_TOKEN=polar_oat_…",
       "",
       "Scopes: products:read, products:write, benefits:read, benefits:write, files:write, discounts:read,",
-      "discounts:write, checkouts:read, checkouts:write, orders:read, customers:read, and ideally",
-      "organizations:read + organizations:write (the Organizations group, right after Orders).",
+      "discounts:write, checkouts:read, checkouts:write, orders:read, customers:read, webhooks:read,",
+      "webhooks:write (the key e-mail), and ideally organizations:read + organizations:write (the",
+      "Organizations group, right after Orders).",
     );
   }
   const server = options.sandbox || setting("POLAR_SERVER") === "sandbox" ? "sandbox" : "production";
