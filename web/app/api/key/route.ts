@@ -16,7 +16,18 @@ export const dynamic = "force-dynamic";
  * own key again. That is capped three ways: per caller and per address here (in
  * memory, so per server instance), and once per address per six hours by the
  * e-mail's idempotency key, which holds across instances (lib/keyMail.ts).
+ *
+ * What a flood of made-up addresses can spend is not e-mail - an address
+ * without an order never reaches Resend - but **Polar's request budget** (500 a
+ * minute for the whole organization), which the checkout needs too. Callers
+ * that rotate addresses and IPs get past the two limits above, so there is a
+ * ceiling for the whole instance as well: past it the form says "try again in
+ * a moment" and Polar is not asked. Real use is a handful of requests a day.
+ * The layer that holds across instances is the host's: one Vercel Firewall
+ * rate-limit rule on this path and /checkout (docs/payments.md).
  */
+const INSTANCE_LOOKUPS_PER_MINUTE = 30;
+
 export async function POST(request: Request) {
   // The page posts JSON. A plain form post is what is left when its script did
   // not run (blocked, failed to load): it is answered with a redirect back to
@@ -38,6 +49,11 @@ export async function POST(request: Request) {
 
   const caller = clientAddress(request.headers);
   if (!allowRequest(`key:ip:${caller}`, 5, 10 * 60_000) || !allowRequest(`key:to:${email}`, 3, 60 * 60_000)) {
+    return answer("busy", 429);
+  }
+  // after the two above, so one noisy caller is stopped by its own limit and does not use up everyone's
+  if (!allowRequest("key:all", INSTANCE_LOOKUPS_PER_MINUTE, 60_000)) {
+    console.warn("[key] the instance-wide ceiling was reached: is someone flooding /api/key?");
     return answer("busy", 429);
   }
 
