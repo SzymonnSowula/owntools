@@ -37,7 +37,8 @@
       "@feature-automations/*": ["../../packages/feature-automations/src/*"],
       "@feature-sync/*": ["../../packages/feature-sync/src/*"],
       "@feature-privacy/*": ["../../packages/feature-privacy/src/*"],
-      "@feature-llm/*": ["../../packages/feature-llm/src/*"]
+      "@feature-llm/*": ["../../packages/feature-llm/src/*"],
+      "@feature-images/*": ["../../packages/feature-images/src/*"]
     }
   },
   "include": ["src", "../../packages/*/src"],

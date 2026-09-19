@@ -43,6 +43,7 @@ import { PageHead } from "./ui";
 
 // Lazy: the model catalogue and the rules engine load when their page opens.
 const IntelligenceCard = lazy(() => import("@feature-llm/IntelligenceCard"));
+const ImagesCard = lazy(() => import("@feature-images/ImagesCard"));
 const AutomationsCard = lazy(() => import("@feature-automations/AutomationsCard"));
 
 const ICONS: Record<SettingsCategoryId, ReactElement> = {
@@ -284,6 +285,7 @@ function Page({ id }: { id: SettingsCategoryId }) {
       return (
         <Suspense fallback={<Loading />}>
           <IntelligenceCard />
+          <ImagesCard />
         </Suspense>
       );
     case "automations":

@@ -11,6 +11,7 @@ mod disk;
 mod downloader;
 mod ffmpeg;
 mod hotkeys;
+mod imagegen;
 mod importer;
 mod input_track;
 mod launcher;
@@ -229,6 +230,13 @@ pub fn run() {
             llm::llm_ensure_server,
             llm::llm_complete,
             llm::llm_shutdown,
+            imagegen::imagegen_status,
+            imagegen::imagegen_devices,
+            imagegen::imagegen_install_runtime,
+            imagegen::imagegen_generate,
+            imagegen::imagegen_cancel,
+            imagegen::imagegen_remove_model,
+            imagegen::imagegen_remove_outputs,
             dictation::type_text,
             dictation::mark_executable,
             permissions::accessibility_status,
@@ -471,6 +479,7 @@ pub fn run() {
             if let tauri::RunEvent::Exit = event {
                 parakeet::shutdown();
                 llm::shutdown();
+                imagegen::shutdown();
                 // Open call recordings: stop the WASAPI threads and patch the
                 // archive header so the file is playable.
                 audio_capture::shutdown();

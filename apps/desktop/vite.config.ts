@@ -189,11 +189,17 @@ export default defineConfig(async () => ({
       "@feature-sync": resolve(dirname, "../../packages/feature-sync/src"),
       "@feature-privacy": resolve(dirname, "../../packages/feature-privacy/src"),
       "@feature-llm": resolve(dirname, "../../packages/feature-llm/src"),
+      "@feature-images": resolve(dirname, "../../packages/feature-images/src"),
     },
     // The launch engine lives outside this app's node_modules; without dedupe
     // its `react`/`remotion` imports would resolve to a second copy and break
     // hooks (and Remotion's frame context) at runtime.
     dedupe: ["react", "react-dom", "remotion", "@remotion/player", "@remotion/web-renderer"],
+  },
+  // The background-removal worker (packages/feature-images) imports onnxruntime-web,
+  // which code-splits; the default iife worker format cannot.
+  worker: {
+    format: "es" as const,
   },
   build: {
     rollupOptions: {

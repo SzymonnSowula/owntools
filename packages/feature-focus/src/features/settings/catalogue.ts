@@ -41,7 +41,7 @@ export const SETTINGS_CATEGORIES: readonly SettingsCategory[] = [
   {
     id: "intelligence",
     label: "Intelligence",
-    blurb: "The language model the tools share - on this device unless you add a cloud key.",
+    blurb: "The language and image models the tools share - on this device unless you add a key of your own.",
     group: "work",
   },
   { id: "automations", label: "Automations", blurb: "Rules that take the next step when something finishes.", group: "work" },
@@ -112,6 +112,22 @@ export const SETTINGS_ITEMS: readonly SettingsItem[] = [
     label: "Language model",
     where: "intelligence",
     keywords: ["ai", "llm", "model", "qwen", "cloud", "api key", "openai", "anthropic", "summary"],
+  },
+  {
+    id: "images",
+    label: "Image generation",
+    where: "intelligence",
+    keywords: [
+      "image", "picture", "generate", "text to image", "flux", "stable diffusion", "z-image", "api key", "byok", "own key",
+      "openai", "gpt image", "gemini", "nano banana", "openrouter", "replicate", "fal", "together", "hugging face", "stability",
+      "ideogram", "recraft", "grok", "comfyui", "automatic1111", "obraz", "generowanie",
+    ],
+  },
+  {
+    id: "background-removal",
+    label: "Background removal",
+    where: "intelligence",
+    keywords: ["remove background", "cutout", "cut out", "transparent", "matting", "isnet", "modnet", "usuwanie tla", "tlo"],
   },
   { id: "automations", label: "Automation rules", where: "automations", keywords: ["rules", "triggers", "workflow", "when", "watch folder"] },
   { id: "sync", label: "Sync between devices", where: "data", keywords: ["dropbox", "onedrive", "icloud", "syncthing", "folder", "devices"] },

@@ -13,6 +13,8 @@ export const QUICK_TOOL_KEYS = [
   "pdf",
   "makepdf",
   "images",
+  "removebg",
+  "imagine",
   "extract",
   "audio",
   "video",

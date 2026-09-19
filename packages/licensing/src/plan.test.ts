@@ -44,7 +44,7 @@ describe("the free / Pro split", () => {
   it("keeps the quick file tools free; the voice note goes where focus goes", () => {
     expect(quickToolHome("voicenote")).toBe("focus");
     expect(quickToolLocked("voicenote")).toBe(true);
-    for (const key of ["transcribe", "translate", "youtube", "subtitles", "pdf", "makepdf", "images", "extract", "audio", "video", "gif"]) {
+    for (const key of ["transcribe", "translate", "youtube", "subtitles", "pdf", "makepdf", "images", "removebg", "imagine", "extract", "audio", "video", "gif"]) {
       expect(quickToolHome(key), key).toBeNull();
       expect(quickToolLocked(key), key).toBe(false);
     }

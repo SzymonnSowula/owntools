@@ -22,7 +22,8 @@ Windows today, macOS in progress. Website: [owntools.app](https://owntools.app)
 | **capture** | screenshots with OCR, sent to the board or a post |
 | **launch** | a product launch video from a URL |
 
-Plus twelve quick file tools (YouTube → transcript, subtitles, PDF, images,
+Plus fourteen quick file tools (YouTube → transcript, subtitles, PDF, images,
+background removal, image generation - on the device or with your own key -
 audio and video converters, GIF), a bar that sits over any app, and an optional
 local language model (llama.cpp) for summaries and rewrites. Settings → Privacy
 lists every request the app ever made.

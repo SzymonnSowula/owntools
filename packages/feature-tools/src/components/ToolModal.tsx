@@ -7,7 +7,8 @@ export interface ToolModalProps {
   onClose: () => void;
   /** While true, Escape does nothing — a job is running. */
   busy?: boolean;
-  wide?: boolean;
+  /** `true` for a roomier card; "xl" for a tool with a picture in it (a preview next to its options). */
+  wide?: boolean | "xl";
   children: ReactNode;
   footer: ReactNode;
   /** Always-visible strip above the buttons — where a file went, outside the scrolling body. */
@@ -35,7 +36,7 @@ export function ToolModal({ title, subtitle, onClose, busy, wide, children, foot
     <div className="fixed inset-0 z-[80] grid place-items-center bg-[#17151f]/35 p-6">
       <div
         className={`flex max-h-[calc(100vh-48px)] w-full flex-col rounded-[18px] border border-line bg-card shadow-[0_30px_80px_rgba(23,21,31,0.18)] ${
-          wide ? "max-w-xl" : "max-w-md"
+          wide === "xl" ? "max-w-3xl" : wide ? "max-w-xl" : "max-w-md"
         }`}
         role="dialog"
         aria-label={title}

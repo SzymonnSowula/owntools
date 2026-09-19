@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { TranscribeModal } from "@feature-editor/components/TranscribeModal";
 import { ExtractAudioModal } from "@feature-editor/components/ExtractAudioModal";
 import { ConvertAudioModal } from "@feature-tools/components/ConvertAudioModal";
@@ -8,6 +9,8 @@ import { MakePdfModal } from "@feature-tools/components/MakePdfModal";
 import { PdfConvertModal } from "@feature-tools/components/PdfConvertModal";
 import { SubtitlesModal } from "@feature-tools/components/SubtitlesModal";
 import { YouTubeModal } from "@feature-tools/components/YouTubeModal";
+import { GenerateImageModal } from "@feature-images/components/GenerateImageModal";
+import { RemoveBackgroundModal } from "@feature-images/components/RemoveBackgroundModal";
 import { useShellStore } from "./shellStore";
 
 /**
@@ -20,6 +23,8 @@ export default function HubToolModals() {
   const hubTool = useShellStore((s) => s.hubTool);
   const setHubTool = useShellStore((s) => s.setHubTool);
   const close = () => setHubTool(null);
+  // A generated picture handed to the background remover: both are modals here, so the file crosses in memory.
+  const [toCutOut, setToCutOut] = useState<File[]>([]);
 
   return (
     <>
@@ -37,6 +42,22 @@ export default function HubToolModals() {
       <ConvertAudioModal open={hubTool === "audio"} onClose={close} />
       <ConvertVideoModal open={hubTool === "video"} onClose={close} />
       <GifModal open={hubTool === "gif"} onClose={close} />
+      <RemoveBackgroundModal
+        open={hubTool === "removebg"}
+        initialFiles={toCutOut}
+        onClose={() => {
+          setToCutOut([]);
+          close();
+        }}
+      />
+      <GenerateImageModal
+        open={hubTool === "imagine"}
+        onClose={close}
+        onRemoveBackground={(file) => {
+          setToCutOut([file]);
+          setHubTool("removebg");
+        }}
+      />
     </>
   );
 }

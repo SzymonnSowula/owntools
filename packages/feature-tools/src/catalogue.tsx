@@ -184,6 +184,50 @@ export const QUICK_TOOLS: QuickTool[] = [
       </>,
     ),
   },
+  {
+    key: "removebg",
+    window: "cutout.tool",
+    name: "Remove background",
+    desc: "The subject out of a photo, on this device",
+    group: "documents",
+    tilt: -0.4,
+    dots: glyph(
+      <>
+        <rect x="1.4" y="1.4" width="9.2" height="9.2" rx="1.8" strokeDasharray="1.6 1.4" />
+        <circle cx="6" cy="4.9" r="1.5" />
+        <path d="M3.4 9.3c.3-1.6 1.3-2.4 2.6-2.4s2.3.8 2.6 2.4" />
+      </>,
+    ),
+    icon: icon(
+      <>
+        <rect x="2.5" y="2.5" width="15" height="15" rx="3" strokeDasharray="2.6 2.2" />
+        <circle cx="10" cy="8.2" r="2.4" />
+        <path d="M5.6 15.4c.5-2.7 2.2-4 4.4-4s3.9 1.3 4.4 4" />
+      </>,
+    ),
+  },
+  {
+    key: "imagine",
+    window: "imagine.tool",
+    name: "Generate an image",
+    desc: "A prompt in, a picture out - on-device or your own key",
+    group: "documents",
+    tilt: 0.5,
+    dots: glyph(
+      <>
+        <rect x="1.2" y="3" width="7.8" height="7.4" rx="1.5" />
+        <path d="M1.8 9l2.2-2 1.5 1.3 1.3-1.1 1.8 1.6" />
+        <path d="M10 .9v2.6M8.7 2.2h2.6" />
+      </>,
+    ),
+    icon: icon(
+      <>
+        <rect x="2.5" y="5.5" width="12.5" height="12" rx="2.4" />
+        <path d="M3.2 15.4l3.6-3.3 2.3 2.1 2.1-1.8 3.2 2.9" />
+        <path d="M16.4 1.6v4.4M14.2 3.8h4.4" />
+      </>,
+    ),
+  },
 
   // ---- media --------------------------------------------------------------
   {

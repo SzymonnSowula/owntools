@@ -16,7 +16,7 @@ const ITEMS: { q: string; a: ReactNode }[] = [
   },
   {
     q: "What's in the app?",
-    a: "Eight tools: dictate, screeni (screen recording), meet (call transcripts), focus, board (whiteboard), social (post scheduler), disk (drive cleanup) and launch (link to video), plus twelve quick file tools.",
+    a: "Eight tools: dictate, screeni (screen recording), meet (call transcripts), focus, board (whiteboard), social (post scheduler), disk (drive cleanup) and launch (link to video), plus fourteen quick file tools.",
   },
   {
     q: "Is my data really local?",

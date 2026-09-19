@@ -30,6 +30,7 @@ export default defineConfig({
       "@feature-sync": pkg("feature-sync"),
       "@feature-privacy": pkg("feature-privacy"),
       "@feature-llm": pkg("feature-llm"),
+      "@feature-images": pkg("feature-images"),
     },
   },
   test: {

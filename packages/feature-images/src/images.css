@@ -1,0 +1,621 @@
+/*
+ * The image tools: background removal, image generation, and their card in
+ * Settings → Intelligence. Un-layered `img-*` classes on suite tokens, so
+ * they hold inside a quick-tool modal (over the hub) and inside Settings
+ * alike. Never rely on bundle order (Vite reorders chunks) — everything these
+ * views need is declared here.
+ */
+
+.img-split {
+  display: grid;
+  grid-template-columns: minmax(0, 300px) minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.img-split-side,
+.img-split-main {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+@media (max-width: 760px) {
+  .img-split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ---- the picture ------------------------------------------------------ */
+
+.img-stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 300px;
+  max-height: 52vh;
+  overflow: hidden;
+  border: 1px solid var(--color-line);
+  border-radius: 14px;
+  background: var(--color-paper);
+}
+
+/* The checkerboard means "transparent" everywhere. It sits on the picture, not the stage, so it only shows through a cut-out. */
+.img-stage.has-image img {
+  background-color: #ffffff;
+  background-image:
+    linear-gradient(45deg, #e4e4e8 25%, transparent 25%, transparent 75%, #e4e4e8 75%),
+    linear-gradient(45deg, #e4e4e8 25%, transparent 25%, transparent 75%, #e4e4e8 75%);
+  background-size: 18px 18px;
+  background-position:
+    0 0,
+    9px 9px;
+}
+
+.img-stage img {
+  display: block;
+  max-width: 100%;
+  max-height: 52vh;
+  object-fit: contain;
+  user-select: none;
+}
+
+.img-stage-empty {
+  margin: 0;
+  padding: 0 24px;
+  font-size: 12px;
+  text-align: center;
+  color: var(--color-muted);
+}
+
+.img-compare {
+  all: unset;
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #ffffff;
+  background: rgba(23, 21, 31, 0.72);
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+}
+
+.img-compare:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.img-strip {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.img-thumb {
+  all: unset;
+  flex: none;
+  width: 52px;
+  height: 52px;
+  overflow: hidden;
+  border: 2px solid transparent;
+  border-radius: 10px;
+  background: var(--color-paper);
+  cursor: pointer;
+}
+
+.img-thumb.active {
+  border-color: var(--color-accent);
+}
+
+.img-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.img-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--color-ink);
+  cursor: pointer;
+}
+
+.img-check input {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--color-accent);
+}
+
+.img-check:has(input:disabled) {
+  color: var(--color-muted);
+  cursor: default;
+}
+
+.img-color {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  padding: 2px;
+  border: 1px solid var(--color-line);
+  border-radius: 10px;
+  background: var(--color-card);
+  cursor: pointer;
+}
+
+/* ---- model / provider rows -------------------------------------------- */
+
+.img-rows {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--color-line);
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--color-card);
+}
+
+.img-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 13px;
+  border-bottom: 1px solid var(--color-line);
+  min-width: 0;
+}
+
+.img-row:last-child {
+  border-bottom: 0;
+}
+
+.img-row.active {
+  background: color-mix(in srgb, var(--color-accent) 8%, transparent);
+}
+
+.img-row-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.img-row-name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+.img-row-size {
+  font-weight: 500;
+  color: var(--color-muted);
+}
+
+.img-row-note {
+  margin-top: 2px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--color-muted);
+}
+
+.img-row-meta {
+  margin-top: 2px;
+  font-size: 11px;
+  color: color-mix(in srgb, var(--color-muted) 82%, transparent);
+}
+
+.img-row-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+}
+
+.img-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.img-badge.accent {
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 13%, transparent);
+}
+
+.img-badge.line {
+  color: var(--color-muted);
+  border: 1px solid var(--color-line);
+}
+
+.img-badge.ok {
+  color: #1f8a3b;
+  background: color-mix(in srgb, #34c759 16%, transparent);
+}
+
+:root[data-theme="dark"] .img-badge.ok,
+:root[data-theme="ocean"] .img-badge.ok {
+  color: #5ddc81;
+}
+
+.img-btn {
+  all: unset;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--color-line);
+  border-radius: 9px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-ink);
+  background: var(--color-card);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.img-btn:hover {
+  background: color-mix(in srgb, var(--color-ink) 5%, var(--color-card));
+}
+
+.img-btn.primary {
+  border-color: transparent;
+  color: #ffffff;
+  background: var(--color-accent);
+}
+
+.img-btn.primary:hover {
+  background: var(--color-accent-2);
+}
+
+.img-btn.ghost {
+  border-color: transparent;
+  background: transparent;
+}
+
+.img-btn.danger {
+  color: var(--color-coral);
+}
+
+.img-btn:disabled,
+.img-btn[aria-disabled="true"] {
+  opacity: 0.5;
+  cursor: default;
+  pointer-events: none;
+}
+
+.img-btn:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.img-progress {
+  height: 5px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-line) 70%, transparent);
+}
+
+.img-progress > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--color-accent);
+  transition: width 0.2s ease;
+}
+
+.img-progress.indeterminate > span {
+  width: 33%;
+  animation: img-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes img-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.img-install {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 13px;
+  border-top: 1px solid var(--color-line);
+  background: color-mix(in srgb, var(--color-accent) 6%, transparent);
+}
+
+.img-install-bar {
+  flex: 1;
+  min-width: 0;
+}
+
+.img-install-text {
+  margin-top: 5px;
+  font-size: 11px;
+  color: var(--color-muted);
+}
+
+.img-note {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--color-muted);
+}
+
+.img-note.error {
+  font-weight: 500;
+  color: var(--color-coral);
+}
+
+.img-note code,
+.img-row-meta code {
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+/* ---- generate: the prompt and its switches ---------------------------- */
+
+.img-prompt {
+  width: 100%;
+  min-height: 108px;
+  padding: 10px 12px;
+  resize: vertical;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.img-seg {
+  display: inline-flex;
+  flex: none;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--color-line);
+  border-radius: 10px;
+  background: var(--color-paper);
+}
+
+.img-seg button {
+  all: unset;
+  box-sizing: border-box;
+  padding: 5px 11px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.img-seg button.active {
+  color: var(--color-ink);
+  background: var(--color-card);
+  box-shadow: 0 1px 2px rgba(23, 21, 31, 0.12);
+}
+
+.img-seg button:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.img-seg button:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+.img-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--color-muted);
+}
+
+.img-field-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.img-link {
+  all: unset;
+  color: var(--color-accent);
+  cursor: pointer;
+}
+
+.img-link:hover {
+  text-decoration: underline;
+}
+
+.img-link:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+.img-callout {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 11px 13px;
+  border: 1px solid var(--color-line);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--color-accent) 7%, transparent);
+}
+
+.img-callout p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--color-ink);
+}
+
+.img-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* ---- Settings → Intelligence → Images --------------------------------- */
+
+.img-card {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-width: 0;
+  font-size: 13px;
+  color: var(--color-ink);
+}
+
+.img-card *,
+.img-split * {
+  box-sizing: border-box;
+}
+
+.img-head strong {
+  display: block;
+  font-size: 14px;
+  letter-spacing: -0.01em;
+}
+
+.img-head p {
+  margin: 4px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--color-muted);
+}
+
+.img-tiles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+@media (max-width: 560px) {
+  .img-tiles {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.img-tile {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 12px 14px;
+  border: 1px solid var(--color-line);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--color-ink) 4%, transparent);
+}
+
+.img-tile.on {
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+}
+
+.img-tile-dot {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--color-muted) 55%, transparent);
+}
+
+.img-tile.on .img-tile-dot {
+  background: #34c759;
+  box-shadow: 0 0 0 3px color-mix(in srgb, #34c759 22%, transparent);
+}
+
+.img-tile-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.img-tile-detail {
+  margin-top: 1px;
+  font-size: 12px;
+  color: var(--color-muted);
+}
+
+.img-block {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.img-block-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.img-block-head > div:first-child {
+  flex: 1 1 260px;
+  min-width: 0;
+}
+
+.img-label {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.img-hint {
+  margin-top: 2px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--color-muted);
+}
+
+.img-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--color-line);
+  border-radius: 14px;
+  background: var(--color-card);
+}
+
+/*
+ * Settings strips `button` and `input` styling inside `.st` (one-class rules
+ * lose to it), and the quick-tool modals style `.field` through `.mod-focus`.
+ * The card is mounted in both worlds, so its fields say what they are here.
+ */
+.img-card .field,
+.img-card select.field {
+  box-sizing: border-box;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--color-line);
+  border-radius: 10px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--color-ink);
+  background: var(--color-card);
+}
+
+.img-card .field:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}

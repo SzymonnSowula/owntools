@@ -1,5 +1,5 @@
 /**
- * The twelve quick tools — the small jobs you would otherwise hand to a random
+ * The fourteen quick tools — the small jobs you would otherwise hand to a random
  * website that wants your file and your email address.
  *
  * The list mirrors `packages/feature-tools/src/catalogue.tsx`; if a tool is
@@ -18,6 +18,8 @@ import {
   Images,
   Mic,
   Repeat,
+  Scissors,
+  Sparkles,
   Subtitles,
   Type,
   MonitorPlay,
@@ -37,6 +39,8 @@ const QUICK: Quick[] = [
   { name: "PDF → text / Word", desc: "Out as .txt, .md, .docx or images", icon: <Type size={14} /> },
   { name: "Images → PDF", desc: "Photos and scans into one file", icon: <Images size={14} /> },
   { name: "Convert images", desc: "PNG / JPG / WebP, resize & shrink", icon: <ImageIcon size={14} /> },
+  { name: "Remove background", desc: "The subject out of a photo", icon: <Scissors size={14} /> },
+  { name: "Generate an image", desc: "On-device, or your own key", icon: <Sparkles size={14} /> },
   { name: "Video → audio", desc: "Keep the track, leave the video", icon: <AudioLines size={14} /> },
   { name: "Convert audio", desc: "MP3, M4A, WAV, OGG or FLAC", icon: <AudioLines size={14} /> },
   { name: "Convert video", desc: "MP4 / WebM / MOV, resize, trim", icon: <Film size={14} /> },
@@ -57,7 +61,7 @@ export function QuickTools() {
         <Reveal className="max-w-3xl">
           <p className="kicker">quick tools</p>
           <h2 className="display mt-3 text-4xl leading-[1.06] sm:text-5xl">
-            twelve small jobs,
+            fourteen small jobs,
             <br className="hidden sm:block" /> none of them a website.
           </h2>
           <p className="mt-4 max-w-xl text-[15px] leading-7 text-muted">
