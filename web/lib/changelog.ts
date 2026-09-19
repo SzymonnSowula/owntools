@@ -12,6 +12,17 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.3.4",
+    date: "2026-09-19",
+    title: "your key, without writing to anyone",
+    notes: [
+      "A Pro key is now e-mailed to you when the payment clears, as well as shown on the page after checkout - and owntools.app/key sends a lost one to the address you paid with. Settings → License has a \"Lost your key?\" row that leads there.",
+      "A key that is not accepted says what is wrong with it - cut short when it was copied, not a key at all, a changed character - instead of just refusing it.",
+      "A new computer needs nothing from us: paste the same key there. Settings no longer suggests writing in when the old computer is gone.",
+      "A refunded key, or one that was passed around, stops opening the Pro tools with the update that lists it - still checked on your computer, with no request to any server. Settings says why when that happens, and nothing you made is touched.",
+    ],
+  },
+  {
     version: "0.3.3",
     date: "2026-09-19",
     title: "two more quick tools: cut-outs and pictures",

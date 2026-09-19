@@ -1,7 +1,7 @@
 {
   "name": "promo",
   "private": true,
-  "version": "0.3.3",
+  "version": "0.3.4",
   "type": "module",
   "description": "The 30-second launch cut, rendered with Remotion. Not part of the app.",
   "scripts": {
