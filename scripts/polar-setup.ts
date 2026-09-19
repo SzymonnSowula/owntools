@@ -38,6 +38,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { basename, resolve } from "node:path";
 import { licensePublicKey } from "../web/lib/licenseKey.ts";
+import { signPolarWebhook } from "../web/lib/polarWebhook.ts";
 import { LIST_PRICE, POLAR_META, TIERS, pricingSnapshot, usd } from "../web/lib/pricing.ts";
 import {
   PolarApiError,
@@ -347,21 +348,38 @@ async function webhook(): Promise<void> {
     return;
   }
 
+  // A token of its own for this one job is fine, and tidy: POLAR_WEBHOOK_TOKEN with
+  // webhooks:read + webhooks:write only, next to a shop token that cannot touch webhooks.
+  const webhookToken = setting("POLAR_WEBHOOK_TOKEN");
+  const hooks = webhookToken ? connect({ sandbox, token: webhookToken }) : polar;
+
+  // The mix-up this was written after: the webhook *token* saved under the *secret's* name. A
+  // secret is made by Polar when the endpoint is created and never starts with a token prefix;
+  // put on the host, a token there would have every delivery refused until Polar gave up.
+  if (/^polar_(oat|pat)_/.test(setting("POLAR_WEBHOOK_SECRET") ?? "")) {
+    fail(
+      "POLAR_WEBHOOK_SECRET in web/.env.local holds a Polar access token, not a webhook secret.",
+      "If that is the token with the webhook scopes, rename the line to POLAR_WEBHOOK_TOKEN and run this again:",
+      "the script then creates the endpoint with it and writes the real POLAR_WEBHOOK_SECRET itself.",
+    );
+  }
+
   let endpoints: WebhookEndpoint[];
   try {
-    endpoints = await listAll<WebhookEndpoint>(polar, "/v1/webhooks/endpoints");
+    endpoints = await listAll<WebhookEndpoint>(hooks, "/v1/webhooks/endpoints");
   } catch (err) {
     if (!(err instanceof PolarApiError && err.status === 403)) throw err;
-    warn("The token cannot manage webhooks (webhooks:read + webhooks:write), so the key is not e-mailed yet. Either make a");
-    warn("new token with those two scopes and run this again, or add the endpoint by hand: dashboard → Settings → Webhooks →");
-    warn(`Add endpoint → URL ${url}, format Raw, event order.paid → copy its secret into POLAR_WEBHOOK_SECRET (web/.env.local + the host).`);
+    warn("The token cannot manage webhooks (webhooks:read + webhooks:write), so the key is not e-mailed yet. Either add those");
+    warn("two scopes to a new token (as POLAR_ACCESS_TOKEN, or a webhooks-only one as POLAR_WEBHOOK_TOKEN) and run this again,");
+    warn(`or add the endpoint by hand: dashboard → Settings → Webhooks → Add endpoint → URL ${url}, format Raw, event`);
+    warn("order.paid → copy its secret into POLAR_WEBHOOK_SECRET (web/.env.local + the host).");
     return;
   }
 
   let endpoint = endpoints.find((e) => e.url === url) ?? endpoints.find((e) => e.name === WEBHOOK_NAME) ?? null;
   if (!endpoint) {
     endpoint = await write(`create the webhook: order.paid → ${url}`, () =>
-      polar.post<WebhookEndpoint>("/v1/webhooks/endpoints", {
+      hooks.post<WebhookEndpoint>("/v1/webhooks/endpoints", {
         url,
         name: WEBHOOK_NAME,
         format: "raw",
@@ -380,7 +398,7 @@ async function webhook(): Promise<void> {
     } else {
       if (patch.enabled) warn("Polar had switched the webhook off (ten failed deliveries in a row). Switching it back on - orders paid meanwhile got no e-mail; their keys are on /thanks and at /key.");
       const id = endpoint.id;
-      endpoint = (await write(`update the webhook: ${Object.keys(patch).join(", ")}`, () => polar.patch<WebhookEndpoint>(`/v1/webhooks/endpoints/${id}`, patch))) ?? endpoint;
+      endpoint = (await write(`update the webhook: ${Object.keys(patch).join(", ")}`, () => hooks.patch<WebhookEndpoint>(`/v1/webhooks/endpoints/${id}`, patch))) ?? endpoint;
     }
   }
   if (!endpoint) return; // a dry run that would have created it
@@ -411,8 +429,41 @@ async function webhook(): Promise<void> {
     return;
   }
   if (!endpoint.enabled) return;
+
+  // The host says it *has* a secret; is it this endpoint's? A delivery signed here, carrying an
+  // event type the handler only acknowledges (no order is read, no e-mail sent), answers that
+  // before the first real order does: 202 = the signature held, 403 = another secret is up there.
+  const probe = JSON.stringify({ type: "owntools.probe", timestamp: new Date().toISOString(), data: {} });
+  const probeId = `msg_probe_${randomBytes(8).toString("hex")}`;
+  const probeAt = Math.floor(Date.now() / 1000);
+  let probeStatus = 0;
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "webhook-id": probeId,
+        "webhook-timestamp": String(probeAt),
+        "webhook-signature": signPolarWebhook(probeId, probeAt, probe, endpoint.secret),
+      },
+      body: probe,
+      redirect: "manual",
+      signal: AbortSignal.timeout(15_000),
+    });
+    probeStatus = res.status;
+  } catch {
+    /* unreachable: reported below as 0 */
+  }
+  if (probeStatus !== 202) {
+    warn(
+      probeStatus === 403
+        ? "The host refused a delivery signed with this endpoint's secret (403): its POLAR_WEBHOOK_SECRET is a different value. Put the one from web/.env.local there and redeploy."
+        : `A signed test delivery to ${url} answered ${probeStatus || "nothing"} instead of 202 - Polar's deliveries would fail the same way. The receipt does not promise an e-mail yet.`,
+    );
+    return;
+  }
   siteEmailsKeys = true;
-  console.log(`  ${dim("✓")} the site has everything: a paid order's key is e-mailed, and /key sends a lost one again`);
+  console.log(`  ${dim("✓")} the site has everything and accepts deliveries signed with this secret: a paid order's key is e-mailed, /key sends a lost one again`);
 }
 
 async function product(): Promise<Product | null> {

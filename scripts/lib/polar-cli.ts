@@ -90,8 +90,9 @@ export interface Page<T> {
   pagination: { total_count: number; max_page: number };
 }
 
-export function connect(options: { sandbox?: boolean } = {}): Polar {
-  const token = setting("POLAR_ACCESS_TOKEN");
+export function connect(options: { sandbox?: boolean; token?: string } = {}): Polar {
+  // `token`: a second token for one job (POLAR_WEBHOOK_TOKEN, webhooks only) - same server, same version
+  const token = options.token ?? setting("POLAR_ACCESS_TOKEN");
   if (!token) {
     fail(
       "POLAR_ACCESS_TOKEN is not set.",
