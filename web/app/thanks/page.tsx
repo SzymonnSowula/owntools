@@ -7,7 +7,7 @@ import { ThemeToggle } from "../components/ThemeToggle";
 import { lookupPurchase, type Purchase } from "@/lib/polar";
 import { pricingSnapshot } from "@/lib/pricing";
 import { allowRequest, clientAddress } from "@/lib/rateLimit";
-import { REFUND_DAYS, contactEmail, downloadUrl, downloadUrlMac, xUrl } from "@/lib/site";
+import { REFUND_DAYS, contactEmail, downloadHref, downloadHrefMac, xUrl } from "@/lib/site";
 import { AutoRefresh } from "./AutoRefresh";
 import { KeyBox } from "./KeyBox";
 
@@ -213,15 +213,15 @@ function Paid({ view }: { view: Extract<Purchase, { state: "paid" }> }) {
 
       <ol className="mt-10 space-y-4">
         <Step n={1} title="install owntools">
-          {downloadUrl || downloadUrlMac ? (
+          {downloadHref || downloadHrefMac ? (
             <div className="mt-3 flex flex-wrap gap-2">
-              {downloadUrl ? (
-                <a href={downloadUrl} className="btn btn-primary !h-10 !px-4 text-[13px]">
+              {downloadHref ? (
+                <a href={downloadHref} className="btn btn-primary !h-10 !px-4 text-[13px]">
                   download for windows
                 </a>
               ) : null}
-              {downloadUrlMac ? (
-                <a href={downloadUrlMac} className="btn !h-10 border border-line bg-card !px-4 text-[13px] font-semibold">
+              {downloadHrefMac ? (
+                <a href={downloadHrefMac} className="btn !h-10 border border-line bg-card !px-4 text-[13px] font-semibold">
                   download for mac
                 </a>
               ) : null}

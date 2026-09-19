@@ -174,14 +174,16 @@ What happens next:
    under `/releases/latest/...` — that is the moment the updater starts
    offering it (the app checks on launch and on Settings → About → Check for
    updates, `packages/core/src/updater.ts`, and installs passively).
-5. Landing: `NEXT_PUBLIC_DOWNLOAD_URL_WINDOWS` and
-   `NEXT_PUBLIC_DOWNLOAD_URL_MACOS` must point at the installer and the `.dmg`,
-   e.g. `https://github.com/SzymonnSowula/owntools/releases/latest/download/owntools_0.2.0_x64-setup.exe`.
-   The asset name carries the version, so this URL changes every release —
-   update the env var (Vercel → redeploy) unless it already points at a
-   `/releases/latest/download/...` URL for the current file. Pointing it at
-   `…/releases/latest` (the release page) is the zero-maintenance fallback at
-   the cost of one extra click.
+5. Landing: nothing to do per release. `NEXT_PUBLIC_DOWNLOAD_URL_WINDOWS` and
+   `NEXT_PUBLIC_DOWNLOAD_URL_MACOS` only switch a platform's download *on*
+   (any installer URL will do); the buttons link to `/download/windows` and
+   `/download/mac`, which redirect to the installer of the latest published
+   release (`web/lib/download.ts`, GitHub's API, cached five minutes). The
+   asset name carries the version, so a pasted
+   `…/releases/latest/download/owntools_0.3.0_x64-setup.exe` answered 404 from
+   0.3.1 on - that is why the page no longer links to the variable's value.
+   If GitHub's API does not answer, the route falls back to the variable when
+   it cannot have gone stale, else to the latest release's page.
 
 Manual run: *Actions → Release → Run workflow* builds the current branch into a
 draft named after the version in `tauri.conf.json` — handy for a release

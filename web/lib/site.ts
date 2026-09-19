@@ -28,6 +28,15 @@ export const downloadUrl = env(process.env.NEXT_PUBLIC_DOWNLOAD_URL_WINDOWS);
 export const downloadUrlMac = env(process.env.NEXT_PUBLIC_DOWNLOAD_URL_MACOS);
 
 /**
+ * What the download buttons link to. Not the variables above: an installer's
+ * file name carries its version, so a pasted link goes stale with the next
+ * release - `/download/<platform>` finds the latest one (lib/download.ts). The
+ * variables still decide *whether* a platform has a download.
+ */
+export const downloadHref = downloadUrl ? "/download/windows" : undefined;
+export const downloadHrefMac = downloadUrlMac ? "/download/mac" : undefined;
+
+/**
  * A hand-made Polar checkout link - the fallback for before the API setup
  * (scripts/polar-setup.ts). Once POLAR_ACCESS_TOKEN is set, "get the pro key" goes
  * through /checkout instead, which picks the launch-price step.
