@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, Outfit } from "next/font/google";
 import "./globals.css";
+import { HashScroll } from "./components/HashScroll";
 import { plausibleDomain, siteUrl } from "@/lib/site";
 
 /* Both are variable fonts: one file per script covers every weight. Only latin
@@ -83,7 +84,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <script defer data-domain={plausibleDomain} data-exclude="/v/**" src="https://plausible.io/js/script.exclusions.js" />
         ) : null}
       </head>
-      <body>{children}</body>
+      <body>
+        {children}
+        {/* lands #anchors where they say, on a page whose section heights are guesses until seen */}
+        <HashScroll />
+      </body>
     </html>
   );
 }

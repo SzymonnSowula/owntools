@@ -66,8 +66,15 @@
   color-scheme: dark;
 }
 
+/* No `scroll-behavior: smooth`, on purpose. A smooth jump works its
+   destination out once, from section heights that are only guesses until a
+   section has been on screen (.cv below) - and every section it flies over then
+   renders and changes height under it. Measured at 1615 px: "pricing" in the
+   nav ended 1,869 px past the pricing section, in the FAQ. An instant jump is
+   aimed the same way but passes nothing, and components/HashScroll.tsx settles
+   the last hundred pixels. It is also the only way twenty sections are not laid
+   out and painted just for being scrolled past. */
 html {
-  scroll-behavior: smooth;
   background: var(--color-paper);
 }
 
