@@ -680,14 +680,6 @@ const SOCIAL_WEEK: { day: string; posts: { tint: string; sent?: boolean }[] }[] 
   { day: "fri", posts: [{ tint: "bg-indigo" }, { tint: "bg-accent" }] },
 ];
 
-/* a friend checks in — the pitch in someone else's words */
-const CHAT: { who: string; at: string; me?: boolean; text: string }[] = [
-  { who: "friend", at: "22:14", text: "did you try owntools?" },
-  { who: "you", at: "22:16", me: true, text: "every day. I talk, it types." },
-  { who: "friend", at: "22:16", text: "another subscription?" },
-  { who: "you", at: "22:17", me: true, text: "no - paid once. the app I open the most." },
-];
-
 /* ------------------------------ roadmap ------------------------------ */
 
 /* the course: ports behind us, the one we're in, the ones ahead */
@@ -1389,7 +1381,7 @@ export default function Home() {
       <SubscriptionBill />
 
       {/* pricing — a window to the sky */}
-      <section id="pricing" className="cv sky-day ground ground--wide px-5 py-16 md:py-24" style={cv(2300, 1500)}>
+      <section id="pricing" className="cv sky-day ground ground--wide px-5 py-16 md:py-24" style={cv(1850, 1120)}>
         <div className="mx-auto max-w-4xl">
           <Reveal className="text-center">
             <p className="text-xs font-bold uppercase tracking-[0.16em] opacity-60">pricing</p>
@@ -1459,44 +1451,6 @@ export default function Home() {
           {/* the launch-price ladder: the rule is static, the counts are live */}
           <Reveal delay={0.06} className="mt-6">
             <PriceLadder />
-          </Reveal>
-
-          {/* the pitch, in someone else's words */}
-          <Reveal delay={0.1} className="mt-8">
-            <div className="terminal">
-              <div className="terminal-bar">
-                <WinDots />
-                <span className="ml-1.5 text-[11px] font-medium text-white/40">messages.log</span>
-                <span className="ml-auto text-[10px] font-semibold uppercase tracking-[0.1em] text-white/30">
-                  tuesday, 22:14
-                </span>
-              </div>
-              <div className="terminal-body">
-                <div className="space-y-2.5">
-                  {CHAT.map((m) => (
-                    <p key={m.at + m.who} className="flex flex-wrap gap-x-2">
-                      <span className={`w-[44px] shrink-0 ${m.me ? "ok" : "prompt"}`}>{m.me ? "you" : "friend"}</span>
-                      <span className="w-[34px] shrink-0 text-white/25">{m.at}</span>
-                      <span className={`w-full sm:w-auto sm:flex-1 ${m.me ? "cmd" : "text-white/70"}`}>
-                        {m.text}
-                      </span>
-                    </p>
-                  ))}
-                </div>
-
-                <div className="mt-5 flex flex-col items-start gap-4 border-t border-white/10 pt-4 sm:flex-row sm:items-center sm:justify-between">
-                  <p className="text-white/45">
-                    <span className="ok">✓</span> one payment · offline key · no account
-                  </p>
-                  <a
-                    href="#faq"
-                    className="btn !h-10 shrink-0 bg-white/10 !px-5 text-[13px] text-white hover:bg-white/20"
-                  >
-                    questions? read the faq
-                  </a>
-                </div>
-              </div>
-            </div>
           </Reveal>
         </div>
       </section>
