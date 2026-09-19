@@ -12,6 +12,17 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.3.3",
+    date: "2026-09-19",
+    title: "two more quick tools: cut-outs and pictures",
+    notes: [
+      "Remove background - drop photos in, get the subject on a transparent, blurred or coloured backdrop. The model runs on this computer, on the graphics card where there is one, and nothing is uploaded. Free, like every quick file tool.",
+      "Generate an image - a prompt in, a picture out: on the device (FLUX.2 klein, Z-Image Turbo or Stable Diffusion 1.5, downloaded once) or with your own key at one of 23 sources, among them OpenAI, Google, Replicate, fal.ai and a ComfyUI or AUTOMATIC1111 server on your desk. A finished picture can go straight to the background remover. Every request shows in Settings → Privacy, and Offline mode refuses them.",
+      "Settings → Intelligence gained an Images card: which models are installed, where pictures come from, your keys.",
+      "The site's download button now always leads to the newest installer.",
+    ],
+  },
+  {
     version: "0.3.2",
     date: "2026-09-18",
     title: "dictate is the free tool",
