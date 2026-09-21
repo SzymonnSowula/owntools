@@ -918,6 +918,9 @@ export default function Home() {
             <a href="#intelligence" className="hidden transition hover:text-ink md:block">on-device</a>
             <a href="#pricing" className="hidden transition hover:text-ink md:block">pricing</a>
             <a href="#faq" className="hidden transition hover:text-ink md:block">faq</a>
+            {/* the one link on the page that leaves it: the posts are how people
+                arrive from a search in the first place */}
+            <a href="/blog" className="hidden transition hover:text-ink md:block">blog</a>
             <ThemeToggle />
             {/* every call to action leads to the plans: the free download and the Pro key sit side by side there */}
             <a href="#pricing" className="btn btn-accent !h-9 !px-4 text-[13px]">
@@ -1608,6 +1611,7 @@ export default function Home() {
                   <a className="transition hover:text-ink" href={xUrl} rel="noreferrer">owntools on x</a>
                 ) : null}
                 <a className="transition hover:text-ink" href="#faq">faq</a>
+                <a className="transition hover:text-ink" href="/blog">blog</a>
                 <a className="transition hover:text-ink" href="/changelog">changelog</a>
                 <a className="transition hover:text-ink" href={repoUrl} rel="noreferrer">github</a>
                 {contactEmail ? (

@@ -9,6 +9,7 @@ const DOCS = [
   { href: "/terms", label: "terms" },
   { href: "/refunds", label: "refunds" },
   { href: "/changelog", label: "changelog" },
+  { href: "/blog", label: "blog" },
 ];
 
 /**

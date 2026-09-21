@@ -14,8 +14,17 @@ const env = (value: string | undefined): string | undefined => {
   return v ? v : undefined;
 };
 
-/** Canonical origin of the website (metadataBase, sitemap, robots, JSON-LD). */
-export const siteUrl = env(process.env.NEXT_PUBLIC_SITE_URL) ?? "https://owntools.app";
+/**
+ * Canonical origin of the website (metadataBase, sitemap, robots, JSON-LD).
+ *
+ * **www, not the apex.** Vercel serves the site at www.owntools.app and the
+ * apex answers 308 to it, so an apex canonical names a URL that redirects -
+ * every page declaring one, a sitemap full of them, and robots.txt pointing at
+ * a redirecting sitemap. It is also the origin a browser on the real site
+ * sends, which is what `allowedOrigin` in share.ts compares against. If the
+ * host ever serves the apex directly, change this and the env var together.
+ */
+export const siteUrl = env(process.env.NEXT_PUBLIC_SITE_URL) ?? "https://www.owntools.app";
 
 /** Direct link to the Windows installer. Unset until the first release ships. */
 export const downloadUrl = env(process.env.NEXT_PUBLIC_DOWNLOAD_URL_WINDOWS);
@@ -59,6 +68,16 @@ export const repoUrl =
 
 /** Plausible `data-domain`. Analytics stay off unless this is set. */
 export const plausibleDomain = env(process.env.NEXT_PUBLIC_PLAUSIBLE_DOMAIN);
+
+/**
+ * Proof of ownership for Google Search Console and Bing Webmaster Tools - the
+ * value out of the `<meta content="...">` each one offers, not the whole tag.
+ * The alternative is a DNS record, and this site's DNS is at OVH while the
+ * site is on Vercel, so an env var is the shorter road. Unset renders nothing.
+ * Safe to leave set forever: the tag only proves ownership, it is not tracking.
+ */
+export const googleVerification = env(process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION);
+export const bingVerification = env(process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION);
 
 /**
  * Operator shown on the legal pages. The owner has no company (2026-09-15):

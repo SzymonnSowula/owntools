@@ -3,6 +3,7 @@ import { EmailError } from "./email";
 import { RECOVERY_WINDOW_MS, deliverOrderKey, keyMailMissing, recoveryKey, resendKeys } from "./keyMail";
 import { licenseKeyForOrder } from "./licenseKey";
 import { forgetPolarCache } from "./polar";
+import { siteUrl } from "./site";
 
 /*
  * Two stand-ins, behaving the way the real services are documented to
@@ -133,8 +134,10 @@ describe("deliverOrderKey", () => {
     expect(mail.body.subject).toBe("Your owntools Pro key");
     expect(mail.body.text).toContain(key);
     expect(mail.body.html).toContain(key);
-    expect(mail.body.text).toContain(`https://owntools.app/thanks?checkout_id=${orders[0].checkout_id}`);
-    expect(mail.body.text).toContain("https://owntools.app/key");
+    // built from siteUrl, not spelled out: the canonical host is www and the
+    // apex only redirects to it, so a link in an e-mail must not be pinned here
+    expect(mail.body.text).toContain(`${siteUrl}/thanks?checkout_id=${orders[0].checkout_id}`);
+    expect(mail.body.text).toContain(`${siteUrl}/key`);
     expect(mail.idempotencyKey).toBe(`owntools-order-${orders[0].id}`);
   });
 

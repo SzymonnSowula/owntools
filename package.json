@@ -15,6 +15,8 @@
     "polar:key": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/polar-key.ts",
     "polar:test-link": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/polar-test-link.ts",
     "resend:setup": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/resend-setup.ts",
+    "blog:minutes": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/blog-minutes.ts",
+    "seo:indexnow": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/indexnow.ts",
     "license:generate": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/generate-license.ts",
     "license:revoke": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/license-revoke.ts"
   },

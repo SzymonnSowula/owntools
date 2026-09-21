@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter, Outfit } from "next/font/google";
 import "./globals.css";
 import { HashScroll } from "./components/HashScroll";
-import { plausibleDomain, siteUrl } from "@/lib/site";
+import { bingVerification, googleVerification, plausibleDomain, siteUrl } from "@/lib/site";
 
 /* Both are variable fonts: one file per script covers every weight. Only latin
    is preloaded - latin-ext is still declared, so the odd "ś" in a mockup loads
@@ -70,7 +70,12 @@ export const metadata: Metadata = {
     title: "owntools - dictate, transcribe and record on your own device",
     description: DESCRIPTION,
   },
-  alternates: { canonical: siteUrl },
+  alternates: { canonical: siteUrl, types: { "application/rss+xml": `${siteUrl}/blog/rss.xml` } },
+  // Ownership for the two webmaster consoles; both render only when configured.
+  verification: {
+    ...(googleVerification ? { google: googleVerification } : {}),
+    ...(bingVerification ? { other: { "msvalidate.01": bingVerification } } : {}),
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
