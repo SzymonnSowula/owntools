@@ -9,6 +9,10 @@
  *   pnpm seo:indexnow /blog/a-new-post    just these paths (or full URLs)
  *   pnpm seo:indexnow --dry-run           print what would be sent
  *
+ * In Git Bash, pass the whole URL rather than a path: MSYS rewrites a leading
+ * slash into a Windows path, so `seo:indexnow /` arrives as
+ * `C:/Program Files/Git/` and the check below refuses it, correctly.
+ *
  * The key is the file in web/public named after it (that is the protocol: the
  * engine fetches https://<host>/<key>.txt and expects the key back). Telling
  * them about a page that 404s or redirects is worse than saying nothing, so

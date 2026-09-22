@@ -83,6 +83,11 @@ pnpm seo:indexnow /blog/a-new-post          # one page
 pnpm seo:indexnow --dry-run                 # print, send nothing
 ```
 
+In Git Bash, give a single page its whole URL instead of a path. MSYS rewrites
+a leading slash into a Windows path, so `pnpm seo:indexnow /` arrives as
+`C:/Program Files/Git/` - the reachability check catches it, but the error
+reads like a broken site rather than a broken argument.
+
 Run it **after the deploy is live**, not before. Submitting the same unchanged
 pages over and over is counted against you; once per publish is the idea.
 
