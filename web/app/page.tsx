@@ -47,6 +47,27 @@ const checkoutHref = polarConfig() ? "/checkout" : checkoutUrl;
  */
 const SHOW_BENTO = false;
 
+/*
+ * Two more sections hidden the same day, after measuring where the page's 24
+ * screens actually went: what the tools are was being told six times over.
+ *
+ * "what's inside" (1.5 screens) and "eight moments, not eight job titles"
+ * (1.3) each restate the studio rows in another format. The toolkit stays -
+ * it is 0.8 screens and it is the only place capture and launch are named at
+ * all, so cutting that one would lose tools rather than repetition.
+ */
+const SHOW_WHATS_INSIDE = false;
+const SHOW_MOMENTS = false;
+
+/*
+ * The studio gives a full row - about a screen each - to four tools rather
+ * than all eight. social has a section of its own further down, the YouTube
+ * transcript tool is one of the quick tools, and focus and board are named in
+ * the toolkit above; these four are the ones whose row earns its height.
+ * Every row definition stays in TOOL_ROWS, so this list is the only edit.
+ */
+const STUDIO_ROWS = ["screeni", "dictate", "meet", "disk"];
+
 /* The plain verb list from the brand rules: what the app does, never who is
    supposed to be doing it. */
 const HERO_VERBS = ["dictate", "transcribe", "record", "meet", "take notes", "translate"];
@@ -1233,9 +1254,11 @@ export default function Home() {
         <div className="mx-auto max-w-7xl px-5">
           <Reveal className="mx-auto max-w-2xl text-center">
             <h2 className="display text-4xl md:text-5xl">eight tools, one desk, zero cloud</h2>
+            {/* four rows, eight tools: says which is which before anyone counts */}
+            <p className="mt-4 text-[16px] leading-7 text-muted">Four of them up close.</p>
           </Reveal>
           <div className="mt-16 md:mt-24">
-            <ToolShowcase tools={TOOL_ROWS} />
+            <ToolShowcase tools={TOOL_ROWS.filter((t) => STUDIO_ROWS.includes(t.name))} />
           </div>
         </div>
       </section>
@@ -1295,52 +1318,54 @@ export default function Home() {
 
       <DictateAnywhere />
 
-      <WhatsInside />
+      {SHOW_WHATS_INSIDE ? <WhatsInside /> : null}
 
       <SpeedCompare />
 
       <CtaBand title="no account, no cloud, no renewal" checkoutHref={checkoutHref} />
 
-      {/* personas */}
-      {/* personas - a full-width section around the column, so content-visibility's
-          paint containment has room for the cards' shadows */}
-      <section id="who" className="cv px-5 py-16 md:py-24" style={cv(2100, 1100)}>
-        <div className="mx-auto max-w-6xl">
-          <SectionHead kicker="what it's for" title="eight moments, not eight job titles" />
-          <div className="mt-12 grid gap-5 sm:grid-cols-2">
-            {MOMENTS.map((p, i) => (
-              <Reveal
-                key={p.title}
-                delay={(i % 2) * 0.08}
-                className={i === MOMENTS.length - 1 && MOMENTS.length % 2 ? "sm:col-span-2" : undefined}
-              >
-                <div className="wincard h-full" style={{ transform: `rotate(${i % 2 ? 0.4 : -0.4}deg)` }}>
-                  <div className="wincard-bar">
-                    <WinDots />
-                    <span className="wincard-title">{p.window}</span>
-                  </div>
-                  <div className="flex gap-4 p-6 sm:gap-5">
-                    <Scene ground={p.ground} className="h-[92px] w-[92px] shrink-0 !rounded-xl">
-                      {MOTIFS[p.motif]}
-                    </Scene>
-                    <div className="min-w-0">
-                      <h3 className="display text-xl">{p.title}</h3>
-                      <p className="mt-2 text-[14px] leading-6 text-muted">{p.desc}</p>
-                      <div className="mt-3 flex gap-1.5">
-                        {p.tools.map((t) => (
-                          <span key={t} className="rounded-full bg-accent/10 px-2.5 py-0.5 text-[11px] font-semibold text-accent">
-                            {t}
-                          </span>
-                        ))}
+      {/* Hidden behind SHOW_MOMENTS (top of this file). A full-width
+          section around the column, so content-visibility's paint
+          containment has room for the cards' shadows. */}
+      {SHOW_MOMENTS ? (
+        <section id="who" className="cv px-5 py-16 md:py-24" style={cv(2100, 1100)}>
+          <div className="mx-auto max-w-6xl">
+            <SectionHead kicker="what it's for" title="eight moments, not eight job titles" />
+            <div className="mt-12 grid gap-5 sm:grid-cols-2">
+              {MOMENTS.map((p, i) => (
+                <Reveal
+                  key={p.title}
+                  delay={(i % 2) * 0.08}
+                  className={i === MOMENTS.length - 1 && MOMENTS.length % 2 ? "sm:col-span-2" : undefined}
+                >
+                  <div className="wincard h-full" style={{ transform: `rotate(${i % 2 ? 0.4 : -0.4}deg)` }}>
+                    <div className="wincard-bar">
+                      <WinDots />
+                      <span className="wincard-title">{p.window}</span>
+                    </div>
+                    <div className="flex gap-4 p-6 sm:gap-5">
+                      <Scene ground={p.ground} className="h-[92px] w-[92px] shrink-0 !rounded-xl">
+                        {MOTIFS[p.motif]}
+                      </Scene>
+                      <div className="min-w-0">
+                        <h3 className="display text-xl">{p.title}</h3>
+                        <p className="mt-2 text-[14px] leading-6 text-muted">{p.desc}</p>
+                        <div className="mt-3 flex gap-1.5">
+                          {p.tools.map((t) => (
+                            <span key={t} className="rounded-full bg-accent/10 px-2.5 py-0.5 text-[11px] font-semibold text-accent">
+                              {t}
+                            </span>
+                          ))}
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              </Reveal>
-            ))}
+                </Reveal>
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      ) : null}
 
       {/* free tools */}
       <section id="free-tools" className="cv dotted border-y border-line px-5 py-14 md:py-20" style={cv(900, 480)}>
