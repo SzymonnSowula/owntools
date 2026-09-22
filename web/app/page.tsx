@@ -31,6 +31,22 @@ import { PRICE, checkoutUrl, contactEmail, downloadUrl, repoUrl, xUrl } from "@/
    POLAR_ACCESS_TOKEN before the deploy, not after. */
 const checkoutHref = polarConfig() ? "/checkout" : checkoutUrl;
 
+/*
+ * The "01 - one app, everything you own" bento, hidden 2026-09-22.
+ *
+ * Its five tiles previewed dictation, screeni, focus, social and the one-time
+ * price - and every one of those has a section of its own within the next two
+ * screens, so the page opened with two screens of claims it was about to make
+ * again, properly, with the real product in them. The page was 25.3 screens
+ * tall at 1440x900; this is the one section that cost that and said nothing
+ * new.
+ *
+ * The markup is untouched below. Flip this to true to bring it back - and put
+ * the toolkit's kicker in Toolkit.tsx back to "02 ·", since it reads "01 ·"
+ * while this is hidden.
+ */
+const SHOW_BENTO = false;
+
 /* The plain verb list from the brand rules: what the app does, never who is
    supposed to be doing it. */
 const HERO_VERBS = ["dictate", "transcribe", "record", "meet", "take notes", "translate"];
@@ -995,204 +1011,207 @@ export default function Home() {
         </div>
       </section>
 
-      {/* 01 — one app bento. Every tile is a scene: a ground for weather, panes
-          for depth, and at least one thing running off the frame so the tile
-          reads as a window onto the app rather than a swatch with a logo. */}
-      <section className="cv mx-auto max-w-6xl px-5 py-16 md:py-24" style={cv(2000, 1000)}>
-        <Reveal>
-          <div className="flex items-center gap-4">
-            <p className="font-mono text-[11px] font-bold uppercase tracking-[0.2em]">
-              <span className="text-accent">01</span>
-              <span className="ml-3">one app, everything you own</span>
-            </p>
-            <span className="h-px flex-1 bg-line" aria-hidden />
-          </div>
-        </Reveal>
+      {/* Hidden behind SHOW_BENTO (see the top of this file). Every tile is a
+          scene: a ground for weather, panes for depth, and at least one thing
+          running off the frame so the tile reads as a window onto the app
+          rather than a swatch with a logo. */}
+      {SHOW_BENTO ? (
+        <section className="cv mx-auto max-w-6xl px-5 py-16 md:py-24" style={cv(2000, 1000)}>
+          <Reveal>
+            <div className="flex items-center gap-4">
+              <p className="font-mono text-[11px] font-bold uppercase tracking-[0.2em]">
+                <span className="text-accent">01</span>
+                <span className="ml-3">one app, everything you own</span>
+              </p>
+              <span className="h-px flex-1 bg-line" aria-hidden />
+            </div>
+          </Reveal>
 
-        <div className="mt-8 grid gap-5 lg:grid-cols-3">
-          {/* left column */}
-          <div className="flex flex-col gap-5 lg:col-span-2">
-            {/* dictation — the big one */}
-            <Reveal>
-              <div className="bento">
-                <Scene ground="meadow" className="h-64 !rounded-none md:h-72">
-                  <ListeningPill className="absolute left-8 top-8" />
-                  <Pane className="absolute left-14 top-[86px] w-[min(300px,62%)] p-3.5">
-                    <p className="font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted">
-                      cursor
-                    </p>
-                    <p className="mt-0.5 text-[13px] leading-6 text-ink">
-                      the next clear thought lands right here.
-                      <span className="caret text-accent">|</span>
-                    </p>
-                  </Pane>
-                  {/* the destinations, running off the right edge */}
-                  <Pane className="absolute -right-8 top-16 w-44 p-3">
-                    <p className="font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted">
-                      lands in
-                    </p>
-                    <ul className="mt-1.5 space-y-1 text-[11.5px] font-medium text-ink">
-                      <li className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-accent" /> any text field</li>
-                      <li className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-indigo" /> your terminal</li>
-                      <li className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-cyan" /> the whiteboard</li>
-                    </ul>
-                  </Pane>
-                  <span className="layer absolute bottom-5 left-8 !rounded-full bg-white/92 px-3 py-1 text-[11px] font-semibold text-[#1d1d1f]">
-                    whisper · parakeet · on your cpu
-                  </span>
-                </Scene>
-                <div className="p-5 md:p-6">
-                  <p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-muted">dictation</p>
-                  <h3 className="display mt-1.5 text-xl">speak to any app.</h3>
-                  <p className="mt-1.5 max-w-xl text-sm leading-6 text-muted">
-                    Press a key and talk - the text appears where your cursor is.
-                  </p>
-                </div>
-              </div>
-            </Reveal>
-
-            {/* focus + social, side by side */}
-            <div className="grid gap-5 sm:grid-cols-2">
-              <Reveal delay={0.05}>
-                <div className="bento h-full">
-                  <Scene ground="dawn" className="h-40 !rounded-none">
-                    <Pane className="absolute left-1/2 top-1/2 w-40 -translate-x-1/2 -translate-y-1/2 px-5 py-3 text-center">
-                      <p className="font-mono text-[8px] font-bold uppercase tracking-[0.14em] text-muted">
-                        deep focus
+          <div className="mt-8 grid gap-5 lg:grid-cols-3">
+            {/* left column */}
+            <div className="flex flex-col gap-5 lg:col-span-2">
+              {/* dictation — the big one */}
+              <Reveal>
+                <div className="bento">
+                  <Scene ground="meadow" className="h-64 !rounded-none md:h-72">
+                    <ListeningPill className="absolute left-8 top-8" />
+                    <Pane className="absolute left-14 top-[86px] w-[min(300px,62%)] p-3.5">
+                      <p className="font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted">
+                        cursor
                       </p>
-                      <p className="display text-3xl text-ink">25:00</p>
-                      <span className="mt-2 block h-1 overflow-hidden rounded-full bg-ink/10">
-                        <span className="block h-full w-2/3 rounded-full bg-accent" />
-                      </span>
+                      <p className="mt-0.5 text-[13px] leading-6 text-ink">
+                        the next clear thought lands right here.
+                        <span className="caret text-accent">|</span>
+                      </p>
                     </Pane>
-                    <span className="layer absolute bottom-4 -right-6 !rounded-full bg-[#0b0b0d]/90 py-1.5 pl-3 pr-8 text-[10.5px] font-semibold text-white">
-                      3 of 4 · notifications off
+                    {/* the destinations, running off the right edge */}
+                    <Pane className="absolute -right-8 top-16 w-44 p-3">
+                      <p className="font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted">
+                        lands in
+                      </p>
+                      <ul className="mt-1.5 space-y-1 text-[11.5px] font-medium text-ink">
+                        <li className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-accent" /> any text field</li>
+                        <li className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-indigo" /> your terminal</li>
+                        <li className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-cyan" /> the whiteboard</li>
+                      </ul>
+                    </Pane>
+                    <span className="layer absolute bottom-5 left-8 !rounded-full bg-white/92 px-3 py-1 text-[11px] font-semibold text-[#1d1d1f]">
+                      whisper · parakeet · on your cpu
                     </span>
                   </Scene>
-                  <div className="p-5">
-                    <p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-muted">focus</p>
-                    <h3 className="display mt-1.5 text-lg">one task. zero noise.</h3>
+                  <div className="p-5 md:p-6">
+                    <p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-muted">dictation</p>
+                    <h3 className="display mt-1.5 text-xl">speak to any app.</h3>
+                    <p className="mt-1.5 max-w-xl text-sm leading-6 text-muted">
+                      Press a key and talk - the text appears where your cursor is.
+                    </p>
                   </div>
                 </div>
               </Reveal>
-              <Reveal delay={0.1}>
-                <div className="bento h-full">
-                  <Scene ground="dusk" className="h-40 !rounded-none">
-                    <Pane className="absolute left-1/2 top-[45%] w-52 -translate-x-1/2 -translate-y-1/2 px-3 py-2.5">
-                      <p className="flex items-center justify-between font-mono text-[8px] font-bold uppercase tracking-[0.14em] text-muted">
-                        <span>this week</span>
-                        <span className="text-accent">4 queued</span>
-                      </p>
-                      <div className="mt-1.5 grid grid-cols-5 gap-1">
-                        {SOCIAL_WEEK.map(({ day, posts }) => {
-                          const today = day === "tue";
-                          return (
-                            <div
-                              key={day}
-                              className={`h-11 rounded-[5px] border border-line px-0.5 pt-0.5 ${today ? "bg-accent/10" : "bg-paper"}`}
-                            >
-                              <p className={`text-[7px] font-bold ${today ? "text-accent" : "text-muted"}`}>{day}</p>
-                              {posts.map((post, i) => (
-                                <span
-                                  key={i}
-                                  className={`mt-0.5 block h-1.5 rounded-full ${post.tint} ${post.sent ? "opacity-35" : ""}`}
-                                />
-                              ))}
-                            </div>
-                          );
-                        })}
+
+              {/* focus + social, side by side */}
+              <div className="grid gap-5 sm:grid-cols-2">
+                <Reveal delay={0.05}>
+                  <div className="bento h-full">
+                    <Scene ground="dawn" className="h-40 !rounded-none">
+                      <Pane className="absolute left-1/2 top-1/2 w-40 -translate-x-1/2 -translate-y-1/2 px-5 py-3 text-center">
+                        <p className="font-mono text-[8px] font-bold uppercase tracking-[0.14em] text-muted">
+                          deep focus
+                        </p>
+                        <p className="display text-3xl text-ink">25:00</p>
+                        <span className="mt-2 block h-1 overflow-hidden rounded-full bg-ink/10">
+                          <span className="block h-full w-2/3 rounded-full bg-accent" />
+                        </span>
+                      </Pane>
+                      <span className="layer absolute bottom-4 -right-6 !rounded-full bg-[#0b0b0d]/90 py-1.5 pl-3 pr-8 text-[10.5px] font-semibold text-white">
+                        3 of 4 · notifications off
+                      </span>
+                    </Scene>
+                    <div className="p-5">
+                      <p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-muted">focus</p>
+                      <h3 className="display mt-1.5 text-lg">one task. zero noise.</h3>
+                    </div>
+                  </div>
+                </Reveal>
+                <Reveal delay={0.1}>
+                  <div className="bento h-full">
+                    <Scene ground="dusk" className="h-40 !rounded-none">
+                      <Pane className="absolute left-1/2 top-[45%] w-52 -translate-x-1/2 -translate-y-1/2 px-3 py-2.5">
+                        <p className="flex items-center justify-between font-mono text-[8px] font-bold uppercase tracking-[0.14em] text-muted">
+                          <span>this week</span>
+                          <span className="text-accent">4 queued</span>
+                        </p>
+                        <div className="mt-1.5 grid grid-cols-5 gap-1">
+                          {SOCIAL_WEEK.map(({ day, posts }) => {
+                            const today = day === "tue";
+                            return (
+                              <div
+                                key={day}
+                                className={`h-11 rounded-[5px] border border-line px-0.5 pt-0.5 ${today ? "bg-accent/10" : "bg-paper"}`}
+                              >
+                                <p className={`text-[7px] font-bold ${today ? "text-accent" : "text-muted"}`}>{day}</p>
+                                {posts.map((post, i) => (
+                                  <span
+                                    key={i}
+                                    className={`mt-0.5 block h-1.5 rounded-full ${post.tint} ${post.sent ? "opacity-35" : ""}`}
+                                  />
+                                ))}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </Pane>
+                      {/* the one that just went out, sliding off frame */}
+                      <span className="layer absolute -left-4 bottom-3 flex items-center gap-1.5 !rounded-full bg-[#0b0b0d]/90 py-1.5 pl-7 pr-3.5 text-[10.5px] font-semibold text-white">
+                        <Check size={12} className="text-[#30d158]" /> posted · tue 09:00
+                      </span>
+                    </Scene>
+                    <div className="p-5">
+                      <p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-muted">social</p>
+                      <h3 className="display mt-1.5 text-lg">plan the week. it posts itself.</h3>
+                    </div>
+                  </div>
+                </Reveal>
+              </div>
+            </div>
+
+            {/* right column */}
+            <div className="flex flex-col gap-5">
+              <Reveal delay={0.08}>
+                <div className="bento">
+                  <Scene ground="tide" className="h-56 !rounded-none">
+                    <div className="layer absolute inset-x-6 top-7 overflow-hidden !rounded-xl">
+                      <div
+                        className="h-28"
+                        style={{
+                          background:
+                            "radial-gradient(70px 50px at 28% 32%, #0a84ff, transparent 70%), radial-gradient(76px 56px at 76% 38%, #5e5ce6, transparent 70%), #101a2e",
+                        }}
+                      >
+                        <div className="relative left-[20%] top-[24%] h-[52%] w-[58%] rounded border border-white/25 bg-white/90 shadow-lg" />
                       </div>
-                    </Pane>
-                    {/* the one that just went out, sliding off frame */}
-                    <span className="layer absolute -left-4 bottom-3 flex items-center gap-1.5 !rounded-full bg-[#0b0b0d]/90 py-1.5 pl-7 pr-3.5 text-[10.5px] font-semibold text-white">
-                      <Check size={12} className="text-[#30d158]" /> posted · tue 09:00
-                    </span>
+                      <p className="flex items-center gap-1.5 bg-[#101012] px-3 py-2 text-[10px] font-semibold text-white/80">
+                        <span className="rec-dot h-1.5 w-1.5 rounded-full bg-[#ff453a]" /> REC · auto-zoom on
+                      </p>
+                    </div>
+                    {/* the cursor the zoom is chasing */}
+                    <svg className="absolute bottom-8 right-9" width="26" height="26" viewBox="0 0 24 24" aria-hidden>
+                      <path d="M5 2.5 19 12.2 12.4 13.2 9.6 19.6Z" fill="#fff" stroke="#1d1d1f" strokeWidth="1.4" strokeLinejoin="round" />
+                    </svg>
+                    <span className="absolute bottom-6 right-6 h-11 w-11 rounded-full border-2 border-white/70" aria-hidden />
                   </Scene>
                   <div className="p-5">
-                    <p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-muted">social</p>
-                    <h3 className="display mt-1.5 text-lg">plan the week. it posts itself.</h3>
+                    <p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-muted">screeni</p>
+                    <h3 className="display mt-1.5 text-balance text-lg">a screen recorder that automates all the work.</h3>
+                    <p className="mt-1.5 text-sm leading-6 text-muted">
+                      Auto-zoom, silence cuts and captions, done for you.
+                    </p>
+                  </div>
+                </div>
+              </Reveal>
+              <Reveal delay={0.12}>
+                <div className="bento flex-1">
+                  <Scene ground="mist" className="h-44 !rounded-none">
+                    {/* four subscriptions behind one file */}
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="relative h-[104px] w-[210px]">
+                        {[
+                          { t: "$8 / mo", x: -74, y: -26, r: -9 },
+                          { t: "$12 / mo", x: 76, y: -30, r: 8 },
+                          { t: "$9 / mo", x: -68, y: 30, r: -5 },
+                          { t: "$15 / mo", x: 72, y: 34, r: 6 },
+                        ].map((c) => (
+                          <span
+                            key={c.t}
+                            className="absolute left-1/2 top-1/2 w-[74px] rounded-lg border border-line bg-card/75 px-2 py-1.5 text-center font-mono text-[9px] text-muted line-through shadow-sm"
+                            style={{
+                              transform: `translate(-50%,-50%) translate(${c.x}px, ${c.y}px) rotate(${c.r}deg)`,
+                            }}
+                          >
+                            {c.t}
+                          </span>
+                        ))}
+                        <span className="pane absolute left-1/2 top-1/2 w-36 -translate-x-1/2 -translate-y-1/2 px-3.5 py-3 text-center">
+                          <span className="block font-mono text-[8.5px] text-muted">owntools.exe</span>
+                          <span className="display block text-lg font-bold text-ink">pay once</span>
+                          <span className="mt-0.5 block text-[10px] font-semibold text-accent">yours forever</span>
+                        </span>
+                      </div>
+                    </div>
+                  </Scene>
+                  <div className="p-5">
+                    <p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-muted">one-time purchase</p>
+                    <h3 className="display mt-1.5 text-lg">stop renting your tools.</h3>
+                    <p className="mt-1.5 text-sm leading-6 text-muted">
+                      One payment instead of a stack of subscriptions.
+                    </p>
                   </div>
                 </div>
               </Reveal>
             </div>
           </div>
-
-          {/* right column */}
-          <div className="flex flex-col gap-5">
-            <Reveal delay={0.08}>
-              <div className="bento">
-                <Scene ground="tide" className="h-56 !rounded-none">
-                  <div className="layer absolute inset-x-6 top-7 overflow-hidden !rounded-xl">
-                    <div
-                      className="h-28"
-                      style={{
-                        background:
-                          "radial-gradient(70px 50px at 28% 32%, #0a84ff, transparent 70%), radial-gradient(76px 56px at 76% 38%, #5e5ce6, transparent 70%), #101a2e",
-                      }}
-                    >
-                      <div className="relative left-[20%] top-[24%] h-[52%] w-[58%] rounded border border-white/25 bg-white/90 shadow-lg" />
-                    </div>
-                    <p className="flex items-center gap-1.5 bg-[#101012] px-3 py-2 text-[10px] font-semibold text-white/80">
-                      <span className="rec-dot h-1.5 w-1.5 rounded-full bg-[#ff453a]" /> REC · auto-zoom on
-                    </p>
-                  </div>
-                  {/* the cursor the zoom is chasing */}
-                  <svg className="absolute bottom-8 right-9" width="26" height="26" viewBox="0 0 24 24" aria-hidden>
-                    <path d="M5 2.5 19 12.2 12.4 13.2 9.6 19.6Z" fill="#fff" stroke="#1d1d1f" strokeWidth="1.4" strokeLinejoin="round" />
-                  </svg>
-                  <span className="absolute bottom-6 right-6 h-11 w-11 rounded-full border-2 border-white/70" aria-hidden />
-                </Scene>
-                <div className="p-5">
-                  <p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-muted">screeni</p>
-                  <h3 className="display mt-1.5 text-balance text-lg">a screen recorder that automates all the work.</h3>
-                  <p className="mt-1.5 text-sm leading-6 text-muted">
-                    Auto-zoom, silence cuts and captions, done for you.
-                  </p>
-                </div>
-              </div>
-            </Reveal>
-            <Reveal delay={0.12}>
-              <div className="bento flex-1">
-                <Scene ground="mist" className="h-44 !rounded-none">
-                  {/* four subscriptions behind one file */}
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="relative h-[104px] w-[210px]">
-                      {[
-                        { t: "$8 / mo", x: -74, y: -26, r: -9 },
-                        { t: "$12 / mo", x: 76, y: -30, r: 8 },
-                        { t: "$9 / mo", x: -68, y: 30, r: -5 },
-                        { t: "$15 / mo", x: 72, y: 34, r: 6 },
-                      ].map((c) => (
-                        <span
-                          key={c.t}
-                          className="absolute left-1/2 top-1/2 w-[74px] rounded-lg border border-line bg-card/75 px-2 py-1.5 text-center font-mono text-[9px] text-muted line-through shadow-sm"
-                          style={{
-                            transform: `translate(-50%,-50%) translate(${c.x}px, ${c.y}px) rotate(${c.r}deg)`,
-                          }}
-                        >
-                          {c.t}
-                        </span>
-                      ))}
-                      <span className="pane absolute left-1/2 top-1/2 w-36 -translate-x-1/2 -translate-y-1/2 px-3.5 py-3 text-center">
-                        <span className="block font-mono text-[8.5px] text-muted">owntools.exe</span>
-                        <span className="display block text-lg font-bold text-ink">pay once</span>
-                        <span className="mt-0.5 block text-[10px] font-semibold text-accent">yours forever</span>
-                      </span>
-                    </div>
-                  </div>
-                </Scene>
-                <div className="p-5">
-                  <p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-muted">one-time purchase</p>
-                  <h3 className="display mt-1.5 text-lg">stop renting your tools.</h3>
-                  <p className="mt-1.5 text-sm leading-6 text-muted">
-                    One payment instead of a stack of subscriptions.
-                  </p>
-                </div>
-              </div>
-            </Reveal>
-          </div>
-        </div>
-      </section>
+        </section>
+      ) : null}
 
       {/* the bar - where dictate, record, focus and meetings live, working */}
       <BarSection />

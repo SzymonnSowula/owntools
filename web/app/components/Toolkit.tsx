@@ -657,7 +657,7 @@ export function Toolkit() {
       <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
         <div className="max-w-xl">
           <p className="kicker flex items-center gap-2 !text-indigo">
-            <span className="h-1.5 w-1.5 rounded-full bg-indigo" /> 02 · the owntools toolkit
+            <span className="h-1.5 w-1.5 rounded-full bg-indigo" /> 01 · the owntools toolkit
           </p>
           <h2 className="display mt-3 text-4xl md:text-5xl">
             everything you say,
