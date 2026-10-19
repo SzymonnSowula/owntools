@@ -53,9 +53,29 @@ describe("allowRequest", () => {
 });
 
 describe("clientAddress", () => {
-  it("takes the first forwarded address, then x-real-ip, then says it does not know", () => {
-    expect(clientAddress(new Headers({ "x-forwarded-for": "203.0.113.7, 10.0.0.1" }))).toBe("203.0.113.7");
-    expect(clientAddress(new Headers({ "x-real-ip": "203.0.113.8" }))).toBe("203.0.113.8");
+  it("prefers the header the edge writes, then x-real-ip, then says it does not know", () => {
+    expect(
+      clientAddress(
+        new Headers({ "x-vercel-forwarded-for": "203.0.113.7", "x-real-ip": "10.0.0.1", "x-forwarded-for": "1.2.3.4" }),
+      ),
+    ).toBe("203.0.113.7");
+    expect(clientAddress(new Headers({ "x-real-ip": "203.0.113.8", "x-forwarded-for": "1.2.3.4" }))).toBe("203.0.113.8");
     expect(clientAddress(new Headers())).toBe("unknown");
+  });
+
+  it("reads x-forwarded-for from the right, so a caller cannot pick their own bucket", () => {
+    // A proxy appends the address it saw: the last entry is the one our own
+    // proxy added, everything left of it may have come from the caller.
+    expect(clientAddress(new Headers({ "x-forwarded-for": "203.0.113.7, 10.0.0.1" }))).toBe("10.0.0.1");
+    expect(clientAddress(new Headers({ "x-forwarded-for": "203.0.113.7" }))).toBe("203.0.113.7");
+  });
+
+  it("a spoofed header cannot mint a fresh bucket per request", () => {
+    const seen = new Set<string>();
+    for (let i = 0; i < 50; i++) {
+      // the attacker rotates what they send; the edge appends the truth
+      seen.add(clientAddress(new Headers({ "x-forwarded-for": `198.51.100.${i}, 203.0.113.9` })));
+    }
+    expect([...seen]).toEqual(["203.0.113.9"]);
   });
 });

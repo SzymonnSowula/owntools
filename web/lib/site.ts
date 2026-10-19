@@ -80,6 +80,18 @@ export const googleVerification = env(process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFI
 export const bingVerification = env(process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION);
 
 /**
+ * How many downloads it takes before the page says how many downloads there
+ * have been (lib/downloads.ts counts them). Unset means the badge never
+ * shows: a small number is an argument against buying, so the figure goes up
+ * only once it speaks for the product. `0` shows it from the first download.
+ */
+export const downloadsMin = (() => {
+  const raw = env(process.env.NEXT_PUBLIC_DOWNLOADS_MIN);
+  const n = raw === undefined ? NaN : Number(raw);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+})();
+
+/**
  * Operator shown on the legal pages. The owner has no company (2026-09-15):
  * the brand and the country, while Polar sells as the merchant of record.
  */

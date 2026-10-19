@@ -10,9 +10,11 @@ import {
   watchRecorderVisible,
 } from "@core/recorderWindow";
 import { isTauri } from "@core/env";
+import { logInfo } from "@core/errors";
 import {
   captureWindowRect,
   confirmCaptureMatch,
+  estimateFromCursor,
   listDisplaySources,
   matchCaptureSource,
   type CaptureMatch,
@@ -575,7 +577,19 @@ export function RecorderOverlay() {
     const duration = probe.duration > 0.2 ? probe.duration : t.elapsed;
     // The rectangle was matched to the frames' size as the take began; the
     // file's own size has the last word (see `confirmCaptureMatch`).
-    const match = confirmCaptureMatch(t.match, t.surface, probe, t.sources, t.pointer);
+    const size = { width: probe.width || t.screen.width, height: probe.height || t.screen.height };
+    let match = confirmCaptureMatch(t.match, t.surface, probe, t.sources, t.pointer, t.samples);
+    // Nothing had the frame's shape (a browser tab, a scaled app window): work
+    // the surface out from where the pointer lived instead of giving up, or
+    // cursor effects and auto-zoom silently vanish for the whole take.
+    if (!match) {
+      match = estimateFromCursor({ surface: t.surface, ...size }, t.sources, t.samples);
+      logInfo(
+        "recorder",
+        `no source had the shape of ${size.width}×${size.height} (${t.surface}); ` +
+          (match ? `estimated ${match.label}` : "pointer track did not settle it either"),
+      );
+    }
     // The window followed during the take is the one matched then; with a
     // different match, that track means nothing.
     const surfaceTrack = match === t.match ? t.surfaceTrack : [];

@@ -199,6 +199,9 @@ export function Editor() {
       } else if (key === "s" && !e.metaKey && !e.ctrlKey) {
         e.preventDefault();
         splitAtPlayhead();
+      } else if ((key === "q" || key === "w") && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        e.preventDefault();
+        state.trimAtPlayhead(key === "q" ? "before" : "after");
       } else if (key === "c" && !e.metaKey && !e.ctrlKey) {
         e.preventDefault();
         state.setTool(state.tool === "cut" ? "select" : "cut");
@@ -297,6 +300,8 @@ export function Editor() {
           if (p) store().setTimelineTime(timelineDuration(p.segments));
         },
       },
+      { id: "trim-left", group: "Cut", label: "Delete everything before the playhead", keys: "Q", run: () => store().trimAtPlayhead("before") },
+      { id: "trim-right", group: "Cut", label: "Delete everything after the playhead", keys: "W", run: () => store().trimAtPlayhead("after") },
       { id: "split", group: "Cut", label: "Split at the playhead", keys: "S", run: () => store().splitAtPlayhead() },
       {
         id: "cut-tool",

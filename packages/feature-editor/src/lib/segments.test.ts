@@ -182,3 +182,32 @@ describe("sliceSegmentsToTimelineRange", () => {
     expect(slice).toEqual([{ id: "b", start: 22, end: 26 }]);
   });
 });
+
+import { trimAtSource, trimSegmentEdge } from "./segments";
+
+describe("trimming", () => {
+  const segs = [
+    { id: "a", start: 0, end: 5 },
+    { id: "b", start: 5, end: 10 },
+    { id: "c", start: 12, end: 20 },
+  ];
+  it("never lets a clip grow into its neighbour", () => {
+    expect(trimSegmentEdge(segs, "b", "start", -3, 20).find((s) => s.id === "b")?.start).toBe(5);
+    expect(trimSegmentEdge(segs, "b", "end", 5, 20).find((s) => s.id === "b")?.end).toBe(12);
+  });
+  it("can win back cut footage and keeps a minimum length", () => {
+    expect(trimSegmentEdge(segs, "c", "start", -4, 20).find((s) => s.id === "c")?.start).toBe(10);
+    expect(trimSegmentEdge(segs, "a", "end", -9, 20)[0].end).toBeCloseTo(0.1);
+  });
+  it("deletes left and right of a source time", () => {
+    const left = trimAtSource(segs, 7, "before");
+    expect(left?.map((s) => [s.start, s.end])).toEqual([[7, 10], [12, 20]]);
+    const right = trimAtSource(segs, 7, "after");
+    expect(right?.map((s) => [s.start, s.end])).toEqual([[0, 5], [5, 7]]);
+    expect(trimAtSource(segs, 0, "before")).toBeNull();
+  });
+  it("maps a time on a cut to the clip that starts there", () => {
+    expect(timelineToSource(5, segs)).toBe(5);
+    expect(timelineToSource(10, segs)).toBe(12);
+  });
+});

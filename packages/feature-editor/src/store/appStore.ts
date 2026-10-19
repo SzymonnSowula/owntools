@@ -51,6 +51,7 @@ import {
   sourceToTimeline,
   splitSegment,
   timelineDuration,
+  trimAtSource,
   timelineToSource,
 } from "../lib/segments";
 import { clampTransitionDuration } from "../lib/transitions";
@@ -243,6 +244,10 @@ interface AppState {
   undo: () => void;
   redo: () => void;
   splitAtPlayhead: () => void;
+  /** Deletes everything before / after the playhead (ripple), one undo step. */
+  trimAtPlayhead: (side: "before" | "after") => boolean;
+  /** Records the current project as an undo step — the end of a drag. */
+  commitHistory: () => void;
   /** Cuts at any point on the timeline — the cut tool clicks straight into this. */
   splitAt: (timelineTime: number) => boolean;
   deleteSelection: () => void;
@@ -492,7 +497,32 @@ export const useAppStore = create<AppState>((set, get) => {
   },
 
   splitAtPlayhead: () => {
-    get().splitAt(get().timelineTime);
+    if (!get().splitAt(get().timelineTime)) get().showToast("Too close to an existing cut.", "info");
+  },
+
+  trimAtPlayhead: (side) => {
+    const { project, timelineTime } = get();
+    if (!project) return false;
+    const total = timelineDuration(project.segments);
+    // Exactly on a clip's edge the source time belongs to the next clip, which
+    // is what "everything before here" should keep.
+    const source = timelineToSource(Math.min(timelineTime, Math.max(0, total - 1e-6)), project.segments);
+    const segments = trimAtSource(project.segments, source, side);
+    if (!segments) {
+      get().showToast(side === "before" ? "Nothing before the playhead to remove." : "Nothing after the playhead to remove.", "info");
+      return false;
+    }
+    get().updateProject({ segments }, true);
+    set({ selection: null, timelineTime: side === "before" ? 0 : Math.min(timelineTime, timelineDuration(segments)) });
+    return true;
+  },
+
+  commitHistory: () => {
+    const { project } = get();
+    if (!project) return;
+    const base = get().history.slice(0, get().historyIndex + 1);
+    const historyNext = [...base, snap(project)].slice(-HISTORY_LIMIT);
+    set({ history: historyNext, historyIndex: historyNext.length - 1 });
   },
 
   splitAt: (timelineTime) => {

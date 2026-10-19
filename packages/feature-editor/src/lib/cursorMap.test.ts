@@ -3,6 +3,7 @@ import type { CursorSample, DisplaySources, MonitorInfo, Project } from "../type
 import {
   captureRectSuspect,
   confirmCaptureMatch,
+  estimateFromCursor,
   matchCaptureSource,
   reconcileCaptureRect,
 } from "./captureSources";
@@ -303,5 +304,31 @@ describe("reconcileCaptureRect", () => {
   it("gives up on a small window rather than guess", () => {
     const small = { ...recorded, videoWidth: 1200, videoHeight: 800 };
     expect(reconcileCaptureRect(small, sources({ windows: [] }))).toBeNull();
+  });
+});
+
+describe("estimateFromCursor", () => {
+  const tabSources: DisplaySources = {
+    monitors: [MAIN],
+    windows: [
+      { id: "1", title: "Grok - Google Chrome", x: 0, y: 0, width: 2560, height: 1392, foreground: true },
+      { id: "2", title: "Notes", x: 100, y: 100, width: 400, height: 300, foreground: false },
+    ],
+    virtualScreen: { x: 0, y: 0, width: 2560, height: 1440 },
+  };
+  const at = (x: number, y: number, t: number): CursorSample => ({ x, y, t }) as CursorSample;
+
+  it("pins a browser tab's viewport under the toolbar of the window the pointer lived in", () => {
+    const samples = [at(1200, 700, 0), at(1300, 800, 1), at(900, 600, 2)];
+    const m = estimateFromCursor({ surface: "browser", width: 2560, height: 1300 }, tabSources, samples);
+    expect(m?.source).toBe("estimated");
+    expect(m?.rect.y).toBeCloseTo(1392 - 1300, 0);
+    expect(m?.rect.width).toBe(2560);
+  });
+
+  it("gives up rather than guess when the pointer wandered everywhere", () => {
+    const samples = [at(5, 5, 0), at(2500, 1400, 1), at(1200, 10, 2), at(3000, 3000, 3)];
+    const lone = { ...tabSources, windows: [], monitors: [{ ...MAIN, width: 800, height: 600 }] };
+    expect(estimateFromCursor({ surface: "browser", width: 2560, height: 1300 }, lone, samples)).toBeNull();
   });
 });

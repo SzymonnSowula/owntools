@@ -20,6 +20,7 @@ import { CheckoutNotice } from "./components/pricing/CheckoutNotice";
 import { LivePrice, LiveStepNote } from "./components/pricing/LivePrice";
 import { PriceLadder } from "./components/pricing/PriceLadder";
 import { CheckoutCta, DownloadCta } from "./components/Cta";
+import { DownloadCount } from "./components/DownloadCount";
 import { CtaBand } from "./components/CtaBand";
 import { BarSection } from "./components/bar/BarSection";
 import { imageSize } from "@/lib/imageSize";
@@ -1029,6 +1030,13 @@ export default function Home() {
           >
             paid once · no account · works offline
           </p>
+          {/* Renders nothing until there are enough downloads to be worth
+              saying (NEXT_PUBLIC_DOWNLOADS_MIN), so nothing above may depend
+              on its height. */}
+          <DownloadCount
+            className="mx-auto mt-3 block text-[13px] font-medium text-white/75"
+            suffix="downloads so far"
+          />
         </div>
       </section>
 
@@ -1458,6 +1466,7 @@ export default function Home() {
                   <DownloadCta className="btn mt-7 w-full border border-[#1d1d1f]/20 bg-white font-semibold text-[#1d1d1f] hover:bg-[#f5f5f7]">
                     download
                   </DownloadCta>
+                  <DownloadCount className="mt-3 block text-center text-[12.5px] text-[#6e6e73]" />
                 </div>
               </div>
             </Reveal>

@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Project, Selection } from "../types";
 import { formatTime } from "../lib/time";
-import { sourceToTimeline, timelineDuration } from "../lib/segments";
+import { sourceToTimeline, timelineDuration, trimSegmentEdge } from "../lib/segments";
 import { sfxPlanFor, type SfxEvent } from "../lib/sfx/plan";
 import { SFX_SOUND_LABELS } from "../lib/sfx/packs";
 import { useAppStore } from "../store/appStore";
@@ -23,6 +23,16 @@ const TRANSITION_NAME: Record<string, string> = {
   zoom: "Zoom through",
 };
 
+/**
+ * Width of the track labels plus the gap after them. Every clip sits to the
+ * right of it, so the ruler, the playhead, the blade and every pointer-to-time
+ * conversion must start there too — they used to start at the left edge, which
+ * put a cut about 0.8 s from where the pointer was.
+ */
+const GUTTER = 72;
+/** A cut or scrub this close (in px) to a clip edge or the playhead lands on it. */
+const SNAP_PX = 8;
+
 export function Timeline({ project }: { project: Project }) {
   const setTime = useAppStore((s) => s.setTimelineTime);
   const setPlaying = useAppStore((s) => s.setPlaying);
@@ -39,7 +49,7 @@ export function Timeline({ project }: { project: Project }) {
   const inner = useRef<HTMLDivElement>(null);
   const pendingScroll = useRef<number | null>(null);
   const duration = Math.max(0.1, timelineDuration(project.segments));
-  const width = Math.max(640, duration * pps + 80);
+  const width = Math.max(640, GUTTER + duration * pps + 40);
 
   // Apply the scroll offset that keeps the time under the mouse stationary,
   // in the same commit that lays out the new pps.
@@ -87,20 +97,50 @@ export function Timeline({ project }: { project: Project }) {
   function timeAt(clientX: number): number | null {
     const rect = inner.current?.getBoundingClientRect();
     if (!rect) return null;
-    return Math.min(duration, Math.max(0, (clientX - rect.left) / pps));
+    return Math.min(duration, Math.max(0, (clientX - rect.left - GUTTER) / pps));
+  }
+
+  /** Pulls a time onto an edge when one is within a few pixels. */
+  function snapTo(t: number, edges: number[]): number {
+    let best = t;
+    let bestDist = SNAP_PX / pps;
+    for (const e of edges) {
+      const d = Math.abs(e - t);
+      if (d <= bestDist) {
+        best = e;
+        bestDist = d;
+      }
+    }
+    return best;
+  }
+
+  /** Clip boundaries and the ends of the take, in timeline seconds. */
+  function clipEdges(): number[] {
+    const edges = [0, duration];
+    let acc = 0;
+    for (const seg of project.segments) {
+      acc += Math.max(0, seg.end - seg.start);
+      edges.push(acc);
+    }
+    return edges;
   }
 
   function scrubTo(clientX: number) {
-    const t = timeAt(clientX);
-    if (t === null) return;
+    const raw = timeAt(clientX);
+    if (raw === null) return;
     setPlaying(false);
-    setTime(t);
+    setTime(snapTo(raw, clipEdges()));
   }
 
   /** The cut tool: click a track, get a cut there. Stays on for the next one. */
   function cutAt(clientX: number) {
-    const t = timeAt(clientX);
-    if (t === null) return;
+    const raw = timeAt(clientX);
+    if (raw === null) return;
+    // A press on the track labels is not a cut.
+    const rect = inner.current?.getBoundingClientRect();
+    if (rect && clientX - rect.left < GUTTER) return;
+    // The playhead is the precise way to aim: park it, then click beside it.
+    const t = snapTo(raw, [useAppStore.getState().timelineTime]);
     setPlaying(false);
     if (!splitAt(t)) showToast("Too close to an existing cut.", "info");
   }
@@ -148,6 +188,11 @@ export function Timeline({ project }: { project: Project }) {
     window.addEventListener("pointerup", up);
   }
 
+  /** Trims a video clip against the project as it is *now*, not as this render saw it. */
+  function trimVideoEdge(id: string, edge: "start" | "end", dt: number) {
+    updateProject((p) => ({ ...p, segments: trimSegmentEdge(p.segments, id, edge, dt, p.duration) }));
+  }
+
   function startDrag(
     e: React.PointerEvent,
     onMove: (dt: number) => void,
@@ -175,9 +220,32 @@ export function Timeline({ project }: { project: Project }) {
           </span>
         ) : (
           <span>
-            Space play · S split · C cut tool · Z zoom · Del delete · Ctrl+K all actions
+            Space play · S split · Q / W delete left / right of playhead · C cut tool · Del delete · Ctrl+K all
           </span>
         )}
+        <div className="flex items-center gap-1">
+          <button
+            className="btn btn-ghost !px-2 !py-1 text-[11px]"
+            title="Cut at the playhead (S)"
+            onClick={() => useAppStore.getState().splitAtPlayhead()}
+          >
+            Split
+          </button>
+          <button
+            className="btn btn-ghost !px-2 !py-1 text-[11px]"
+            title="Delete everything before the playhead (Q)"
+            onClick={() => useAppStore.getState().trimAtPlayhead("before")}
+          >
+            Delete ◂ left
+          </button>
+          <button
+            className="btn btn-ghost !px-2 !py-1 text-[11px]"
+            title="Delete everything after the playhead (W)"
+            onClick={() => useAppStore.getState().trimAtPlayhead("after")}
+          >
+            Delete right ▸
+          </button>
+        </div>
         <label className="flex items-center gap-2">
           Zoom
           <input
@@ -197,7 +265,9 @@ export function Timeline({ project }: { project: Project }) {
         onPointerMove={(e) => {
           if (tool !== "cut") return;
           const rect = inner.current?.getBoundingClientRect();
-          setBladeX(rect ? e.clientX - rect.left : null);
+          const raw = timeAt(e.clientX);
+          const t = raw === null ? null : snapTo(raw, [useAppStore.getState().timelineTime]);
+          setBladeX(rect && t !== null && e.clientX - rect.left >= GUTTER ? GUTTER + t * pps : null);
         }}
         onPointerLeave={() => setBladeX(null)}
         onPointerDown={(e) => {
@@ -221,7 +291,7 @@ export function Timeline({ project }: { project: Project }) {
         }}
       >
         <div ref={inner} className="relative" style={{ width }}>
-          <div data-track="ruler" className="relative h-7 cursor-ew-resize">
+          <div data-track="ruler" className="relative h-7 cursor-ew-resize" style={{ marginLeft: GUTTER }}>
             {ticks.map((t) => (
               <div
                 key={t}
@@ -284,22 +354,8 @@ export function Timeline({ project }: { project: Project }) {
                           /* video segments stay in source order; edge trim only */
                           void dt;
                         }}
-                        onTrimStart={(dt) => {
-                          const next = Math.min(seg.end - 0.1, Math.max(0, seg.start + dt));
-                          updateProject({
-                            segments: project.segments.map((s) =>
-                              s.id === seg.id ? { ...s, start: next } : s,
-                            ),
-                          });
-                        }}
-                        onTrimEnd={(dt) => {
-                          const next = Math.max(seg.start + 0.1, Math.min(project.duration, seg.end + dt));
-                          updateProject({
-                            segments: project.segments.map((s) =>
-                              s.id === seg.id ? { ...s, end: next } : s,
-                            ),
-                          });
-                        }}
+                        onTrimStart={(dt) => trimVideoEdge(seg.id, "start", dt)}
+                        onTrimEnd={(dt) => trimVideoEdge(seg.id, "end", dt)}
                         startDrag={startDrag}
                       />
                     );
@@ -384,7 +440,7 @@ export function Timeline({ project }: { project: Project }) {
             </div>
           ) : null}
 
-          <Playhead pps={pps} onScrubStart={beginScrub} />
+          <Playhead pps={pps} offset={GUTTER} onScrubStart={beginScrub} />
         </div>
       </div>
     </div>
@@ -577,16 +633,18 @@ function SfxMarks({
 /** Subscribes to time on its own so playback doesn't re-render the clip lists. */
 function Playhead({
   pps,
+  offset,
   onScrubStart,
 }: {
   pps: number;
+  offset: number;
   onScrubStart: (e: React.PointerEvent) => void;
 }) {
   const time = useAppStore((s) => s.timelineTime);
   return (
     <div
       className="pointer-events-none absolute bottom-0 top-0 z-20 w-px bg-coral"
-      style={{ left: time * pps }}
+      style={{ left: offset + time * pps }}
     >
       <div
         className="pointer-events-auto absolute -top-0.5 left-1/2 h-2.5 w-2.5 -translate-x-1/2 rotate-45 cursor-ew-resize rounded-[2px] bg-coral"
@@ -633,7 +691,12 @@ function Clip({
   // With the cut tool on, a clip must not swallow the press: the click is meant
   // for the track underneath, which turns it into a cut.
   const tool = useAppStore((s) => s.tool);
+  const commit = useAppStore((s) => s.commitHistory);
   const cutting = tool === "cut";
+  // A drag is many small updates; only its end is an undo step.
+  const release = () => {
+    if (last.current !== 0) commit();
+  };
   return (
     <div
       data-clip
@@ -654,7 +717,7 @@ function Clip({
           const delta = dt - last.current;
           last.current = dt;
           onDrag(delta);
-        });
+        }, release);
       }}
     >
       <button
@@ -666,7 +729,7 @@ function Clip({
             const delta = dt - last.current;
             last.current = dt;
             onTrimStart(delta);
-          });
+          }, release);
         }}
       />
       {badge ? (
@@ -690,7 +753,7 @@ function Clip({
             const delta = dt - last.current;
             last.current = dt;
             onTrimEnd(delta);
-          });
+          }, release);
         }}
       />
     </div>
@@ -701,22 +764,21 @@ function moveClip(
   kind: Selection["type"],
   id: string,
   dt: number,
-  project: Project,
+  _project: Project,
   updateProject: (patch: Partial<Project> | ((p: Project) => Project), history?: boolean) => void,
 ) {
   if (kind === "segment") return;
   const key = clipKey(kind);
-  updateProject({
-    [key]: project[key].map((item) =>
-      item.id === id
-        ? {
-            ...item,
-            start: Math.max(0, item.start + dt),
-            end: Math.min(project.duration, item.end + dt),
-          }
-        : item,
-    ),
-  } as Partial<Project>);
+  updateProject((p) => ({
+    ...p,
+    [key]: p[key].map((item) => {
+      if (item.id !== id) return item;
+      // Slide the whole clip; hitting either end stops it rather than squashing it.
+      const len = item.end - item.start;
+      const start = Math.min(p.duration - len, Math.max(0, item.start + dt));
+      return { ...item, start, end: start + len };
+    }),
+  }));
 }
 
 function trimClip(
@@ -724,20 +786,21 @@ function trimClip(
   id: string,
   edge: "start" | "end",
   dt: number,
-  project: Project,
+  _project: Project,
   updateProject: (patch: Partial<Project> | ((p: Project) => Project), history?: boolean) => void,
 ) {
   if (kind === "segment") return;
   const key = clipKey(kind);
-  updateProject({
-    [key]: project[key].map((item) => {
+  updateProject((p) => ({
+    ...p,
+    [key]: p[key].map((item) => {
       if (item.id !== id) return item;
       if (edge === "start") {
         return { ...item, start: Math.min(item.end - 0.1, Math.max(0, item.start + dt)) };
       }
-      return { ...item, end: Math.max(item.start + 0.1, Math.min(project.duration, item.end + dt)) };
+      return { ...item, end: Math.max(item.start + 0.1, Math.min(p.duration, item.end + dt)) };
     }),
-  } as Partial<Project>);
+  }));
 }
 
 function clipKey(kind: Selection["type"]): "zooms" | "captions" | "texts" | "overlays" {

@@ -23,7 +23,23 @@ export function allowRequest(key: string, limit: number, windowMs: number, now =
   return true;
 }
 
-/** The address a request came from, as the hosting proxy reports it. */
+/**
+ * The address a request came from, as the hosting proxy reports it.
+ *
+ * Order matters, because a per-IP limit is only worth anything if the caller
+ * cannot choose their own bucket. `x-vercel-forwarded-for` is written by the
+ * edge and never carried over from the request, so it is the one value a
+ * client cannot forge. `x-forwarded-for` is read **rightmost first**: a proxy
+ * appends the address it saw, so the last entry is the one our own proxy
+ * added and everything to its left may have been sent by the caller. Taking
+ * the leftmost entry - the usual reading - lets anyone mint a fresh bucket per
+ * request by rotating the header, which switches every limit here off.
+ */
 export function clientAddress(headers: Headers): string {
-  return headers.get("x-forwarded-for")?.split(",")[0]?.trim() || headers.get("x-real-ip")?.trim() || "unknown";
+  const vercel = headers.get("x-vercel-forwarded-for")?.split(",")[0]?.trim();
+  if (vercel) return vercel;
+  const real = headers.get("x-real-ip")?.trim();
+  if (real) return real;
+  const forwarded = headers.get("x-forwarded-for")?.split(",");
+  return forwarded?.[forwarded.length - 1]?.trim() || "unknown";
 }

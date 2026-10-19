@@ -234,7 +234,7 @@ fn window_title(hwnd: windows::Win32::Foundation::HWND) -> String {
 }
 
 #[cfg(windows)]
-fn process_path(pid: u32) -> String {
+pub(crate) fn process_path(pid: u32) -> String {
     use windows::core::PWSTR;
     use windows::Win32::Foundation::CloseHandle;
     use windows::Win32::System::Threading::{
@@ -257,7 +257,7 @@ fn process_path(pid: u32) -> String {
     String::from_utf16_lossy(&buf[..size as usize])
 }
 
-fn exe_name(path: &str) -> String {
+pub(crate) fn exe_name(path: &str) -> String {
     path.rsplit(['\\', '/'])
         .next()
         .unwrap_or(path)

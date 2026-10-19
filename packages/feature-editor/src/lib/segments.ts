@@ -19,7 +19,9 @@ export function timelineToSource(timeline: number, segments: Segment[]): number 
   let t = Math.max(0, timeline);
   for (const seg of segments) {
     const dur = seg.end - seg.start;
-    if (t <= dur) return seg.start + t;
+    // Strictly less: a time exactly on a cut belongs to the clip that starts
+    // there, the same rule `segmentAtTimeline` plays by.
+    if (t < dur) return seg.start + t;
     t -= dur;
   }
   const last = segments[segments.length - 1];
@@ -229,4 +231,65 @@ export function sliceSegmentsToTimelineRange(segments: Segment[], range: TimeRan
     t += dur;
   }
   return out;
+}
+
+/** Shortest a clip may be made by dragging or trimming. */
+export const MIN_CLIP = 0.1;
+
+/**
+ * Moves one edge of a clip by `delta` source seconds. A clip can shrink, or
+ * grow back into footage that was cut away, but never into its neighbour —
+ * overlapping clips would play the same stretch twice.
+ */
+export function trimSegmentEdge(
+  segments: Segment[],
+  id: string,
+  edge: "start" | "end",
+  delta: number,
+  duration: number,
+): Segment[] {
+  const i = segments.findIndex((s) => s.id === id);
+  if (i < 0 || !Number.isFinite(delta)) return segments;
+  const seg = segments[i];
+  const prev = segments[i - 1];
+  const next = segments[i + 1];
+  let { start, end } = seg;
+  if (edge === "start") {
+    start = Math.min(end - MIN_CLIP, Math.max(prev ? prev.end : 0, start + delta));
+  } else {
+    end = Math.max(start + MIN_CLIP, Math.min(next ? next.start : duration, end + delta));
+  }
+  if (start === seg.start && end === seg.end) return segments;
+  return segments.map((s, j) => (j === i ? { ...s, start, end } : s));
+}
+
+/**
+ * Throws away everything on one side of a source time: the clip holding it is
+ * trimmed and every clip entirely on that side goes. Null when nothing would
+ * be left, or when the time sits on an edge and there is nothing to remove.
+ */
+export function trimAtSource(
+  segments: Segment[],
+  source: number,
+  side: "before" | "after",
+): Segment[] | null {
+  const out: Segment[] = [];
+  for (const seg of segments) {
+    if (side === "before") {
+      if (seg.end <= source + 1e-6) continue;
+      out.push(seg.start < source ? { ...seg, start: source } : seg);
+    } else {
+      if (seg.start >= source - 1e-6) continue;
+      out.push(seg.end > source ? { ...seg, end: source } : seg);
+    }
+  }
+  const kept = out.filter((s) => s.end - s.start >= MIN_CLIP);
+  if (!kept.length || kept.length === segments.length && kept.every((s, i) => s === segments[i])) return null;
+  // The clip that now opens the video has nothing to blend from.
+  const [first, ...rest] = kept;
+  if (first.transition) {
+    const { transition: _t, ...bare } = first;
+    return [bare, ...rest];
+  }
+  return kept;
 }

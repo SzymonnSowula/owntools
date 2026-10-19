@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 import { isTauri } from "@core/env";
-import { listDisplaySources } from "../lib/captureSources";
+import { estimateFromCursor, listDisplaySources, windowLabel } from "../lib/captureSources";
 import { estimateCaptureRect, fitVideoOnMonitor } from "../lib/cursorMap";
 import { DEFAULT_CURSOR_ALIGN } from "../lib/defaults";
 import {
@@ -397,6 +397,19 @@ export function Inspector() {
                   className="field mt-2 text-xs"
                   value=""
                   onChange={(e) => {
+                    const win = sources?.windows.find((w) => `w:${w.id}` === e.target.value);
+                    if (win) {
+                      updateProject(
+                        {
+                          captureRect: { x: win.x, y: win.y, width: win.width, height: win.height },
+                          captureSource: "manual",
+                          captureLabel: windowLabel(win),
+                          surfaceTrack: undefined,
+                        },
+                        true,
+                      );
+                      return;
+                    }
                     const monitor = monitors.find((m) => m.id === e.target.value);
                     if (!monitor) return;
                     // A video shaped unlike the screen is a window on it; a
@@ -416,18 +429,42 @@ export function Inspector() {
                   }}
                 >
                   <option value="">Recorded on…</option>
-                  {monitors.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.name} · {Math.round(m.width)}×{Math.round(m.height)}
-                      {m.primary ? " (main)" : ""}
-                    </option>
-                  ))}
+                  <optgroup label="Screens">
+                    {monitors.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.name} · {Math.round(m.width)}×{Math.round(m.height)}
+                        {m.primary ? " (main)" : ""}
+                      </option>
+                    ))}
+                  </optgroup>
+                  {sources?.windows.length ? (
+                    <optgroup label="Open windows">
+                      {sources.windows.map((w) => (
+                        <option key={w.id} value={`w:${w.id}`}>
+                          {windowLabel(w)}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ) : null}
                 </select>
               ) : null}
               <button
                 className="btn btn-secondary mt-2 w-full !py-1.5 text-xs"
                 onClick={() => {
-                  const guess = sources ? estimateCaptureRect(project, sources.monitors) : null;
+                  const guess =
+                    (sources ? estimateCaptureRect(project, sources.monitors) : null) ??
+                    (() => {
+                      const m = estimateFromCursor(
+                        {
+                          surface: project.captureSurface ?? "unknown",
+                          width: project.videoWidth,
+                          height: project.videoHeight,
+                        },
+                        sources,
+                        project.cursor,
+                      );
+                      return m ? { rect: m.rect, source: m.source, label: m.label } : null;
+                    })();
                   if (!guess) {
                     showToast("Couldn't work out which screen this take shows.", "info");
                     return;
@@ -436,6 +473,8 @@ export function Inspector() {
                     { captureRect: guess.rect, captureSource: guess.source, captureLabel: guess.label },
                     true,
                   );
+                  // A take that had no area also got no auto-zooms; make them now.
+                  if (project.autoZoom && !project.zooms.length) regenerateZooms();
                   showToast(`Lined up with ${guess.label}.`, "info");
                 }}
               >

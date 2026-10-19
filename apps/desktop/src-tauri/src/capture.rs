@@ -44,6 +44,11 @@ pub struct WindowInfo {
     pub width: f64,
     pub height: f64,
     pub foreground: bool,
+    /// Executable name ("chrome.exe"): what a person calls the program, and
+    /// the only label left for a window whose title is empty.
+    pub app: String,
+    /// Stacking order, 0 = frontmost. A window in front hides the ones behind it.
+    pub z: u32,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -121,6 +126,7 @@ mod platform {
         fn GetWindowTextLengthW(hwnd: isize) -> i32;
         fn GetForegroundWindow() -> isize;
         fn GetWindowLongW(hwnd: isize, index: i32) -> i32;
+        fn GetWindowThreadProcessId(hwnd: isize, pid: *mut u32) -> u32;
     }
 
     #[link(name = "dwmapi")]
@@ -210,7 +216,7 @@ mod platform {
         }
         let foreground = unsafe { GetForegroundWindow() };
         let mut out = Vec::new();
-        for hwnd in handles {
+        for (z, hwnd) in handles.into_iter().enumerate() {
             if unsafe { IsWindowVisible(hwnd) } == 0 || unsafe { IsIconic(hwnd) } != 0 {
                 continue;
             }
@@ -220,9 +226,21 @@ mod platform {
             if is_cloaked(hwnd) {
                 continue;
             }
-            let title = title_of(hwnd);
+            let mut pid: u32 = 0;
+            unsafe { GetWindowThreadProcessId(hwnd, &mut pid) };
+            let app = if pid != 0 {
+                crate::usage::exe_name(&crate::usage::process_path(pid))
+            } else {
+                String::new()
+            };
+            // A window with no title is still a window: Electron shells and
+            // some games set it late or never. The program's name stands in.
+            let mut title = title_of(hwnd);
             if title.is_empty() {
-                continue;
+                if app.is_empty() {
+                    continue;
+                }
+                title = app.clone();
             }
             let Some(rect) = window_rect(hwnd) else { continue };
             if rect.width < MIN_SIDE as f64 || rect.height < MIN_SIDE as f64 {
@@ -236,6 +254,8 @@ mod platform {
                 width: rect.width,
                 height: rect.height,
                 foreground: hwnd == foreground,
+                app,
+                z: z as u32,
             });
         }
         out

@@ -103,6 +103,10 @@ export interface WindowInfo {
   width: number;
   height: number;
   foreground: boolean;
+  /** Executable name, e.g. "chrome.exe" (absent from older builds). */
+  app?: string;
+  /** Stacking order, 0 = frontmost. */
+  z?: number;
 }
 
 export interface DisplaySources {
